@@ -35,10 +35,10 @@ func main() {
 			err = errors.New("missing arguments - expected <create> <container-id> <path-to-bundle>")
 			break
 		}
-		forkedCmd := os.Args[2]
+		_ = os.Args[2] // forked command, e.g. "start"
 		containerID := os.Args[3]
 		bundlePath := os.Args[4]
-		err = cmd.Fork(forkedCmd, containerID, bundlePath)
+		err = cmd.Fork(containerID, bundlePath)
 
 	case "create":
 		if argsLength < 4 {

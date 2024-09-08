@@ -85,13 +85,28 @@ func Create(containerID, bundlePath string) error {
 	forkCmd := exec.Command("/proc/self/exe", []string{"fork", "create", containerID, bundlePath}...)
 
 	// apply configuration, e.g. devices, proc, etc...
-	forkCmd.SysProcAttr = &syscall.SysProcAttr{}
-
-	// for debugging purposes only
-	forkCmd.Stdout = os.Stdout
-	forkCmd.Stderr = os.Stderr
-	forkCmd.Stdin = os.Stdin
-	// ---
+	forkCmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags: syscall.CLONE_NEWUTS |
+			syscall.CLONE_NEWPID |
+			// syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWNET |
+			syscall.CLONE_NEWNS,
+		Unshareflags: syscall.CLONE_NEWNS,
+		// UidMappings: []syscall.SysProcIDMap{
+		// 	{
+		// 		ContainerID: 0,
+		// 		HostID:      os.Getuid(),
+		// 		Size:        1,
+		// 	},
+		// },
+		// GidMappings: []syscall.SysProcIDMap{
+		// 	{
+		// 		ContainerID: 0,
+		// 		HostID:      os.Getgid(),
+		// 		Size:        1,
+		// 	},
+		// },
+	}
 
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork create command: %w", err)

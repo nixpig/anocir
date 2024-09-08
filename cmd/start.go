@@ -58,7 +58,6 @@ func Start(containerID string) error {
 		return fmt.Errorf("dial socket: %w", err)
 	}
 
-	fmt.Println("writing to socket...")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
@@ -69,7 +68,7 @@ func Start(containerID string) error {
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
-	fmt.Println("res: ", string(b))
+	fmt.Println(string(b))
 
 	// 9. Invoke poststart hooks
 	if err := internal.ExecHooks(cfg.Hooks.PostStart); err != nil {
