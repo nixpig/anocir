@@ -10,7 +10,7 @@ type LinuxConfig struct {
 	} `json:"timeOffsets,omitempty"`
 	Devices           []Device          `json:"devices,omitempty"`
 	CGroupsPath       string            `json:"cgroupsPath,omitempty"`
-	Resources         []LinuxResource   `json:"resources,omitempty"`
+	Resources         LinuxResources    `json:"resources,omitempty"`
 	Unified           map[string]string `json:"unified,omitempty"`
 	IntelRDT          IntelRDT          `json:"intelRdt,omitempty"`
 	SysCTL            map[string]string `json:"sysctl,omitempty"`
@@ -42,7 +42,7 @@ type Device struct {
 	Gid      *uint32    `json:"gid,omitempty"`
 }
 
-type LinuxResource struct {
+type LinuxResources struct {
 	Memory         MemoryResource          `json:"memory,omitempty"`
 	CPU            CPUResource             `json:"cpu,omitempty"`
 	BlockIO        BlkioResource           `json:"blockIO,omitempty"`

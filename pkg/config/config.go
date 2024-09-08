@@ -69,7 +69,7 @@ type Process struct {
 
 	// linux-specific properties
 	AppArmorProfile string          `json:"apparmorProfile,omitempty"`
-	Capabilities    []Capability    `json:"capabilities,omitempty"`
+	Capabilities    Capabilities    `json:"capabilities,omitempty"`
 	NoNewPrivileges *bool           `json:"noNewPrivileges,omitempty"`
 	OOMScoreAdj     *int            `json:"oomScoreAdj,omitempty"`
 	Scheduler       Scheduler       `json:"scheduler,omitempty"`
@@ -84,12 +84,12 @@ type RLimit struct {
 	Hard uint64 `json:"hard"`
 }
 
-type Capability struct {
-	Effective   string `json:"effective"`
-	Bounding    string `json:"bounding"`
-	Inheritable string `json:"inheritable"`
-	Permitted   string `json:"permitted"`
-	Ambient     string `json:"ambient"`
+type Capabilities struct {
+	Effective   []string `json:"effective,omitempty"`
+	Bounding    []string `json:"bounding,omitempty"`
+	Inheritable []string `json:"inheritable,omitempty"`
+	Permitted   []string `json:"permitted,omitempty"`
+	Ambient     []string `json:"ambient,omitempty"`
 }
 
 type Scheduler struct {

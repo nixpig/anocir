@@ -3,22 +3,17 @@ package pkg
 type status string
 
 const (
-	creating status = "creating"
-	created  status = "created"
-	running  status = "running"
-	stopped  status = "stopped"
+	Creating status = "creating"
+	Created  status = "created"
+	Running  status = "running"
+	Stopped  status = "stopped"
 )
 
 type State struct {
 	OCIVersion  string            `json:"ociVersion"`
 	ID          string            `json:"id"`
 	Status      status            `json:"status"`
-	PID         int               `json:"pid"`
+	PID         *int              `json:"pid,omitempty"`
 	Bundle      string            `json:"bundle"`
-	Annotations map[string]string `json:"annotations"`
-}
-
-func (s *State) Save() error {
-	// TODO: save to file, e.g. state.json??
-	return nil
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
