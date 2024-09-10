@@ -84,7 +84,6 @@ func MountDefaultDevices(containerRootfs string) error {
 		}
 
 		if err := syscall.Mount(
-			// relativePath,
 			"tmpfs",
 			containerPath,
 			"tmpfs",
@@ -98,20 +97,67 @@ func MountDefaultDevices(containerRootfs string) error {
 	return nil
 }
 
-func MountDev(containerRootfs string) error {
+func MountProc(containerRootfs string) error {
+	containerPath := filepath.Join(containerRootfs, "proc")
+
 	if err := os.MkdirAll(
-		filepath.Join(containerRootfs, "dev"), os.ModeDir,
+		containerPath,
+		os.ModeDir,
 	); err != nil {
-		return err
+		return fmt.Errorf("ensure proc destination exists: %w", err)
 	}
 
 	if err := syscall.Mount(
-		"tmpfs",
-		filepath.Join(containerRootfs, "dev"),
-		"tmpfs",
-		syscall.MS_NOSUID|syscall.MS_STRICTATIME,
-		"mode=755",
+		"proc",
+		containerPath,
+		"proc",
+		uintptr(0),
+		"",
 	); err != nil {
+		return fmt.Errorf("mount proc: %w", err)
+	}
+
+	return nil
+}
+
+func UnmountProc() error {
+	return syscall.Unmount("proc", 0)
+}
+
+func MountRootfs(containerRootfs string) error {
+	if err := syscall.Mount(
+		containerRootfs,
+		containerRootfs,
+		"",
+		syscall.MS_BIND|syscall.MS_REC,
+		"",
+	); err != nil {
+		return fmt.Errorf("mount rootfs: %w", err)
+	}
+
+	return nil
+}
+
+func PivotRootfs(containerRootfs string) error {
+	oldroot := filepath.Join(containerRootfs, "oldroot")
+
+	if err := os.MkdirAll(oldroot, 0700); err != nil {
+		return err
+	}
+
+	if err := syscall.PivotRoot(containerRootfs, oldroot); err != nil {
+		return err
+	}
+
+	if err := os.Chdir("/"); err != nil {
+		return err
+	}
+
+	if err := syscall.Unmount("oldroot", syscall.MNT_DETACH); err != nil {
+		return err
+	}
+
+	if err := os.RemoveAll("oldroot"); err != nil {
 		return err
 	}
 

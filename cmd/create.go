@@ -70,7 +70,7 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("copy container config.json: %w", err)
 	}
 
-	if err := internal.MountProc(containerRootfs); err != nil {
+	if err := filesystem.MountProc(containerRootfs); err != nil {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 

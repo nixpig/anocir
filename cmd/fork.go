@@ -8,7 +8,7 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg/config"
 )
 
@@ -69,7 +69,12 @@ func Fork(containerID, bundlePath string) error {
 	}
 
 	containerRootfs := filepath.Join(containerPath, cfg.Root.Path)
-	if err := internal.PivotRoot(containerRootfs); err != nil {
+
+	if err := filesystem.MountRootfs(containerRootfs); err != nil {
+		return fmt.Errorf("mount rootfs: %w", err)
+	}
+
+	if err := filesystem.PivotRootfs(containerRootfs); err != nil {
 		return fmt.Errorf("pivot root: %w", err)
 	}
 
