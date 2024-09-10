@@ -2,14 +2,13 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 
-	"github.com/nixpig/brownie/pkg"
+	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg/config"
 )
 
@@ -36,7 +35,7 @@ func server(conn net.Conn, cfg config.Config) error {
 			cmd.Stdout = conn
 			cmd.Stderr = conn
 			if err := cmd.Run(); err != nil {
-				conn.Write([]byte("done fucked up!"))
+				conn.Write([]byte(err.Error()))
 			}
 			return nil
 		}
@@ -59,22 +58,7 @@ func Fork(containerID, bundlePath string) error {
 	defer listener.Close()
 
 	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
-
-	fc, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return errors.New("container not found")
-		} else {
-			return fmt.Errorf("stat container path: %w", err)
-		}
-	}
-
-	var state pkg.State
-	if err := json.Unmarshal(fc, &state); err != nil {
-		return fmt.Errorf("marshal config: %w", err)
-	}
-
-	c, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
+	c, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
 	if err != nil {
 		return fmt.Errorf("read config file: %w", err)
 	}
@@ -82,6 +66,11 @@ func Fork(containerID, bundlePath string) error {
 	var cfg config.Config
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return fmt.Errorf("unmarshall config.json: %w", err)
+	}
+
+	containerRootfs := filepath.Join(containerPath, cfg.Root.Path)
+	if err := internal.PivotRoot(containerRootfs); err != nil {
+		return fmt.Errorf("pivot root: %w", err)
 	}
 
 	for {

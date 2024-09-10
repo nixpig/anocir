@@ -10,6 +10,7 @@ import (
 	"syscall"
 
 	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/nixpig/brownie/pkg/config"
 	cp "github.com/otiai10/copy"
@@ -45,7 +46,7 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("unmarshall config.json data: %w", err)
 	}
 
-	state := pkg.State{
+	state := &pkg.State{
 		OCIVersion:  cfg.OCIVersion,
 		ID:          containerID,
 		Status:      pkg.Creating,
@@ -59,9 +60,22 @@ func Create(containerID, bundlePath string) error {
 
 	bundleRootfs := filepath.Join(absBundlePath, cfg.Root.Path)
 	containerRootfs := filepath.Join(containerPath, cfg.Root.Path)
+	containerConfigPath := filepath.Join(containerPath, "config.json")
 
 	if err := cp.Copy(bundleRootfs, containerRootfs); err != nil {
 		return fmt.Errorf("copy bundle rootfs to container rootfs: %w", err)
+	}
+
+	if err := cp.Copy(filepath.Join(absBundlePath, "config.json"), containerConfigPath); err != nil {
+		return fmt.Errorf("copy container config.json: %w", err)
+	}
+
+	if err := internal.MountProc(containerRootfs); err != nil {
+		return fmt.Errorf("mount proc: %w", err)
+	}
+
+	if err := filesystem.MountDefaultDevices(containerRootfs); err != nil {
+		return fmt.Errorf("mount dev: %w", err)
 	}
 
 	// 3. Invoke 'prestart' hooks.
@@ -88,31 +102,37 @@ func Create(containerID, bundlePath string) error {
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags: syscall.CLONE_NEWUTS |
 			syscall.CLONE_NEWPID |
-			// syscall.CLONE_NEWUSER |
+			syscall.CLONE_NEWUSER |
 			syscall.CLONE_NEWNET |
 			syscall.CLONE_NEWNS,
 		Unshareflags: syscall.CLONE_NEWNS,
-		// UidMappings: []syscall.SysProcIDMap{
-		// 	{
-		// 		ContainerID: 0,
-		// 		HostID:      os.Getuid(),
-		// 		Size:        1,
-		// 	},
-		// },
-		// GidMappings: []syscall.SysProcIDMap{
-		// 	{
-		// 		ContainerID: 0,
-		// 		HostID:      os.Getgid(),
-		// 		Size:        1,
-		// 	},
-		// },
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getuid(),
+				Size:        1,
+			},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: 0,
+				HostID:      os.Getgid(),
+				Size:        1,
+			},
+		},
 	}
 
+	fmt.Println("starting fork")
+	// debugging...
+	forkCmd.Stdout = os.Stdout
+	forkCmd.Stderr = os.Stderr
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork create command: %w", err)
 	}
 
+	fmt.Println("releasing process")
 	pid := forkCmd.Process.Pid
+	fmt.Println("pid: ", pid)
 	if err := forkCmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach from process: %w", err)
 	}
@@ -126,7 +146,7 @@ func Create(containerID, bundlePath string) error {
 	return nil
 }
 
-func saveState(state pkg.State) error {
+func saveState(state *pkg.State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)

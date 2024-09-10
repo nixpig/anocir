@@ -15,20 +15,9 @@ import (
 )
 
 func Start(containerID string) error {
-	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
-
-	fc, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
+	state, err := pkg.GetState(containerID)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return errors.New("container not found")
-		} else {
-			return fmt.Errorf("stat container path: %w", err)
-		}
-	}
-
-	var state pkg.State
-	if err := json.Unmarshal(fc, &state); err != nil {
-		return fmt.Errorf("marshal config: %w", err)
+		return fmt.Errorf("get state: %w", err)
 	}
 
 	if state.Status != pkg.Created {

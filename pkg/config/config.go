@@ -6,20 +6,20 @@ type NamespaceType string
 type DeviceType string
 
 const (
-	pid     NamespaceType = "pid"
-	network NamespaceType = "network"
+	PID     NamespaceType = "pid"
+	Network NamespaceType = "network"
 	mount   NamespaceType = "mount"
-	ipc     NamespaceType = "ipc"
-	uts     NamespaceType = "uts"
+	IPC     NamespaceType = "ipc"
+	UTS     NamespaceType = "uts"
 	user    NamespaceType = "user"
-	cgroup  NamespaceType = "cgroup"
-	time    NamespaceType = "time"
+	CGroup  NamespaceType = "cgroup"
+	Time    NamespaceType = "time"
 
-	allDevices           DeviceType = "a"
-	blockDevice          DeviceType = "b"
-	charDevice           DeviceType = "c"
-	unbufferedCharDevice DeviceType = "u"
-	fifoDevice           DeviceType = "p"
+	AllDevices           DeviceType = "a"
+	BlockDevice          DeviceType = "b"
+	CharDevice           DeviceType = "c"
+	UnbufferedCharDevice DeviceType = "u"
+	FifoDevice           DeviceType = "p"
 )
 
 type ContainerProcessState struct {

@@ -13,20 +13,9 @@ import (
 )
 
 func Delete(containerID string) error {
-	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
-
-	fc, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
+	state, err := pkg.GetState(containerID)
 	if err != nil {
-		if os.IsNotExist(err) {
-			return errors.New("container not found")
-		} else {
-			return fmt.Errorf("stat container path: %w", err)
-		}
-	}
-
-	var state pkg.State
-	if err := json.Unmarshal(fc, &state); err != nil {
-		return fmt.Errorf("unmarshal state: %w", err)
+		return fmt.Errorf("get state: %w", err)
 	}
 
 	if state.Status != pkg.Stopped {
@@ -37,6 +26,7 @@ func Delete(containerID string) error {
 		return fmt.Errorf("remove ipc socket: %w", err)
 	}
 
+	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
 	if err := os.RemoveAll(containerPath); err != nil {
 		return fmt.Errorf("remove container path: %s", err)
 	}
