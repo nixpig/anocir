@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"syscall"
 
+	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
 )
 
@@ -18,8 +19,13 @@ func Kill(containerID, signal string) error {
 		return errors.New("container is not created or running")
 	}
 
+	s, err := internal.ToSignal(signal)
+	if err != nil {
+		return err
+	}
+
 	// FIXME: send signal provided
-	if err := syscall.Kill(*state.PID, syscall.SIGKILL); err != nil {
+	if err := syscall.Kill(*state.PID, s); err != nil {
 		return fmt.Errorf("kill container process: %w", err)
 	}
 

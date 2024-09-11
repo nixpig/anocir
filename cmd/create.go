@@ -98,25 +98,26 @@ func Create(containerID, bundlePath string) error {
 
 	forkCmd := exec.Command("/proc/self/exe", []string{"fork", "create", containerID, bundlePath}...)
 
+	cloneFlags, err := internal.NamespacesToFlag(cfg.Linux.Namespaces)
+	if err != nil {
+		return fmt.Errorf("convert namespaces to flag: %w", err)
+	}
+
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: syscall.CLONE_NEWUTS |
-			syscall.CLONE_NEWPID |
-			syscall.CLONE_NEWUSER |
-			syscall.CLONE_NEWNET |
-			syscall.CLONE_NEWNS,
+		Cloneflags:   *cloneFlags,
 		Unshareflags: syscall.CLONE_NEWNS,
 		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0,
-				HostID:      os.Getuid(),
+				HostID:      cfg.Process.User.UID,
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0,
-				HostID:      os.Getgid(),
+				HostID:      cfg.Process.User.GID,
 				Size:        1,
 			},
 		},

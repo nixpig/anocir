@@ -21,7 +21,7 @@ func ExecHooks(hooks []config.Hook) error {
 		cmd.Env = h.Env
 
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("run hook: %w", err)
+			return fmt.Errorf("exec hook: %w", err)
 		}
 	}
 

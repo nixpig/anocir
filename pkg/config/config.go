@@ -6,14 +6,14 @@ type NamespaceType string
 type DeviceType string
 
 const (
-	PID     NamespaceType = "pid"
-	Network NamespaceType = "network"
-	mount   NamespaceType = "mount"
-	IPC     NamespaceType = "ipc"
-	UTS     NamespaceType = "uts"
-	user    NamespaceType = "user"
-	CGroup  NamespaceType = "cgroup"
-	Time    NamespaceType = "time"
+	PIDNS    NamespaceType = "pid"
+	NetNS    NamespaceType = "network"
+	MountNS  NamespaceType = "mount"
+	IPCNS    NamespaceType = "ipc"
+	UTSNS    NamespaceType = "uts"
+	UserNS   NamespaceType = "user"
+	CGroupNS NamespaceType = "cgroup"
+	TimeNS   NamespaceType = "time"
 
 	AllDevices           DeviceType = "a"
 	BlockDevice          DeviceType = "b"
