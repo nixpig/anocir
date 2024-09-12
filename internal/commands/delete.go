@@ -22,7 +22,7 @@ func Delete(containerID string) error {
 		return errors.New("container is not stopped")
 	}
 
-	if err := os.Remove(fmt.Sprintf("/tmp/brownie_%s.sock", state.ID)); err != nil {
+	if err := os.Remove(filepath.Join(pkg.BrownieRootDir, "containers", state.ID, "container.sock")); err != nil {
 		return fmt.Errorf("remove ipc socket: %w", err)
 	}
 
