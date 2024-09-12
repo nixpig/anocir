@@ -20,7 +20,7 @@ func Start(containerID string) error {
 		return fmt.Errorf("get state: %w", err)
 	}
 
-	if state.Status != pkg.Created {
+	if state.Status != specs.StateCreated {
 		return errors.New("container not created")
 	}
 

@@ -18,7 +18,7 @@ func Delete(containerID string) error {
 		return fmt.Errorf("get state: %w", err)
 	}
 
-	if state.Status != pkg.Stopped {
+	if state.Status != specs.StateStopped {
 		return errors.New("container is not stopped")
 	}
 

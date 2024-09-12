@@ -7,6 +7,7 @@ import (
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func Kill(containerID, signal string) error {
@@ -15,7 +16,7 @@ func Kill(containerID, signal string) error {
 		return fmt.Errorf("get state: %w", err)
 	}
 
-	if state.Status != pkg.Created && state.Status != pkg.Running {
+	if state.Status != specs.StateCreated && state.Status != specs.StateRunning {
 		return errors.New("container is not created or running")
 	}
 
@@ -25,11 +26,11 @@ func Kill(containerID, signal string) error {
 	}
 
 	// FIXME: send signal provided
-	if err := syscall.Kill(*state.PID, s); err != nil {
+	if err := syscall.Kill(state.Pid, s); err != nil {
 		return fmt.Errorf("kill container process: %w", err)
 	}
 
-	state.Status = pkg.Stopped
+	state.Status = specs.StateStopped
 	saveState(state)
 
 	return nil

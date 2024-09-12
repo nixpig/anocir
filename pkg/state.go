@@ -6,29 +6,11 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const BrownieRootDir = "/var/lib/brownie"
-
-type status string
-
-const (
-	Creating status = "creating"
-	Created  status = "created"
-	Running  status = "running"
-	Stopped  status = "stopped"
-)
-
-type State struct {
-	OCIVersion  string            `json:"ociVersion"`
-	ID          string            `json:"id"`
-	Status      status            `json:"status"`
-	PID         *int              `json:"pid,omitempty"`
-	Bundle      string            `json:"bundle"`
-	Annotations map[string]string `json:"annotations,omitempty"`
-}
-
-func GetState(containerID string) (*State, error) {
+func GetState(containerID string) (*specs.State, error) {
 	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
 
 	fc, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
@@ -40,7 +22,7 @@ func GetState(containerID string) (*State, error) {
 		}
 	}
 
-	var state State
+	var state specs.State
 	if err := json.Unmarshal(fc, &state); err != nil {
 		return nil, fmt.Errorf("unmarshal state: %w", err)
 	}

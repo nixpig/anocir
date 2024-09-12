@@ -16,12 +16,10 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-const BrownieRootDir = "/var/lib/brownie"
-
 func Create(containerID, bundlePath string) error {
 	// 2. TODO: Create the container runtime environment according to configuration
 	// in config.json.
-	containerPath := filepath.Join(BrownieRootDir, "containers", containerID)
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
 
 	if fi, err := os.Stat(containerPath); err == nil || fi != nil {
 		return errors.New("container with specified ID already exists")
@@ -46,10 +44,10 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("unmarshall config.json data: %w", err)
 	}
 
-	state := &pkg.State{
-		OCIVersion:  cfg.Version,
+	state := &specs.State{
+		Version:     cfg.Version,
 		ID:          containerID,
-		Status:      pkg.Creating,
+		Status:      specs.StateCreating,
 		Bundle:      absBundlePath,
 		Annotations: map[string]string{},
 	}
@@ -138,8 +136,8 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("detach from process: %w", err)
 	}
 
-	state.Status = pkg.Created
-	state.PID = &pid
+	state.Status = specs.StateCreated
+	state.Pid = pid
 	if err := saveState(state); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}
@@ -147,14 +145,14 @@ func Create(containerID, bundlePath string) error {
 	return nil
 }
 
-func saveState(state *pkg.State) error {
+func saveState(state *specs.State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 
 	if err := os.WriteFile(
-		filepath.Join(BrownieRootDir, "containers", state.ID, "state.json"),
+		filepath.Join(pkg.BrownieRootDir, "containers", state.ID, "state.json"),
 		b,
 		0644,
 	); err != nil {
