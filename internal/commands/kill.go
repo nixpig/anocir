@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"errors"
@@ -6,12 +6,11 @@ import (
 	"syscall"
 
 	"github.com/nixpig/brownie/internal"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func Kill(containerID, signal string) error {
-	state, err := pkg.GetState(containerID)
+	state, err := internal.GetState(containerID)
 	if err != nil {
 		return fmt.Errorf("get state: %w", err)
 	}
@@ -31,7 +30,7 @@ func Kill(containerID, signal string) error {
 	}
 
 	state.Status = specs.StateStopped
-	saveState(state)
+	internal.SaveState(state)
 
 	return nil
 }

@@ -1,4 +1,4 @@
-package cmd
+package commands
 
 import (
 	"encoding/json"
@@ -15,7 +15,7 @@ import (
 )
 
 func Start(containerID string) error {
-	state, err := pkg.GetState(containerID)
+	state, err := internal.GetState(containerID)
 	if err != nil {
 		return fmt.Errorf("get state: %w", err)
 	}
@@ -24,25 +24,26 @@ func Start(containerID string) error {
 		return errors.New("container not created")
 	}
 
-	c, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
+	configJson, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
 	if err != nil {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
-	var cfg specs.Spec
-	if err := json.Unmarshal(c, &cfg); err != nil {
-		return fmt.Errorf("unmarshall config.json: %w", err)
+	var spec specs.Spec
+	if err := json.Unmarshal(configJson, &spec); err != nil {
+		return fmt.Errorf("unmarshal config.json: %w", err)
 	}
 
 	// 7. Invoke startContainer hooks
-	if err := internal.ExecHooks(cfg.Hooks.StartContainer); err != nil {
+	if err := internal.ExecHooks(spec.Hooks.StartContainer); err != nil {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
 	// 8. TODO: Run the user-specified program from 'process' in the container
 	// and update state to Running
-	sockAddr := fmt.Sprintf("/tmp/brownie_%s.sock", containerID)
-	conn, err := net.Dial("unix", sockAddr)
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
+	containerSockAddr := filepath.Join(containerPath, "container.sock")
+	conn, err := net.Dial("unix", containerSockAddr)
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
 	}
@@ -51,16 +52,17 @@ func Start(containerID string) error {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 
-	fmt.Println("reading from socket...")
 	b, err := io.ReadAll(conn)
 	if err != nil {
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
+	// FIXME: print output from command run inside container??
+	// presumably this needs to be redirected to the pty (if specified in config)?
 	fmt.Println(string(b))
 
 	// 9. Invoke poststart hooks
-	if err := internal.ExecHooks(cfg.Hooks.Poststart); err != nil {
+	if err := internal.ExecHooks(spec.Hooks.Poststart); err != nil {
 		return fmt.Errorf("execute poststart hooks: %w", err)
 	}
 

@@ -109,7 +109,7 @@ func MountProc(containerRootfs string) error {
 		containerPath,
 		os.ModeDir,
 	); err != nil {
-		return fmt.Errorf("ensure proc destination exists: %w", err)
+		return err
 	}
 
 	if err := syscall.Mount(
@@ -119,7 +119,7 @@ func MountProc(containerRootfs string) error {
 		uintptr(0),
 		"",
 	); err != nil {
-		return fmt.Errorf("mount proc: %w", err)
+		return err
 	}
 
 	return nil
@@ -137,7 +137,7 @@ func MountRootfs(containerRootfs string) error {
 		syscall.MS_BIND|syscall.MS_REC,
 		"",
 	); err != nil {
-		return fmt.Errorf("mount rootfs: %w", err)
+		return err
 	}
 
 	return nil

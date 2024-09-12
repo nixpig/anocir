@@ -7,8 +7,10 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func NamespaceToFlag(namespace specs.LinuxNamespaceType) (int, error) {
-	switch namespace {
+type LinuxNamespace specs.LinuxNamespace
+
+func (ns *LinuxNamespace) ToFlag() (uintptr, error) {
+	switch ns.Type {
 	case specs.PIDNamespace:
 		return syscall.CLONE_NEWPID, nil
 	case specs.NetworkNamespace:
@@ -26,20 +28,6 @@ func NamespaceToFlag(namespace specs.LinuxNamespaceType) (int, error) {
 	case specs.TimeNamespace:
 		return syscall.CLONE_NEWTIME, nil
 	default:
-		return -1, errors.New("unknown namespace")
+		return 0, errors.New("unknown namespace type")
 	}
-}
-
-func NamespacesToFlag(namespaces []specs.LinuxNamespace) (*uintptr, error) {
-	var flags uintptr
-	for _, ns := range namespaces {
-		f, err := NamespaceToFlag(ns.Type)
-		if err != nil {
-			return nil, err
-		}
-
-		flags = flags | uintptr(f)
-	}
-
-	return &flags, nil
 }

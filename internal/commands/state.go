@@ -1,21 +1,21 @@
-package cmd
+package commands
 
 import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nixpig/brownie/pkg"
+	"github.com/nixpig/brownie/internal"
 )
 
-func State(containerID string) error {
-	state, err := pkg.GetState(containerID)
+func QueryState(containerID string) error {
+	state, err := internal.GetState(containerID)
 	if err != nil {
 		return fmt.Errorf("get state: %w", err)
 	}
 
 	s, err := json.Marshal(state)
 	if err != nil {
-		return fmt.Errorf("unmarshal state: %w", err)
+		return fmt.Errorf("marshal state: %w", err)
 	}
 
 	fmt.Printf("%+v\n", string(s))
