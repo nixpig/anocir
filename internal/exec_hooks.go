@@ -6,10 +6,10 @@ import (
 	"os/exec"
 	"time"
 
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func ExecHooks(hooks []config.Hook) error {
+func ExecHooks(hooks []specs.Hook) error {
 	for _, h := range hooks {
 		ctx := context.Background()
 		var cancel context.CancelFunc

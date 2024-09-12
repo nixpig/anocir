@@ -11,7 +11,7 @@ import (
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func Start(containerID string) error {
@@ -29,7 +29,7 @@ func Start(containerID string) error {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
-	var cfg config.Config
+	var cfg specs.Spec
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return fmt.Errorf("unmarshall config.json: %w", err)
 	}
@@ -60,7 +60,7 @@ func Start(containerID string) error {
 	fmt.Println(string(b))
 
 	// 9. Invoke poststart hooks
-	if err := internal.ExecHooks(cfg.Hooks.PostStart); err != nil {
+	if err := internal.ExecHooks(cfg.Hooks.Poststart); err != nil {
 		return fmt.Errorf("execute poststart hooks: %w", err)
 	}
 

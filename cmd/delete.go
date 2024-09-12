@@ -9,7 +9,7 @@ import (
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func Delete(containerID string) error {
@@ -36,7 +36,7 @@ func Delete(containerID string) error {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
-	var cfg config.Config
+	var cfg specs.Spec
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return fmt.Errorf("unmarshal config.json: %w", err)
 	}
@@ -44,7 +44,7 @@ func Delete(containerID string) error {
 	// 13. Invoke poststop hooks
 	// FIXME: ?? config should probably be initially copied across, since any subsequent changes to poststop hooks will get picked up here when they shouldn't
 	// See: Any updates to config.json after this step MUST NOT affect the container.
-	if err := internal.ExecHooks(cfg.Hooks.PostStop); err != nil {
+	if err := internal.ExecHooks(cfg.Hooks.Poststop); err != nil {
 		return fmt.Errorf("execute poststop hooks: %w", err)
 	}
 

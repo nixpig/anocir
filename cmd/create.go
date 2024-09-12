@@ -12,7 +12,7 @@ import (
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
 )
 
@@ -41,13 +41,13 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("read config.json: %w", err)
 	}
 
-	var cfg config.Config
+	var cfg specs.Spec
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return fmt.Errorf("unmarshall config.json data: %w", err)
 	}
 
 	state := &pkg.State{
-		OCIVersion:  cfg.OCIVersion,
+		OCIVersion:  cfg.Version,
 		ID:          containerID,
 		Status:      pkg.Creating,
 		Bundle:      absBundlePath,
@@ -110,14 +110,14 @@ func Create(containerID, bundlePath string) error {
 		UidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0,
-				HostID:      cfg.Process.User.UID,
+				HostID:      int(cfg.Process.User.UID),
 				Size:        1,
 			},
 		},
 		GidMappings: []syscall.SysProcIDMap{
 			{
 				ContainerID: 0,
-				HostID:      cfg.Process.User.GID,
+				HostID:      int(cfg.Process.User.GID),
 				Size:        1,
 			},
 		},

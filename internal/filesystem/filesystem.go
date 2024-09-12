@@ -2,75 +2,80 @@ package filesystem
 
 import (
 	"fmt"
-	"io/fs"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
 
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 var (
-	defaultFileMode uint32 = 066
-	defaultUid      uint32 = 0
-	defaultGid      uint32 = 0
+	defaultFileMode        = os.FileMode(0066)
+	defaultUID      uint32 = 0
+	defaultGID      uint32 = 0
+
+	AllDevices           = "a"
+	BlockDevice          = "b"
+	CharDevice           = "c"
+	UnbufferedCharDevice = "u"
+	FifoDevice           = "p"
 )
 
-var defaultDevices = []config.Device{
+var defaultDevices = []specs.LinuxDevice{
 	{
-		Type:     config.CharDevice,
 		Path:     "/dev/null",
+		Type:     CharDevice,
 		Major:    1,
 		Minor:    3,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 	{
-		Type:     config.CharDevice,
+		Type:     CharDevice,
 		Path:     "/dev/full",
 		Major:    1,
 		Minor:    7,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 	{
-		Type:     config.CharDevice,
+		Type:     CharDevice,
 		Path:     "/dev/zero",
 		Major:    1,
 		Minor:    5,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 	{
-		Type:     config.CharDevice,
+		Type:     CharDevice,
 		Path:     "/dev/random",
 		Major:    1,
 		Minor:    8,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 	{
-		Type:     config.CharDevice,
+		Type:     CharDevice,
 		Path:     "/dev/urandom",
 		Major:    1,
 		Minor:    9,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 	{
-		Type:     config.CharDevice,
+		Type:     CharDevice,
 		Path:     "/dev/tty",
 		Major:    5,
 		Minor:    0,
 		FileMode: &defaultFileMode,
-		Uid:      &defaultUid,
-		Gid:      &defaultGid,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
 	},
 }
 
@@ -79,7 +84,7 @@ func MountDefaultDevices(containerRootfs string) error {
 		relativePath := strings.TrimLeft(dev.Path, "/")
 		containerPath := filepath.Join(containerRootfs, relativePath)
 
-		if err := os.MkdirAll(containerPath, fs.FileMode(*dev.FileMode)); err != nil {
+		if err := os.MkdirAll(containerPath, *dev.FileMode); err != nil {
 			return fmt.Errorf("ensure dev destination exists: %w", err)
 		}
 

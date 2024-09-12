@@ -9,10 +9,10 @@ import (
 	"path/filepath"
 
 	"github.com/nixpig/brownie/internal/filesystem"
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func server(conn net.Conn, cfg config.Config) error {
+func server(conn net.Conn, cfg specs.Spec) error {
 	defer conn.Close()
 
 	b := make([]byte, 128)
@@ -63,7 +63,7 @@ func Fork(containerID, bundlePath string) error {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
-	var cfg config.Config
+	var cfg specs.Spec
 	if err := json.Unmarshal(c, &cfg); err != nil {
 		return fmt.Errorf("unmarshall config.json: %w", err)
 	}

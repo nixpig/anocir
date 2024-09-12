@@ -4,33 +4,33 @@ import (
 	"errors"
 	"syscall"
 
-	"github.com/nixpig/brownie/pkg/config"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func NamespaceToFlag(namespace config.NamespaceType) (int, error) {
+func NamespaceToFlag(namespace specs.LinuxNamespaceType) (int, error) {
 	switch namespace {
-	case config.PIDNS:
+	case specs.PIDNamespace:
 		return syscall.CLONE_NEWPID, nil
-	case config.NetNS:
+	case specs.NetworkNamespace:
 		return syscall.CLONE_NEWNET, nil
-	case config.MountNS:
+	case specs.MountNamespace:
 		return syscall.CLONE_NEWNS, nil
-	case config.IPCNS:
+	case specs.IPCNamespace:
 		return syscall.CLONE_NEWIPC, nil
-	case config.UTSNS:
+	case specs.UTSNamespace:
 		return syscall.CLONE_NEWUTS, nil
-	case config.UserNS:
+	case specs.UserNamespace:
 		return syscall.CLONE_NEWUSER, nil
-	case config.CGroupNS:
+	case specs.CgroupNamespace:
 		return syscall.CLONE_NEWCGROUP, nil
-	case config.TimeNS:
+	case specs.TimeNamespace:
 		return syscall.CLONE_NEWTIME, nil
 	default:
 		return -1, errors.New("unknown namespace")
 	}
 }
 
-func NamespacesToFlag(namespaces []config.Namespace) (*uintptr, error) {
+func NamespacesToFlag(namespaces []specs.LinuxNamespace) (*uintptr, error) {
 	var flags uintptr
 	for _, ns := range namespaces {
 		f, err := NamespaceToFlag(ns.Type)
