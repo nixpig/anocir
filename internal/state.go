@@ -14,7 +14,7 @@ import (
 func GetState(containerID string) (*specs.State, error) {
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
 
-	stateJson, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
+	stateJSON, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
 	if err != nil {
 		if os.IsNotExist(err) {
 			return nil, errors.New("container not found")
@@ -24,7 +24,7 @@ func GetState(containerID string) (*specs.State, error) {
 	}
 
 	var state specs.State
-	if err := json.Unmarshal(stateJson, &state); err != nil {
+	if err := json.Unmarshal(stateJSON, &state); err != nil {
 		return nil, fmt.Errorf("unmarshal state: %w", err)
 	}
 

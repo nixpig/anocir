@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -15,35 +16,42 @@ import (
 	cp "github.com/otiai10/copy"
 )
 
-func Create(containerID, bundlePath string) error {
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
+type CreateOpts struct {
+	ID            string
+	Bundle        string
+	ConsoleSocket string
+	PIDFile       string
+}
+
+func Create(opts *CreateOpts) error {
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+
+	if stat, _ := os.Stat(containerPath); stat != nil {
+		return pkg.ErrContainerExists
+	}
 
 	if err := os.MkdirAll(containerPath, os.ModeDir); err != nil {
-		if err == os.ErrExist {
-			return pkg.ErrContainerExists
-		}
-
 		return fmt.Errorf("make brownie container directory: %w", err)
 	}
 
-	absBundlePath, err := filepath.Abs(bundlePath)
+	absBundlePath, err := filepath.Abs(opts.Bundle)
 	if err != nil {
 		return fmt.Errorf("get absolute path to bundle: %w", err)
 	}
 
-	configJson, err := os.ReadFile(filepath.Join(absBundlePath, "config.json"))
+	configJSON, err := os.ReadFile(filepath.Join(absBundlePath, "config.json"))
 	if err != nil {
 		return fmt.Errorf("read spec: %w", err)
 	}
 
 	var spec specs.Spec
-	if err := json.Unmarshal(configJson, &spec); err != nil {
+	if err := json.Unmarshal(configJSON, &spec); err != nil {
 		return fmt.Errorf("parse config: %w", err)
 	}
 
 	state := &specs.State{
 		Version:     spec.Version,
-		ID:          containerID,
+		ID:          opts.ID,
 		Status:      specs.StateCreating,
 		Bundle:      absBundlePath,
 		Annotations: spec.Annotations,
@@ -65,13 +73,11 @@ func Create(containerID, bundlePath string) error {
 		return fmt.Errorf("copy container spec: %w", err)
 	}
 
-	// 4. Invoke 'createRuntime' hooks.
 	// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 	if err := internal.ExecHooks(spec.Hooks.CreateRuntime); err != nil {
 		return fmt.Errorf("run createRuntime hooks: %w", err)
 	}
 
-	// 5. Invoke 'createContainer' hooks.
 	// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 	if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
 		return fmt.Errorf("run createContainer hooks: %w", err)
@@ -84,20 +90,23 @@ func Create(containerID, bundlePath string) error {
 		"/proc/self/exe",
 		[]string{
 			"fork",
-			containerID,
+			opts.ID,
 			initSockAddr,
 			containerSockAddr,
 		}...)
 
+	if spec.Linux == nil {
+		return errors.New("not a linux container")
+	}
 	var cloneFlags uintptr
 	for _, ns := range spec.Linux.Namespaces {
-		lns := internal.LinuxNamespace(ns)
-		f, err := lns.ToFlag()
+		ns := internal.LinuxNamespace(ns)
+		flag, err := ns.ToFlag()
 		if err != nil {
 			return err
 		}
 
-		cloneFlags = cloneFlags | f
+		cloneFlags = cloneFlags | flag
 	}
 
 	// apply configuration, e.g. devices, proc, etc...
@@ -120,10 +129,7 @@ func Create(containerID, bundlePath string) error {
 		},
 	}
 
-	if err := forkCmd.Start(); err != nil {
-		return fmt.Errorf("fork create command: %w", err)
-	}
-
+	forkCmd.Start()
 	pid := forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach from process: %w", err)

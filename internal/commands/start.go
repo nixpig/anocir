@@ -24,13 +24,13 @@ func Start(containerID string) error {
 		return errors.New("container not created")
 	}
 
-	configJson, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
+	configJSON, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
 	if err != nil {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
 	var spec specs.Spec
-	if err := json.Unmarshal(configJson, &spec); err != nil {
+	if err := json.Unmarshal(configJSON, &spec); err != nil {
 		return fmt.Errorf("unmarshal config.json: %w", err)
 	}
 

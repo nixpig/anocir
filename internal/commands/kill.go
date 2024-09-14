@@ -24,7 +24,6 @@ func Kill(containerID, signal string) error {
 		return err
 	}
 
-	// FIXME: send signal provided
 	if err := syscall.Kill(state.Pid, s); err != nil {
 		return fmt.Errorf("kill container process: %w", err)
 	}

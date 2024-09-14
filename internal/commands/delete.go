@@ -31,13 +31,13 @@ func Delete(containerID string) error {
 		return fmt.Errorf("remove container path: %s", err)
 	}
 
-	configJson, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
+	configJSON, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
 	if err != nil {
 		return fmt.Errorf("read config file: %w", err)
 	}
 
 	var spec specs.Spec
-	if err := json.Unmarshal(configJson, &spec); err != nil {
+	if err := json.Unmarshal(configJSON, &spec); err != nil {
 		return fmt.Errorf("unmarshal config.json: %w", err)
 	}
 

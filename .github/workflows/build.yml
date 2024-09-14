@@ -1,0 +1,40 @@
+name: build
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual trigger"
+        required: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22.5"
+
+      - name: Audit
+        run: make audit
+
+      - name: Install
+        run: make install
+
+      - name: Build
+        run: make build
+
+      - name: Test
+        run: |
+          git clone --depth=1 https://github.com/opencontainers/runtime-tools.git \
+            && npm install tap \
+            && make runtimetest validation-executables \
+            && make RUNTIME=tmp/bin/brownie localvalidation

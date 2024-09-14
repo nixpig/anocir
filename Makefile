@@ -12,7 +12,11 @@ audit:
 
 .PHONY: build
 build:
-	go build -o tmp/bin/brownie ./...
+	go build -o tmp/bin/brownie main.go
+
+.PHONY: test
+test:
+
 
 .PHONY: run
 run:
@@ -32,3 +36,7 @@ watch:
 clean:
 	rm -rf tmp
 	go clean
+
+.PHONY: install
+install:
+	go mod download

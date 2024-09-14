@@ -2,19 +2,19 @@ package commands
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func server(conn net.Conn, spec specs.Spec) error {
+func server(conn net.Conn, spec specs.Spec) {
 	defer conn.Close()
 
 	b := make([]byte, 128)
@@ -22,7 +22,8 @@ func server(conn net.Conn, spec specs.Spec) error {
 	for {
 		n, err := conn.Read(b)
 		if err != nil {
-			return fmt.Errorf("read from connection: %w", err)
+			// TODO: log it
+			fmt.Println(fmt.Errorf("read from connection: %s", err))
 		}
 
 		if n == 0 {
@@ -37,67 +38,93 @@ func server(conn net.Conn, spec specs.Spec) error {
 			if err := cmd.Run(); err != nil {
 				conn.Write([]byte(err.Error()))
 			}
-			return nil
+			return
 		}
 	}
-
-	return nil
 }
 
-func Fork(containerID, initSockAddr, containerSockAddr string) error {
+func Fork(containerID, initSockAddr, containerSockAddr string) {
+	initConn, err := net.Dial("unix", initSockAddr)
+	if err != nil {
+		// TODO: log it
+		fmt.Println(fmt.Errorf("dialing init socket: %s", err))
+		return
+	}
+	defer initConn.Close()
+
 	if err := os.RemoveAll(containerSockAddr); err != nil {
-		return fmt.Errorf("remove existing socket: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("remove socket: %s", err)))
+		return
 	}
 
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
-	configJson, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
+	configJSON, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
 	if err != nil {
-		return fmt.Errorf("read config file: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("read config file: %s", err)))
+		return
 	}
 
 	var spec specs.Spec
-	if err := json.Unmarshal(configJson, &spec); err != nil {
-		return fmt.Errorf("unmarshal config.json: %w", err)
+	if err := json.Unmarshal(configJSON, &spec); err != nil {
+		initConn.Write([]byte(fmt.Sprintf("unmarshal config.json: %s", err)))
+		return
 	}
 
 	listener, err := net.Listen("unix", containerSockAddr)
 	if err != nil {
-		return fmt.Errorf("listen on socket: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("listen on socket: %s", err)))
+		return
 	}
 	defer listener.Close()
-
-	initConn, err := net.Dial("unix", initSockAddr)
-	if err != nil {
-		return fmt.Errorf("dialing init socket: %w", err)
-	}
-	defer initConn.Close()
 
 	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
 
 	if err := filesystem.MountProc(containerRootfs); err != nil {
-		return fmt.Errorf("mount proc: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
+	}
+
+	if spec.Linux != nil && len(spec.Linux.Devices) > 0 {
+		for _, dev := range spec.Linux.Devices {
+			target := filepath.Join(containerRootfs, strings.TrimPrefix(dev.Path, "/"))
+			fmt.Printf("mount '%s' to '%s': \n", dev.Path, target)
+			// if err := syscall.Mount(
+			// 	target,
+			// 	target,
+			// 	unix.MS_BIND,
+			// 	dev.FileMode, // ???
+			// ); err != nil {
+			// 	// TODO: log error
+			// 	initConn.Write([]byte(err.Error()))
+			// }
+		}
+
 	}
 
 	if err := filesystem.MountDefaultDevices(containerRootfs); err != nil {
-		return fmt.Errorf("mount dev: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("mount dev: %s", err)))
+		return
 	}
 
 	if err := filesystem.MountRootfs(containerRootfs); err != nil {
-		return fmt.Errorf("mount rootfs: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("mount rootfs: %s", err)))
+		return
 	}
 
 	if err := filesystem.PivotRootfs(containerRootfs); err != nil {
-		return fmt.Errorf("pivot root: %w", err)
+		initConn.Write([]byte(fmt.Sprintf("pivot root: %s", err)))
+		return
 	}
 
 	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
-		return errors.New("failed to write to init socket")
+		// TODO: log error
+		return
 	}
 
 	for {
 		containerConn, err := listener.Accept()
 		if err != nil {
-			return fmt.Errorf("accept connection: %w", err)
+			initConn.Write([]byte(fmt.Sprintf("accept connection: %s", err)))
+			continue
 		}
 
 		go server(containerConn, spec)
