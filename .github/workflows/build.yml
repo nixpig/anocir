@@ -64,6 +64,9 @@ jobs:
           name: artifacts
           path: .
 
+      - name: chmod brownie
+        run: chmod 755 ./brownie
+
       - name: run oci tests
         env:
           RUNTIME: ./brownie
