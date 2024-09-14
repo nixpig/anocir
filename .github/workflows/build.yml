@@ -15,24 +15,24 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout
+      - name: checkout brownie repo
         uses: actions/checkout@v4
 
-      - name: setup
+      - name: setup go
         uses: actions/setup-go@v5
         with:
           go-version: "1.23.0"
 
-      - name: install
+      - name: download dependencies
         run: make install
 
-      - name: audit
+      - name: audit code
         run: make audit
 
-      - name: build
+      - name: build artifact
         run: make build
 
-      - name: artifact
+      - name: upload artifact
         uses: actions/upload-artifact@master
         with:
           name: brownie
@@ -42,25 +42,30 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: node
+      - name: checkout runtime-tools repo
+        uses: actions/checkout@v4
+        with:
+          repository: https://github.com/opencontainers/runtime-tools.git
+
+      - name: install nodejs
         uses: actions/setup-node@v4
         with:
           node-version: 20.9.0
 
-      - name: tap
+      - name: install tap
         run: npm install tap
 
-      - name: oci
-        run: |
-          git clone --depth=1 https://github.com/opencontainers/runtime-tools.git . \
-            && make runtimetest validation-executables
+      - name: build runtime-tools
+        run: make runtimetest validation-executables
 
-      - name: artifact
+      - name: download artifact
         uses: actions/download-artifact@master
         with:
           name: brownie
           path: tmp/bin/brownie
 
-      - name: default
+      - name: run oci tests
+        env:
+          RUNTIME: tmp/bin/brownie
         run: |
-          make RUNTIME=tmp/bin/brownie validation/default/default.t
+          make validation/default/default.t
