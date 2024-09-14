@@ -68,4 +68,4 @@ jobs:
         env:
           RUNTIME: tmp/bin/brownie
         run: |
-          make validation/default/default.t
+          ./validation/default/default.t
