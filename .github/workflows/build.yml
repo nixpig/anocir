@@ -45,7 +45,7 @@ jobs:
       - name: checkout runtime-tools repo
         uses: actions/checkout@v4
         with:
-          repository: https://github.com/opencontainers/runtime-tools.git
+          repository: opencontainers/runtime-tools
 
       - name: install nodejs
         uses: actions/setup-node@v4
