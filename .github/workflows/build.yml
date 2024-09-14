@@ -68,7 +68,5 @@ jobs:
         run: chmod 755 ./brownie
 
       - name: run oci tests
-        env:
-          RUNTIME: ./brownie
         run: |
-          sudo ./validation/default/default.t
+          sudo RUNTIME=./brownie ./validation/default/default.t
