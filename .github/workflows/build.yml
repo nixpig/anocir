@@ -71,4 +71,4 @@ jobs:
         env:
           RUNTIME: ./brownie
         run: |
-          ./validation/default/default.t
+          sudo ./validation/default/default.t
