@@ -32,9 +32,35 @@ jobs:
       - name: build
         run: make build
 
+      - name: artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: brownie
+          path: tmp/bin/brownie
+
+  test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: node
+        uses: actions/setup-node@v4
+        with:
+          node_version: 20.9.0
+
+      - name: tap
+        run: npm install tap
+
+      - name: oci
+        run: |
+          git clone --depth=1 https://github.com/opencontainers/runtime-tools.git . \
+            && make runtimetest validation-executables
+
+      - name: artifact
+        uses: actions/download-artifact@master
+        with:
+          name: brownie
+          path: tmp/bin/brownie
+
       - name: test
         run: |
-          git clone --depth=1 https://github.com/opencontainers/runtime-tools.git \
-            && npm install tap \
-            && make runtimetest validation-executables \
-            && make RUNTIME=tmp/bin/brownie localvalidation
+          make RUNTIME=tmp/bin/brownie localvalidation
