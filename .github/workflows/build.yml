@@ -61,6 +61,6 @@ jobs:
           name: brownie
           path: tmp/bin/brownie
 
-      - name: test
+      - name: default
         run: |
-          make RUNTIME=tmp/bin/brownie localvalidation
+          make RUNTIME=tmp/bin/brownie validation/default/default.t
