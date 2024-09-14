@@ -7,7 +7,7 @@ An experimental Linux container runtime; working towards [OCI Runtime Spec](http
 > [!CAUTION]
 > This is an experimental project. Feel free to have a look around, but **don't use it in anything that even resembles production**.
 
-This is currently a personal project, so I'm not currently interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/brownie/issues).
+This is currently a personal project, so I'm not interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/brownie/issues).
 
 ## Installation
 
