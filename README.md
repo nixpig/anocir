@@ -2,16 +2,12 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime; working towards OCI Runtime Spec compliance.
+An experimental Linux container runtime; working towards [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/v1.2.0/spec.md) compliance.
 
 > [!CAUTION]
 > This is an experimental project. Feel free to have a look around, but **don't use it in anything that even resembles production**.
 
-## Motivation
-
-I've been learning Go for a few months now, and this seems like a reasonably sized and well-suited project to spend some time getting stuck into.
-
-This is currently a personal project, so I'm not interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/brownie/issues).
+This is currently a personal project, so I'm not currently interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/brownie/issues).
 
 ## Installation
 
