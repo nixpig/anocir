@@ -73,14 +73,16 @@ func Create(opts *CreateOpts) error {
 		return fmt.Errorf("copy container spec: %w", err)
 	}
 
-	// TODO: If error, destroy container and created resources then call 'poststop' hooks.
-	if err := internal.ExecHooks(spec.Hooks.CreateRuntime); err != nil {
-		return fmt.Errorf("run createRuntime hooks: %w", err)
-	}
+	if spec.Hooks != nil {
+		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
+		if err := internal.ExecHooks(spec.Hooks.CreateRuntime); err != nil {
+			return fmt.Errorf("run createRuntime hooks: %w", err)
+		}
 
-	// TODO: If error, destroy container and created resources then call 'poststop' hooks.
-	if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
-		return fmt.Errorf("run createContainer hooks: %w", err)
+		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
+		if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
+			return fmt.Errorf("run createContainer hooks: %w", err)
+		}
 	}
 
 	initSockAddr := filepath.Join(containerPath, "init.sock")

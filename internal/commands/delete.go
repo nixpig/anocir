@@ -44,8 +44,10 @@ func Delete(containerID string) error {
 	// 13. Invoke poststop hooks
 	// FIXME: ?? config should probably be initially copied across, since any subsequent changes to poststop hooks will get picked up here when they shouldn't
 	// See: Any updates to config.json after this step MUST NOT affect the container.
-	if err := internal.ExecHooks(spec.Hooks.Poststop); err != nil {
-		return fmt.Errorf("execute poststop hooks: %w", err)
+	if spec.Hooks != nil {
+		if err := internal.ExecHooks(spec.Hooks.Poststop); err != nil {
+			return fmt.Errorf("execute poststop hooks: %w", err)
+		}
 	}
 
 	return nil

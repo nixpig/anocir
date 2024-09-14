@@ -35,8 +35,10 @@ func Start(containerID string) error {
 	}
 
 	// 7. Invoke startContainer hooks
-	if err := internal.ExecHooks(spec.Hooks.StartContainer); err != nil {
-		return fmt.Errorf("execute startContainer hooks: %w", err)
+	if spec.Hooks != nil {
+		if err := internal.ExecHooks(spec.Hooks.StartContainer); err != nil {
+			return fmt.Errorf("execute startContainer hooks: %w", err)
+		}
 	}
 
 	// 8. TODO: Run the user-specified program from 'process' in the container
@@ -62,8 +64,10 @@ func Start(containerID string) error {
 	fmt.Println(string(b))
 
 	// 9. Invoke poststart hooks
-	if err := internal.ExecHooks(spec.Hooks.Poststart); err != nil {
-		return fmt.Errorf("execute poststart hooks: %w", err)
+	if spec.Hooks != nil {
+		if err := internal.ExecHooks(spec.Hooks.Poststart); err != nil {
+			return fmt.Errorf("execute poststart hooks: %w", err)
+		}
 	}
 
 	return nil
