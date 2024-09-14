@@ -90,7 +90,7 @@ func Create(opts *CreateOpts) error {
 		"/proc/self/exe",
 		[]string{
 			"fork",
-			opts.ID,
+			"some stupid id",
 			initSockAddr,
 			containerSockAddr,
 		}...)
