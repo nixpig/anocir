@@ -2,16 +2,20 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+	"syscall"
 
+	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
 func server(conn net.Conn, spec specs.Spec) {
@@ -43,90 +47,178 @@ func server(conn net.Conn, spec specs.Spec) {
 	}
 }
 
-func Fork(containerID, initSockAddr, containerSockAddr string) {
-	initConn, err := net.Dial("unix", initSockAddr)
-	if err != nil {
-		// TODO: log it
-		fmt.Println(fmt.Errorf("dialing init socket: %s", err))
-		return
-	}
-	defer initConn.Close()
+type ForkStage string
 
-	if err := os.RemoveAll(containerSockAddr); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("remove socket: %s", err)))
-		return
-	}
+var (
+	ForkIntermediate ForkStage = "intermediate"
+	ForkDetached     ForkStage = "detached"
+)
 
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
+type ForkOpts struct {
+	ID                string
+	InitSockAddr      string
+	ContainerSockAddr string
+	Stage             ForkStage
+}
+
+func Fork(opts *ForkOpts, log *zerolog.Logger) error {
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 	configJSON, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
 	if err != nil {
-		initConn.Write([]byte(fmt.Sprintf("read config file: %s", err)))
-		return
+		return fmt.Errorf("read config: %w", err)
 	}
 
 	var spec specs.Spec
 	if err := json.Unmarshal(configJSON, &spec); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("unmarshal config.json: %s", err)))
-		return
+		return fmt.Errorf("parse config: %w", err)
 	}
 
-	listener, err := net.Listen("unix", containerSockAddr)
-	if err != nil {
-		initConn.Write([]byte(fmt.Sprintf("listen on socket: %s", err)))
-		return
-	}
-	defer listener.Close()
+	switch opts.Stage {
+	case ForkIntermediate:
+		if spec.Linux == nil {
+			return errors.New("not a linux container")
+		}
+		var cloneFlags uintptr
+		for _, ns := range spec.Linux.Namespaces {
+			ns := internal.LinuxNamespace(ns)
+			flag, err := ns.ToFlag()
+			if err != nil {
+				return fmt.Errorf("convert namespace to flag: %w", err)
+			}
 
-	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
-
-	if err := filesystem.MountProc(containerRootfs); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
-	}
-
-	if spec.Linux != nil && len(spec.Linux.Devices) > 0 {
-		for _, dev := range spec.Linux.Devices {
-			target := filepath.Join(containerRootfs, strings.TrimPrefix(dev.Path, "/"))
-			fmt.Printf("mount '%s' to '%s': \n", dev.Path, target)
-			// if err := syscall.Mount(
-			// 	target,
-			// 	target,
-			// 	unix.MS_BIND,
-			// 	dev.FileMode, // ???
-			// ); err != nil {
-			// 	// TODO: log error
-			// 	initConn.Write([]byte(err.Error()))
-			// }
+			cloneFlags = cloneFlags | flag
 		}
 
-	}
+		initSockAddr := filepath.Join(containerPath, "init.sock")
+		containerSockAddr := filepath.Join(containerPath, "container.sock")
 
-	if err := filesystem.MountDefaultDevices(containerRootfs); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("mount dev: %s", err)))
-		return
-	}
+		forkCmd := exec.Command(
+			"/proc/self/exe",
+			[]string{
+				"fork",
+				string(ForkDetached),
+				opts.ID,
+				initSockAddr,
+				containerSockAddr,
+			}...)
 
-	if err := filesystem.MountRootfs(containerRootfs); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("mount rootfs: %s", err)))
-		return
-	}
+		// apply configuration, e.g. devices, proc, etc...
+		forkCmd.SysProcAttr = &syscall.SysProcAttr{
+			// Cloneflags:   cloneFlags,
+			Cloneflags: syscall.CLONE_NEWUTS |
+				syscall.CLONE_NEWPID |
+				syscall.CLONE_NEWUSER |
+				syscall.CLONE_NEWNET |
+				syscall.CLONE_NEWNS,
+			Unshareflags: syscall.CLONE_NEWNS,
+			UidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: int(spec.Process.User.UID),
+					HostID:      os.Geteuid(),
+					Size:        1,
+				},
+			},
+			GidMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: int(spec.Process.User.GID),
+					HostID:      os.Getegid(),
+					Size:        1,
+				},
+			},
+		}
 
-	if err := filesystem.PivotRootfs(containerRootfs); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("pivot root: %s", err)))
-		return
-	}
+		log.Info().Msg("before fork start")
+		if err := forkCmd.Start(); err != nil {
+			log.Error().Err(err).Msg("error in fork start!")
+			return fmt.Errorf("re-fork: %w", err)
+		}
+		log.Info().Msg("after fork start")
 
-	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
-		// TODO: log error
-		return
-	}
+		// pid := forkCmd.Process.Pid
+		if err := forkCmd.Process.Release(); err != nil {
+			log.Error().Err(err).Msg("failed to detach")
+			return fmt.Errorf("detach refork: %w", err)
+		}
 
-	for {
-		containerConn, err := listener.Accept()
+	case ForkDetached:
+		initConn, err := net.Dial("unix", opts.InitSockAddr)
 		if err != nil {
-			initConn.Write([]byte(fmt.Sprintf("accept connection: %s", err)))
-			continue
+			// TODO: log it
+			fmt.Println(fmt.Errorf("dialing init socket: %s", err))
+			return err
+		}
+		defer initConn.Close()
+
+		if err := os.RemoveAll(opts.ContainerSockAddr); err != nil {
+			initConn.Write([]byte(fmt.Sprintf("remove socket: %s", err)))
+			return err
 		}
 
-		go server(containerConn, spec)
+		listener, err := net.Listen("unix", opts.ContainerSockAddr)
+		if err != nil {
+			initConn.Write([]byte(fmt.Sprintf("listen on socket: %s", err)))
+			return err
+		}
+		defer listener.Close()
+
+		containerRootfs := filepath.Join(containerPath, spec.Root.Path)
+
+		if err := filesystem.MountProc(containerRootfs); err != nil {
+			initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
+		}
+
+		if spec.Linux != nil && len(spec.Linux.Devices) > 0 {
+			for _, dev := range spec.Linux.Devices {
+				target := filepath.Join(containerRootfs, strings.TrimPrefix(dev.Path, "/"))
+				fmt.Printf("mount '%s' to '%s': \n", dev.Path, target)
+				// if err := syscall.Mount(
+				// 	target,
+				// 	target,
+				// 	unix.MS_BIND,
+				// 	dev.FileMode, // ???
+				// ); err != nil {
+				// 	// TODO: log error
+				// 	initConn.Write([]byte(err.Error()))
+				// }
+			}
+
+		}
+
+		if err := filesystem.MountDefaultDevices(containerRootfs); err != nil {
+			initConn.Write([]byte(fmt.Sprintf("mount dev: %s", err)))
+			return err
+		}
+
+		if err := filesystem.MountRootfs(containerRootfs); err != nil {
+			initConn.Write([]byte(fmt.Sprintf("mount rootfs: %s", err)))
+			return err
+		}
+
+		if err := filesystem.PivotRootfs(containerRootfs); err != nil {
+			initConn.Write([]byte(fmt.Sprintf("pivot root: %s", err)))
+			return err
+		}
+
+		if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
+			// TODO: log error
+			return err
+		}
+
+		for {
+			containerConn, err := listener.Accept()
+			if err != nil {
+				log.Error().Err(err).Msg("accept connection")
+				initConn.Write([]byte(fmt.Sprintf("accept connection: %s", err)))
+				continue
+			}
+
+			go server(containerConn, spec)
+		}
+
+	default:
+		return nil
+
 	}
+
+	return nil
 }

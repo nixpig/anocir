@@ -2,18 +2,17 @@ package commands
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
-	"syscall"
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
+	"github.com/rs/zerolog"
 )
 
 type CreateOpts struct {
@@ -23,7 +22,7 @@ type CreateOpts struct {
 	PIDFile       string
 }
 
-func Create(opts *CreateOpts) error {
+func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 
 	if stat, _ := os.Stat(containerPath); stat != nil {
@@ -92,55 +91,23 @@ func Create(opts *CreateOpts) error {
 		"/proc/self/exe",
 		[]string{
 			"fork",
+			string(ForkIntermediate),
 			opts.ID,
 			initSockAddr,
 			containerSockAddr,
 		}...)
 
-	if spec.Linux == nil {
-		return errors.New("not a linux container")
-	}
-	var cloneFlags uintptr
-	for _, ns := range spec.Linux.Namespaces {
-		ns := internal.LinuxNamespace(ns)
-		flag, err := ns.ToFlag()
-		if err != nil {
-			return err
-		}
-
-		cloneFlags = cloneFlags | flag
-	}
-
-	// apply configuration, e.g. devices, proc, etc...
-	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:   cloneFlags,
-		Unshareflags: syscall.CLONE_NEWNS,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      int(spec.Process.User.UID),
-				Size:        1,
-			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: 0,
-				HostID:      int(spec.Process.User.GID),
-				Size:        1,
-			},
-		},
-	}
-
-	forkCmd.Start()
-	pid := forkCmd.Process.Pid
-	if err := forkCmd.Process.Release(); err != nil {
-		return fmt.Errorf("detach from process: %w", err)
+	forkCmd.Stdout = os.Stdout
+	forkCmd.Stderr = os.Stderr
+	if err := forkCmd.Run(); err != nil {
+		return fmt.Errorf("fork: %w", err)
 	}
 
 	// wait for container to be ready
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return err
 	}
+
 	listener, err := net.Listen("unix", initSockAddr)
 	if err != nil {
 		return fmt.Errorf("failed to listen on init socket: %w", err)
@@ -161,12 +128,18 @@ func Create(opts *CreateOpts) error {
 			continue
 		}
 
-		if string(b[:n]) == "ready" {
+		if len(b) > 0 {
+			log.Info().Str("msg", string(b)).Msg("received")
+		}
+
+		if len(b) >= 5 && string(b[:5]) == "ready" {
+			log.Info().Msg("received 'ready' message")
 			break
 		}
 	}
 
 	state.Status = specs.StateCreated
+	pid := forkCmd.Process.Pid
 	state.Pid = pid
 	if err := internal.SaveState(state); err != nil {
 		return fmt.Errorf("save created state: %w", err)

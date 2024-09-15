@@ -1,9 +1,16 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nixpig/brownie/internal/commands"
+	"github.com/nixpig/brownie/pkg"
+	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
@@ -12,10 +19,11 @@ var Root = &cobra.Command{
 	Short:   "An experimental Linux container runtime.",
 	Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
 	Example: "",
+	Version: "0.0.1",
 }
 
-func createCmd() *cobra.Command {
-	var create = &cobra.Command{
+func createCmd(log *zerolog.Logger) *cobra.Command {
+	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
 		Args:    cobra.ExactArgs(1),
@@ -45,7 +53,7 @@ func createCmd() *cobra.Command {
 				PIDFile:       pidFile,
 			}
 
-			return commands.Create(opts)
+			return commands.Create(opts, log)
 		},
 	}
 
@@ -57,16 +65,24 @@ func createCmd() *cobra.Command {
 	return create
 }
 
-var Start = &cobra.Command{
-	Use:     "start [flags] CONTAINER_ID",
-	Short:   "Start a container",
-	Args:    cobra.ExactArgs(1),
-	Example: "  brownie start busybox",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerID := args[0]
+func startCmd(log *zerolog.Logger) *cobra.Command {
+	start := &cobra.Command{
+		Use:     "start [flags] CONTAINER_ID",
+		Short:   "Start a container",
+		Args:    cobra.ExactArgs(1),
+		Example: "  brownie start busybox",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			containerID := args[0]
 
-		return commands.Start(containerID)
-	},
+			opts := &commands.StartOpts{
+				ID: containerID,
+			}
+
+			return commands.Start(opts, log)
+		},
+	}
+
+	return start
 }
 
 var Kill = &cobra.Command{
@@ -94,41 +110,88 @@ var Delete = &cobra.Command{
 	},
 }
 
-var Fork = &cobra.Command{
-	Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
-	Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-	Args:    cobra.ExactArgs(3),
-	Example: "\n -- FOR INTERNAL USE ONLY --",
-	Hidden:  true,
-	Run: func(cmd *cobra.Command, args []string) {
-		containerID := args[0]
-		initSockAddr := args[1]
-		containerSockAddr := args[2]
+func forkCmd(log *zerolog.Logger) *cobra.Command {
+	fork := &cobra.Command{
+		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
+		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
+		Args:    cobra.ExactArgs(4),
+		Example: "\n -- FOR INTERNAL USE ONLY --",
+		Hidden:  true,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			stage := args[0]
+			containerID := args[1]
+			initSockAddr := args[2]
+			containerSockAddr := args[3]
 
-		commands.Fork(containerID, initSockAddr, containerSockAddr)
-	},
+			if commands.ForkStage(stage) != commands.ForkIntermediate && commands.ForkStage(stage) != commands.ForkDetached {
+				return errors.New("invalidate fork stage")
+			}
+
+			opts := &commands.ForkOpts{
+				ID:                containerID,
+				InitSockAddr:      initSockAddr,
+				ContainerSockAddr: containerSockAddr,
+				Stage:             commands.ForkStage(stage),
+			}
+
+			return commands.Fork(opts, log)
+		},
+	}
+
+	return fork
 }
 
-var QueryState = &cobra.Command{
-	Use:     "state [flags] CONTAINER_ID",
-	Short:   "Query a container state",
-	Args:    cobra.ExactArgs(1),
-	Example: "  brownie state busybox",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerID := args[0]
+func stateCmd(log *zerolog.Logger) *cobra.Command {
+	state := &cobra.Command{
+		Use:     "state [flags] CONTAINER_ID",
+		Short:   "Query a container state",
+		Args:    cobra.ExactArgs(1),
+		Example: "  brownie state busybox",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			containerID := args[0]
 
-		return commands.QueryState(containerID)
-	},
+			opts := &commands.StateOpts{
+				ID: containerID,
+			}
+
+			state, err := commands.State(opts, log)
+			if err != nil {
+				e := cmd.ErrOrStderr()
+				e.Write([]byte(err.Error()))
+				return err
+			}
+
+			var prettified bytes.Buffer
+			json.Indent(&prettified, []byte(state), "", "  ")
+
+			fmt.Fprint(cmd.OutOrStdout(), prettified.String())
+			return nil
+		},
+	}
+
+	return state
 }
 
 func init() {
+	logfile, err := os.OpenFile(
+		filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log"),
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+	if err != nil {
+		fmt.Println("open log file: %w", err)
+		os.Exit(1)
+	}
+
+	log := zerolog.New(logfile).With().Timestamp().Logger()
+
 	Root.AddCommand(
-		createCmd(),
-		Start,
-		QueryState,
+		createCmd(&log),
+		startCmd(&log),
+		stateCmd(&log),
 		Delete,
 		Kill,
-		Fork,
+		forkCmd(&log),
 	)
 
 	Root.CompletionOptions.HiddenDefaultCmd = true
