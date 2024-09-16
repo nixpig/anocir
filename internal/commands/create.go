@@ -2,11 +2,14 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"time"
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
@@ -23,6 +26,27 @@ type CreateOpts struct {
 }
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
+	absBundlePath, err := filepath.Abs(opts.Bundle)
+	if err != nil {
+		return fmt.Errorf("absolute path to bundle: %w", err)
+	}
+
+	bundleSpecPath := filepath.Join(absBundlePath, "config.json")
+
+	bundleSpecJSON, err := os.ReadFile(bundleSpecPath)
+	if err != nil {
+		return fmt.Errorf("read spec from bundle: %w", err)
+	}
+
+	var spec specs.Spec
+	if err := json.Unmarshal(bundleSpecJSON, &spec); err != nil {
+		return fmt.Errorf("parse spec: %w", err)
+	}
+
+	if spec.Linux == nil {
+		return errors.New("not a linux container")
+	}
+
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 
 	if stat, _ := os.Stat(containerPath); stat != nil {
@@ -31,21 +55,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	if err := os.MkdirAll(containerPath, os.ModeDir); err != nil {
 		return fmt.Errorf("make brownie container directory: %w", err)
-	}
-
-	absBundlePath, err := filepath.Abs(opts.Bundle)
-	if err != nil {
-		return fmt.Errorf("get absolute path to bundle: %w", err)
-	}
-
-	configJSON, err := os.ReadFile(filepath.Join(absBundlePath, "config.json"))
-	if err != nil {
-		return fmt.Errorf("read spec: %w", err)
-	}
-
-	var spec specs.Spec
-	if err := json.Unmarshal(configJSON, &spec); err != nil {
-		return fmt.Errorf("parse config: %w", err)
 	}
 
 	state := &specs.State{
@@ -57,35 +66,44 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 
 	if err := internal.SaveState(state); err != nil {
-		return fmt.Errorf("save state (creating): %w", err)
+		return fmt.Errorf("save creating state: %w", err)
 	}
 
 	bundleRootfs := filepath.Join(absBundlePath, spec.Root.Path)
 	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
-	containerConfigPath := filepath.Join(containerPath, "config.json")
+	containerSpecPath := filepath.Join(containerPath, "config.json")
 
 	if err := cp.Copy(bundleRootfs, containerRootfs); err != nil {
 		return fmt.Errorf("copy bundle rootfs to container rootfs: %w", err)
 	}
 
-	if err := cp.Copy(filepath.Join(absBundlePath, "config.json"), containerConfigPath); err != nil {
-		return fmt.Errorf("copy container spec: %w", err)
+	if err := cp.Copy(bundleSpecPath, containerSpecPath); err != nil {
+		return fmt.Errorf("copy bundle spec to container spec: %w", err)
 	}
 
 	if spec.Hooks != nil {
 		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 		if err := internal.ExecHooks(spec.Hooks.CreateRuntime); err != nil {
-			return fmt.Errorf("run createRuntime hooks: %w", err)
+			return fmt.Errorf("execute createruntime hooks: %w", err)
 		}
 
 		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 		if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
-			return fmt.Errorf("run createContainer hooks: %w", err)
+			return fmt.Errorf("execute createcontainer hooks: %w", err)
 		}
 	}
 
 	initSockAddr := filepath.Join(containerPath, "init.sock")
 	containerSockAddr := filepath.Join(containerPath, "container.sock")
+
+	if err := os.RemoveAll(initSockAddr); err != nil {
+		return err
+	}
+	listener, err := net.Listen("unix", initSockAddr)
+	if err != nil {
+		return fmt.Errorf("failed to listen on init socket: %w", err)
+	}
+	defer listener.Close()
 
 	forkCmd := exec.Command(
 		"/proc/self/exe",
@@ -97,22 +115,9 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			containerSockAddr,
 		}...)
 
-	forkCmd.Stdout = os.Stdout
-	forkCmd.Stderr = os.Stderr
 	if err := forkCmd.Run(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
-
-	// wait for container to be ready
-	if err := os.RemoveAll(initSockAddr); err != nil {
-		return err
-	}
-
-	listener, err := net.Listen("unix", initSockAddr)
-	if err != nil {
-		return fmt.Errorf("failed to listen on init socket: %w", err)
-	}
-	defer listener.Close()
 
 	initConn, err := listener.Accept()
 	if err != nil {
@@ -122,17 +127,23 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	b := make([]byte, 128)
 
+	fmt.Println("listening on: ", initSockAddr)
 	for {
+		time.Sleep(time.Second)
+
 		n, err := initConn.Read(b)
 		if err != nil || n == 0 {
+			if err == io.EOF {
+				fmt.Println("error: received EOF from socket")
+				os.Exit(1)
+			}
+
+			fmt.Println("error: ", err)
 			continue
 		}
 
-		if len(b) > 0 {
-			log.Info().Str("msg", string(b)).Msg("received")
-		}
-
 		if len(b) >= 5 && string(b[:5]) == "ready" {
+			fmt.Println("received 'ready' message")
 			log.Info().Msg("received 'ready' message")
 			break
 		}

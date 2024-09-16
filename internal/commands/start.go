@@ -84,7 +84,15 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// presumably this needs to be redirected to the pty (if specified in config)?
 	log.Info().Str("output", string(b)).Msg("run command output")
 	fmt.Println(string(b))
+	fmt.Fprint(os.Stdout, b)
 	os.Stdout.Write(b)
+	f, _ := os.OpenFile(
+		"out.txt",
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+	f.Write(b)
+	conn.Write(b)
 
 	// 9. Invoke poststart hooks
 	if spec.Hooks != nil {

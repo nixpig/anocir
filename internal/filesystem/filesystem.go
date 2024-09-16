@@ -1,10 +1,8 @@
 package filesystem
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
-	"strings"
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -22,7 +20,14 @@ var (
 	FifoDevice           = "p"
 )
 
-var defaultDevices = []specs.LinuxDevice{
+var DefaultSymlinks = map[string]string{
+	"/proc/self/fd":   "dev/fd",
+	"/proc/self/fd/0": "dev/stdin",
+	"/proc/self/fd/1": "dev/stdout",
+	"/proc/self/fd/2": "dev/stderr",
+}
+
+var DefaultDevices = []specs.LinuxDevice{
 	{
 		Path:     "/dev/null",
 		Type:     CharDevice,
@@ -34,18 +39,18 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 	{
 		Type:     CharDevice,
-		Path:     "/dev/full",
+		Path:     "/dev/zero",
 		Major:    1,
-		Minor:    7,
+		Minor:    5,
 		FileMode: &defaultFileMode,
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
 	{
 		Type:     CharDevice,
-		Path:     "/dev/zero",
+		Path:     "/dev/full",
 		Major:    1,
-		Minor:    5,
+		Minor:    7,
 		FileMode: &defaultFileMode,
 		UID:      &defaultUID,
 		GID:      &defaultGID,
@@ -77,29 +82,15 @@ var defaultDevices = []specs.LinuxDevice{
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
-}
-
-func MountDefaultDevices(containerRootfs string) error {
-	for _, dev := range defaultDevices {
-		relativePath := strings.TrimLeft(dev.Path, "/")
-		containerPath := filepath.Join(containerRootfs, relativePath)
-
-		if err := os.MkdirAll(containerPath, *dev.FileMode); err != nil {
-			return fmt.Errorf("ensure dev destination exists: %w", err)
-		}
-
-		if err := syscall.Mount(
-			"tmpfs",
-			containerPath,
-			"tmpfs",
-			uintptr(0),
-			"",
-		); err != nil {
-			return fmt.Errorf("mount device: %w", err)
-		}
-	}
-
-	return nil
+	{
+		Type:     CharDevice,
+		Path:     "/dev/ptmx",
+		Major:    5,
+		Minor:    0,
+		FileMode: &defaultFileMode,
+		UID:      &defaultUID,
+		GID:      &defaultGID,
+	},
 }
 
 func MountProc(containerRootfs string) error {

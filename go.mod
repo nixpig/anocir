@@ -9,6 +9,7 @@ require (
 )
 
 require (
+	github.com/creack/pty v1.1.23 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/nixpig/brownie/pkg"
@@ -29,6 +30,8 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+
 			containerID := args[0]
 
 			bundle, err := cmd.Flags().GetString("bundle")
@@ -72,6 +75,7 @@ func startCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie start busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
 			containerID := args[0]
 
 			opts := &commands.StartOpts{
@@ -118,6 +122,8 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+
 			stage := args[0]
 			containerID := args[1]
 			initSockAddr := args[2]
@@ -148,6 +154,8 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie state busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+
 			containerID := args[0]
 
 			opts := &commands.StateOpts{
