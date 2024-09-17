@@ -3,24 +3,36 @@ package cmd
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 
 	"github.com/nixpig/brownie/internal/commands"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-var Root = &cobra.Command{
-	Use:     "brownie",
-	Short:   "An experimental Linux container runtime.",
-	Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
-	Example: "",
-	Version: "0.0.1",
+func RootCmd(log *zerolog.Logger) *cobra.Command {
+	root := &cobra.Command{
+		Use:     "brownie",
+		Short:   "An experimental Linux container runtime.",
+		Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
+		Example: "",
+		Version: "0.0.1",
+	}
+
+	root.AddCommand(
+		createCmd(log),
+		startCmd(log),
+		stateCmd(log),
+		deleteCmd(log),
+		killCmd(log),
+		forkCmd(log),
+	)
+
+	root.CompletionOptions.HiddenDefaultCmd = true
+
+	return root
 }
 
 func createCmd(log *zerolog.Logger) *cobra.Command {
@@ -89,55 +101,57 @@ func startCmd(log *zerolog.Logger) *cobra.Command {
 	return start
 }
 
-var Kill = &cobra.Command{
-	Use:     "kill [flags] CONTAINER_ID SIGNAL",
-	Short:   "Kill a container",
-	Args:    cobra.ExactArgs(2),
-	Example: "  brownie delete busybox 9",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerID := args[0]
-		signal := args[1]
+func killCmd(log *zerolog.Logger) *cobra.Command {
+	kill := &cobra.Command{
+		Use:     "kill [flags] CONTAINER_ID SIGNAL",
+		Short:   "Kill a container",
+		Args:    cobra.ExactArgs(2),
+		Example: "  brownie delete busybox 9",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			containerID := args[0]
+			signal := args[1]
 
-		return commands.Kill(containerID, signal)
-	},
+			return commands.Kill(containerID, signal)
+		},
+	}
+
+	return kill
 }
 
-var Delete = &cobra.Command{
-	Use:     "delete [flags] CONTAINER_ID",
-	Short:   "Delete a container",
-	Args:    cobra.ExactArgs(1),
-	Example: "  brownie delete busybox",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		containerID := args[0]
+func deleteCmd(log *zerolog.Logger) *cobra.Command {
+	delete := &cobra.Command{
+		Use:     "delete [flags] CONTAINER_ID",
+		Short:   "Delete a container",
+		Args:    cobra.ExactArgs(1),
+		Example: "  brownie delete busybox",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			containerID := args[0]
 
-		return commands.Delete(containerID)
-	},
+			return commands.Delete(containerID)
+		},
+	}
+
+	return delete
 }
 
 func forkCmd(log *zerolog.Logger) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(4),
+		Args:    cobra.ExactArgs(3),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Str(cmd.Name(), strings.Join(args, " "))
 
-			stage := args[0]
-			containerID := args[1]
-			initSockAddr := args[2]
-			containerSockAddr := args[3]
-
-			if commands.ForkStage(stage) != commands.ForkIntermediate && commands.ForkStage(stage) != commands.ForkDetached {
-				return errors.New("invalidate fork stage")
-			}
+			containerID := args[0]
+			initSockAddr := args[1]
+			containerSockAddr := args[2]
 
 			opts := &commands.ForkOpts{
 				ID:                containerID,
 				InitSockAddr:      initSockAddr,
 				ContainerSockAddr: containerSockAddr,
-				Stage:             commands.ForkStage(stage),
 			}
 
 			return commands.Fork(opts, log)
@@ -178,29 +192,4 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 	}
 
 	return state
-}
-
-func init() {
-	logfile, err := os.OpenFile(
-		filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log"),
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0644,
-	)
-	if err != nil {
-		fmt.Println("open log file: %w", err)
-		os.Exit(1)
-	}
-
-	log := zerolog.New(logfile).With().Timestamp().Logger()
-
-	Root.AddCommand(
-		createCmd(&log),
-		startCmd(&log),
-		stateCmd(&log),
-		Delete,
-		Kill,
-		forkCmd(&log),
-	)
-
-	Root.CompletionOptions.HiddenDefaultCmd = true
 }

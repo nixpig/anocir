@@ -20,7 +20,7 @@ var (
 	FifoDevice           = "p"
 )
 
-var DefaultSymlinks = map[string]string{
+var DefaultFileDescriptors = map[string]string{
 	"/proc/self/fd":   "dev/fd",
 	"/proc/self/fd/0": "dev/stdin",
 	"/proc/self/fd/1": "dev/stdout",

@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"syscall"
 	"time"
 
 	"github.com/nixpig/brownie/internal"
@@ -109,15 +110,63 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		"/proc/self/exe",
 		[]string{
 			"fork",
-			string(ForkIntermediate),
 			opts.ID,
 			initSockAddr,
 			containerSockAddr,
 		}...)
 
-	if err := forkCmd.Run(); err != nil {
+	var cloneFlags uintptr
+	log.Info().Msg("convert namespaces to flags")
+	for _, ns := range spec.Linux.Namespaces {
+		ns := internal.LinuxNamespace(ns)
+		flag, err := ns.ToFlag()
+		if err != nil {
+			log.Error().Err(err).Msg("convert namespace to flag")
+			return fmt.Errorf("convert namespace to flag: %w", err)
+		}
+
+		cloneFlags = cloneFlags | flag
+	}
+	log.Info().Msg("set sysprocattr")
+	// apply configuration, e.g. devices, proc, etc...
+	forkCmd.SysProcAttr = &syscall.SysProcAttr{
+		// TODO: presumably this should be clone flags from namespaces in the config spec??
+		Cloneflags: cloneFlags,
+		// Cloneflags: syscall.CLONE_NEWUTS |
+		// 	syscall.CLONE_NEWPID |
+		// 	syscall.CLONE_NEWUSER |
+		// 	syscall.CLONE_NEWNET |
+		// 	syscall.CLONE_NEWNS,
+		Unshareflags: syscall.CLONE_NEWNS,
+		UidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: int(spec.Process.User.UID),
+				HostID:      os.Geteuid(),
+				Size:        1,
+			},
+		},
+		GidMappings: []syscall.SysProcIDMap{
+			{
+				ContainerID: int(spec.Process.User.GID),
+				HostID:      os.Getegid(),
+				Size:        1,
+			},
+		},
+	}
+
+	forkCmd.Env = spec.Process.Env
+
+	log.Info().Msg("start fork cmd")
+	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
+
+	log.Info().Msg("release second fork process")
+	if err := forkCmd.Process.Release(); err != nil {
+		log.Error().Err(err).Msg("detach fork")
+		return err
+	}
+	log.Info().Msg("process successfully released")
 
 	initConn, err := listener.Accept()
 	if err != nil {

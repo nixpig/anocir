@@ -83,9 +83,7 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// FIXME: print output from command run inside container??
 	// presumably this needs to be redirected to the pty (if specified in config)?
 	log.Info().Str("output", string(b)).Msg("run command output")
-	fmt.Println(string(b))
-	fmt.Fprint(os.Stdout, b)
-	os.Stdout.Write(b)
+	fmt.Fprint(os.Stdout, string(b))
 	f, _ := os.OpenFile(
 		"out.txt",
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
