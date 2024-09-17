@@ -19,12 +19,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func server(conn net.Conn, spec specs.Spec) {
+func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Logger) {
 	defer conn.Close()
 
 	b := make([]byte, 128)
 
 	for {
+		log.Info().Msg("reading in fork...")
 		n, err := conn.Read(b)
 		if err != nil {
 			// TODO: log it
@@ -37,12 +38,31 @@ func server(conn net.Conn, spec specs.Spec) {
 
 		switch string(b[:n]) {
 		case "start":
+			log.Info().Msg("fork received 'start' command")
+			log.Info().Str("command", spec.Process.Args[0]).Msg("command")
+			log.Info().Str("args", strings.Join(spec.Process.Args[:1], ",")).Msg("args")
 			cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
-			cmd.Stdout = conn
-			cmd.Stderr = conn
-			if err := cmd.Run(); err != nil {
-				conn.Write([]byte(err.Error()))
+
+			log.Info().Msg("opening out.txt for writing")
+			f, err := os.OpenFile(
+				"out.txt",
+				os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+				0644,
+			)
+			if err != nil {
+				log.Error().Err(err).Msg("open out file")
 			}
+			abs, _ := filepath.Abs(f.Name())
+			log.Info().Str("name", abs).Msg("out file")
+			cmd.Stdout = f
+			cmd.Stderr = f
+			if err := cmd.Run(); err != nil {
+				log.Error().Err(err).Msg("error executing underlying command")
+				conn.Write([]byte(err.Error()))
+			} else {
+				conn.Write([]byte("apparently executed successfully???"))
+			}
+
 			return
 		}
 	}
@@ -261,8 +281,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			continue
 		}
 
-		go server(containerConn, spec)
+		go server(containerConn, opts.ID, spec, log)
 	}
 
-	return nil
 }

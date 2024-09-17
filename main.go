@@ -23,7 +23,8 @@ func main() {
 
 	log := zerolog.New(logfile).With().Timestamp().Logger()
 
-	if err := cmd.RootCmd(&log).Execute(); err != nil {
+	rootCmd := cmd.RootCmd(&log)
+	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}

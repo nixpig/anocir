@@ -73,6 +73,11 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 
+	state.Status = specs.StateRunning
+	if err := internal.SaveState(state); err != nil {
+		log.Error().Err(err).Msg("failed to save state")
+	}
+
 	log.Info().Msg("reading from connection")
 	b, err := io.ReadAll(conn)
 	if err != nil {
@@ -84,12 +89,6 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// presumably this needs to be redirected to the pty (if specified in config)?
 	log.Info().Str("output", string(b)).Msg("run command output")
 	fmt.Fprint(os.Stdout, string(b))
-	f, _ := os.OpenFile(
-		"out.txt",
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0644,
-	)
-	f.Write(b)
 	conn.Write(b)
 
 	// 9. Invoke poststart hooks
@@ -99,6 +98,11 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 			log.Error().Err(err).Msg("start: exec poststart hooks")
 			return fmt.Errorf("execute poststart hooks: %w", err)
 		}
+	}
+
+	state.Status = specs.StateStopped
+	if err := internal.SaveState(state); err != nil {
+		return fmt.Errorf("save state: %w", err)
 	}
 
 	return nil

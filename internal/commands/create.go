@@ -127,9 +127,16 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 		cloneFlags = cloneFlags | flag
 	}
+
+	var capabilityFlags []uintptr
+	// for _, cap := range spec.Process.Capabilities.Ambient {
+	// 	capabilityFlags = append(capabilityFlags, uintptr(pkg.Capabilities[cap]))
+	// }
+
 	log.Info().Msg("set sysprocattr")
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
+		AmbientCaps: capabilityFlags,
 		// TODO: presumably this should be clone flags from namespaces in the config spec??
 		Cloneflags: cloneFlags,
 		// Cloneflags: syscall.CLONE_NEWUTS |
@@ -137,21 +144,22 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		// 	syscall.CLONE_NEWUSER |
 		// 	syscall.CLONE_NEWNET |
 		// 	syscall.CLONE_NEWNS,
-		Unshareflags: syscall.CLONE_NEWNS,
-		UidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: int(spec.Process.User.UID),
-				HostID:      os.Geteuid(),
-				Size:        1,
-			},
-		},
-		GidMappings: []syscall.SysProcIDMap{
-			{
-				ContainerID: int(spec.Process.User.GID),
-				HostID:      os.Getegid(),
-				Size:        1,
-			},
-		},
+		Unshareflags:               syscall.CLONE_NEWNS,
+		GidMappingsEnableSetgroups: false,
+		// UidMappings: []syscall.SysProcIDMap{
+		// 	{
+		// 		ContainerID: int(spec.Process.User.UID),
+		// 		HostID:      os.Geteuid(),
+		// 		Size:        1,
+		// 	},
+		// },
+		// GidMappings: []syscall.SysProcIDMap{
+		// 	{
+		// 		ContainerID: int(spec.Process.User.GID),
+		// 		HostID:      os.Getegid(),
+		// 		Size:        1,
+		// 	},
+		// },
 	}
 
 	forkCmd.Env = spec.Process.Env
