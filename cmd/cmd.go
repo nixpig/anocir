@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -22,8 +23,8 @@ func RootCmd(log *zerolog.Logger) *cobra.Command {
 	}
 
 	root.AddCommand(
-		createCmd(log),
-		startCmd(log),
+		createCmd(log, root.OutOrStdout()),
+		startCmd(log, root.OutOrStdout()),
 		stateCmd(log),
 		deleteCmd(log),
 		killCmd(log),
@@ -35,7 +36,7 @@ func RootCmd(log *zerolog.Logger) *cobra.Command {
 	return root
 }
 
-func createCmd(log *zerolog.Logger) *cobra.Command {
+func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -43,6 +44,8 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+			fmt.Println("create", args)
+			stdout.Write([]byte("something in here!!"))
 
 			containerID := args[0]
 
@@ -80,7 +83,7 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger) *cobra.Command {
+func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -88,6 +91,9 @@ func startCmd(log *zerolog.Logger) *cobra.Command {
 		Example: "  brownie start busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+			fmt.Println("start", args)
+			cmd.Println("SOMETHING FROM STDOUT OF START CMD")
+			stdout.Write([]byte("MORE FROM START..."))
 			containerID := args[0]
 
 			opts := &commands.StartOpts{

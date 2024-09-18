@@ -85,11 +85,11 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
-	// FIXME: print output from command run inside container??
-	// presumably this needs to be redirected to the pty (if specified in config)?
+	// FIXME: how do we redirect this to the stdout of the calling process?
+	// E.g. when being run in tests.
 	log.Info().Str("output", string(b)).Msg("run command output")
-	fmt.Fprint(os.Stdout, string(b))
-	conn.Write(b)
+	fmt.Fprint(os.Stdout, string(b)) // this doesn't work :/
+	fmt.Println("this is start")
 
 	// 9. Invoke poststart hooks
 	if spec.Hooks != nil {

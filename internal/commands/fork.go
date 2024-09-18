@@ -54,8 +54,8 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 			}
 			abs, _ := filepath.Abs(f.Name())
 			log.Info().Str("name", abs).Msg("out file")
-			cmd.Stdout = f
-			cmd.Stderr = f
+			cmd.Stdout = conn
+			cmd.Stderr = conn
 			if err := cmd.Run(); err != nil {
 				log.Error().Err(err).Msg("error executing underlying command")
 				conn.Write([]byte(err.Error()))

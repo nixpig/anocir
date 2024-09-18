@@ -128,38 +128,54 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		cloneFlags = cloneFlags | flag
 	}
 
+	var uidMappings []syscall.SysProcIDMap
+	var gidMappings []syscall.SysProcIDMap
+	if spec.Process != nil {
+		cloneFlags = cloneFlags | syscall.CLONE_NEWUSER
+
+		uidMappings = append(uidMappings, syscall.SysProcIDMap{
+			ContainerID: int(spec.Process.User.UID),
+			HostID:      os.Geteuid(),
+			Size:        1,
+		})
+
+		gidMappings = append(gidMappings, syscall.SysProcIDMap{
+			ContainerID: int(spec.Process.User.GID),
+			HostID:      os.Getegid(),
+			Size:        1,
+		})
+	}
+
+	for _, uidMapping := range spec.Linux.UIDMappings {
+		uidMappings = append(uidMappings, syscall.SysProcIDMap{
+			ContainerID: int(uidMapping.ContainerID),
+			HostID:      int(uidMapping.HostID),
+			Size:        int(uidMapping.Size),
+		})
+	}
+
+	for _, gidMapping := range spec.Linux.GIDMappings {
+		gidMappings = append(gidMappings, syscall.SysProcIDMap{
+			ContainerID: int(gidMapping.ContainerID),
+			HostID:      int(gidMapping.HostID),
+			Size:        int(gidMapping.Size),
+		})
+	}
+
 	var capabilityFlags []uintptr
-	// for _, cap := range spec.Process.Capabilities.Ambient {
-	// 	capabilityFlags = append(capabilityFlags, uintptr(pkg.Capabilities[cap]))
-	// }
+	for _, cap := range spec.Process.Capabilities.Ambient {
+		capabilityFlags = append(capabilityFlags, uintptr(pkg.Capabilities[cap]))
+	}
 
 	log.Info().Msg("set sysprocattr")
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps: capabilityFlags,
-		// TODO: presumably this should be clone flags from namespaces in the config spec??
-		Cloneflags: cloneFlags,
-		// Cloneflags: syscall.CLONE_NEWUTS |
-		// 	syscall.CLONE_NEWPID |
-		// 	syscall.CLONE_NEWUSER |
-		// 	syscall.CLONE_NEWNET |
-		// 	syscall.CLONE_NEWNS,
+		AmbientCaps:                capabilityFlags,
+		Cloneflags:                 cloneFlags,
 		Unshareflags:               syscall.CLONE_NEWNS,
 		GidMappingsEnableSetgroups: false,
-		// UidMappings: []syscall.SysProcIDMap{
-		// 	{
-		// 		ContainerID: int(spec.Process.User.UID),
-		// 		HostID:      os.Geteuid(),
-		// 		Size:        1,
-		// 	},
-		// },
-		// GidMappings: []syscall.SysProcIDMap{
-		// 	{
-		// 		ContainerID: int(spec.Process.User.GID),
-		// 		HostID:      os.Getegid(),
-		// 		Size:        1,
-		// 	},
-		// },
+		UidMappings:                uidMappings,
+		GidMappings:                gidMappings,
 	}
 
 	forkCmd.Env = spec.Process.Env

@@ -24,6 +24,17 @@ func main() {
 	log := zerolog.New(logfile).With().Timestamp().Logger()
 
 	rootCmd := cmd.RootCmd(&log)
+
+	if os.Args[1] == "create" {
+
+		os.Stdout.Write([]byte(" >>> CREATED 1"))
+		rootCmd.OutOrStdout().Write([]byte(" >>> CREATED 2"))
+	}
+	if os.Args[1] == "start" {
+		os.Stdout.Write([]byte(" >>> STARTED 1"))
+		rootCmd.OutOrStdout().Write([]byte(" >>> STARTED 2"))
+	}
+
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
