@@ -185,7 +185,11 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("fork: %w", err)
 	}
 
-	log.Info().Msg("release second fork process")
+	state.Status = specs.StateCreated
+	pid := forkCmd.Process.Pid
+	state.Pid = pid
+
+	log.Info().Msg("release fork process")
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
@@ -222,9 +226,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	state.Status = specs.StateCreated
-	pid := forkCmd.Process.Pid
-	state.Pid = pid
 	if err := internal.SaveState(state); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}

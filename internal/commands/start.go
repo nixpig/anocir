@@ -100,7 +100,7 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	state.Status = specs.StateStopped
+	state.Status = specs.StateCreated
 	if err := internal.SaveState(state); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}

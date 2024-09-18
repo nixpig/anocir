@@ -248,7 +248,9 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 	log.Info().Msg("link default file descriptors")
 	for oldname, newname := range filesystem.DefaultFileDescriptors {
-		if err := os.Symlink(oldname, filepath.Join(containerRootfs, newname)); err != nil {
+		nn := filepath.Join(containerRootfs, newname)
+		log.Info().Str("newname", nn).Str("oldname", oldname).Msg("link default file descriptor")
+		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
 			return err
 		}
