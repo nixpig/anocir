@@ -116,7 +116,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}...)
 
 	var cloneFlags uintptr
-	log.Info().Msg("convert namespaces to flags")
 	for _, ns := range spec.Linux.Namespaces {
 		ns := internal.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
@@ -162,15 +161,14 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		})
 	}
 
-	var capabilityFlags []uintptr
+	var ambientCapsFlags []uintptr
 	for _, cap := range spec.Process.Capabilities.Ambient {
-		capabilityFlags = append(capabilityFlags, uintptr(pkg.Capabilities[cap]))
+		ambientCapsFlags = append(ambientCapsFlags, uintptr(pkg.Capabilities[cap]))
 	}
 
-	log.Info().Msg("set sysprocattr")
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps:                capabilityFlags,
+		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
 		Unshareflags:               syscall.CLONE_NEWNS,
 		GidMappingsEnableSetgroups: false,
@@ -180,21 +178,16 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	forkCmd.Env = spec.Process.Env
 
-	log.Info().Msg("start fork cmd")
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
 
-	state.Status = specs.StateCreated
-	pid := forkCmd.Process.Pid
-	state.Pid = pid
-
-	log.Info().Msg("release fork process")
+	// need to get the pid off the process _before_ releasing it
+	state.Pid = forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
 	}
-	log.Info().Msg("process successfully released")
 
 	initConn, err := listener.Accept()
 	if err != nil {
@@ -204,7 +197,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	b := make([]byte, 128)
 
-	fmt.Println("listening on: ", initSockAddr)
 	for {
 		time.Sleep(time.Second)
 
@@ -220,12 +212,12 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}
 
 		if len(b) >= 5 && string(b[:5]) == "ready" {
-			fmt.Println("received 'ready' message")
 			log.Info().Msg("received 'ready' message")
 			break
 		}
 	}
 
+	state.Status = specs.StateCreated
 	if err := internal.SaveState(state); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}

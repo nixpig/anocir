@@ -2,6 +2,7 @@ package commands
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -12,10 +13,12 @@ import (
 	"syscall"
 	"time"
 
+	capabiliities "github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
+	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/sys/unix"
 )
 
@@ -25,11 +28,9 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 	b := make([]byte, 128)
 
 	for {
-		log.Info().Msg("reading in fork...")
 		n, err := conn.Read(b)
 		if err != nil {
-			// TODO: log it
-			fmt.Println(fmt.Errorf("read from connection: %s", err))
+			log.Error().Err(err).Msg("read from connection")
 		}
 
 		if n == 0 {
@@ -43,24 +44,28 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 			log.Info().Str("args", strings.Join(spec.Process.Args[:1], ",")).Msg("args")
 			cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
 
-			log.Info().Msg("opening out.txt for writing")
-			f, err := os.OpenFile(
-				"out.txt",
-				os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-				0644,
-			)
+			stdoutpath, err := filepath.Abs(os.Stdout.Name())
 			if err != nil {
-				log.Error().Err(err).Msg("open out file")
+				continue
 			}
-			abs, _ := filepath.Abs(f.Name())
-			log.Info().Str("name", abs).Msg("out file")
+
+			log.Info().Str("stdoutpath", stdoutpath).Msg("path of os.Stdout (container)")
+
 			cmd.Stdout = conn
 			cmd.Stderr = conn
+
+			var ambientCapsFlags []uintptr
+			for _, cap := range spec.Process.Capabilities.Ambient {
+				ambientCapsFlags = append(ambientCapsFlags, uintptr(pkg.Capabilities[cap]))
+			}
+
+			cmd.SysProcAttr = &syscall.SysProcAttr{
+				AmbientCaps: ambientCapsFlags,
+			}
+
 			if err := cmd.Run(); err != nil {
 				log.Error().Err(err).Msg("error executing underlying command")
 				conn.Write([]byte(err.Error()))
-			} else {
-				conn.Write([]byte("apparently executed successfully???"))
 			}
 
 			return
@@ -121,13 +126,11 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	// 	initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
 	// }
 
-	log.Info().Msg("mount rootfs")
 	if err := filesystem.MountRootfs(containerRootfs); err != nil {
 		log.Error().Err(err).Msg("mount rootfs")
 		return err
 	}
 
-	log.Info().Msg("mount spec mounts")
 	for _, mount := range spec.Mounts {
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
@@ -136,15 +139,12 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			dest = mount.Destination
 		}
 
-		log.Info().Str("dest", dest).Msg("check if spec mount destination exists")
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {
 				log.Error().Err(err).Msg("check if spec mount destination exists")
 				return err
 			}
 
-			log.Info().Str("dest", dest).Msg("spec mount dest doesn't exist")
-			log.Info().Str("dest", dest).Msg("create directory for spec mount")
 			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
 				log.Error().Err(err).Str("dest", dest).Msg("make spec mount dir")
 				return err
@@ -195,7 +195,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().Msg("create spec devices")
 	for _, dev := range spec.Linux.Devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -214,14 +213,12 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			return err
 		}
 
-		log.Info().Msg("chown device node")
 		if err := os.Chown(absPath, int(*dev.UID), int(*dev.GID)); err != nil {
 			log.Error().Err(err).Str("path", absPath).Uint32("UID", *dev.UID).Uint32("GID", *dev.GID).Msg("chown device node")
 			return err
 		}
 	}
 
-	log.Info().Msg("create default devices")
 	for _, dev := range filesystem.DefaultDevices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -233,10 +230,11 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if err := unix.Mknod(
 			absPath,
+			// syscall.S_IFCHR|uint32(*dev.FileMode),
 			uint32(*dev.FileMode),
 			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
 		); err != nil {
-			log.Error().Err(err).Msg("mount default device")
+			log.Error().Err(err).Msg("make default device (mknod)")
 			return err
 		}
 
@@ -246,36 +244,100 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().Msg("link default file descriptors")
 	for oldname, newname := range filesystem.DefaultFileDescriptors {
 		nn := filepath.Join(containerRootfs, newname)
-		log.Info().Str("newname", nn).Str("oldname", oldname).Msg("link default file descriptor")
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
 			return err
 		}
 	}
 
-	log.Info().Msg("set hostname")
 	if err := syscall.Sethostname([]byte(spec.Hostname)); err != nil {
 		log.Error().Err(err).Str("hostname", spec.Hostname).Msg("set hostname")
 		return err
 	}
 
-	log.Info().Msg("pivot rootfs")
 	if err := filesystem.PivotRootfs(containerRootfs); err != nil {
 		log.Error().Err(err).Msg("pivot rootfs")
 		return err
 	}
 
+	if spec.Process.Capabilities != nil {
+		caps := spec.Process.Capabilities
+
+		c, err := capability.NewPid2(0)
+		if err != nil {
+			log.Error().Err(err).Msg("new capabilities")
+		}
+
+		c.Clear(
+			capability.INHERITABLE |
+				capability.EFFECTIVE |
+				capability.BOUNDING |
+				capability.PERMITTED,
+		)
+
+		if caps.Bounding != nil {
+			for _, e := range caps.Bounding {
+				if v, ok := capabiliities.Capabilities[e]; ok {
+					c.Set(capability.BOUNDING, capability.Cap(v))
+				} else {
+					log.Error().Err(errors.New(fmt.Sprintf("set bounding capability: %s", e))).Msg("set effective capability")
+					continue
+				}
+			}
+		}
+
+		if caps.Effective != nil {
+			for _, e := range caps.Effective {
+				if v, ok := capabiliities.Capabilities[e]; ok {
+					c.Set(capability.EFFECTIVE, capability.Cap(v))
+				} else {
+					log.Error().Err(errors.New(fmt.Sprintf("set effective capability: %s", e))).Msg("set effective capability")
+					continue
+				}
+			}
+		}
+
+		if caps.Permitted != nil {
+			for _, e := range caps.Permitted {
+				if v, ok := capabiliities.Capabilities[e]; ok {
+					c.Set(capability.PERMITTED, capability.Cap(v))
+				} else {
+					log.Error().Err(errors.New(fmt.Sprintf("set permitted capability: %s", e))).Msg("set effective capability")
+					continue
+				}
+			}
+		}
+
+		if caps.Inheritable != nil {
+			for _, e := range caps.Inheritable {
+				if v, ok := capabiliities.Capabilities[e]; ok {
+					c.Set(capability.INHERITABLE, capability.Cap(v))
+				} else {
+					log.Error().Err(errors.New(fmt.Sprintf("set inheritable capability: %s", e))).Msg("set effective capability")
+				}
+			}
+		}
+
+		if err := c.Apply(
+			capability.INHERITABLE |
+				capability.EFFECTIVE |
+				capability.BOUNDING |
+				capability.PERMITTED,
+		); err != nil {
+			log.Error().Err(err).Msg("set capabilities")
+		}
+
+		log.Info().Msg(fmt.Sprintf("new: %s\n", c.String()))
+	}
+
 	time.Sleep(time.Second * 1) // give the listener in 'create' time to come up
-	log.Info().Str("socket", initConn.RemoteAddr().String()).Msg("send 'ready' message")
 	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
 		log.Error().Err(err).Msg("send 'ready' message")
 		return err
 	}
 
-	log.Info().Msg("wait for message...")
 	for {
 		containerConn, err := listener.Accept()
 		if err != nil {
@@ -285,5 +347,4 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		go server(containerConn, opts.ID, spec, log)
 	}
-
 }

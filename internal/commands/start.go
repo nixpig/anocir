@@ -20,27 +20,23 @@ type StartOpts struct {
 }
 
 func Start(opts *StartOpts, log *zerolog.Logger) error {
-	log.Info().Str("id", opts.ID).Msg("starting container")
 	state, err := internal.GetState(opts.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("start: get state")
 		return fmt.Errorf("get state: %w", err)
 	}
 
-	log.Info().Str("status", string(state.Status)).Msg("checking if created")
 	if state.Status != specs.StateCreated {
 		log.Error().Err(err).Msg("start: check state")
 		return errors.New("container not created")
 	}
 
-	log.Info().Msg("reading config json")
 	configJSON, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
 	if err != nil {
 		log.Error().Err(err).Msg("start: read config")
 		return fmt.Errorf("read config file: %w", err)
 	}
 
-	log.Info().Msg("unmarshaling config")
 	var spec specs.Spec
 	if err := json.Unmarshal(configJSON, &spec); err != nil {
 		log.Error().Err(err).Msg("unmarshal config")
@@ -49,7 +45,6 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 
 	// 7. Invoke startContainer hooks
 	if spec.Hooks != nil {
-		log.Info().Msg("executing startcontainer hooks")
 		if err := internal.ExecHooks(spec.Hooks.StartContainer); err != nil {
 			log.Error().Err(err).Msg("start: exec startcontainer hooks")
 			return fmt.Errorf("execute startContainer hooks: %w", err)
@@ -60,14 +55,12 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// and update state to Running
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 	containerSockAddr := filepath.Join(containerPath, "container.sock")
-	log.Info().Str("socket", containerSockAddr).Msg("dialing container socket")
 	conn, err := net.Dial("unix", containerSockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("start: dial socket")
 		return fmt.Errorf("dial socket: %w", err)
 	}
 
-	log.Info().Msg("sending start message")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		log.Error().Err(err).Msg("start: send start message")
 		return fmt.Errorf("send start over ipc: %w", err)
@@ -78,29 +71,38 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		log.Error().Err(err).Msg("failed to save state")
 	}
 
-	log.Info().Msg("reading from connection")
 	b, err := io.ReadAll(conn)
 	if err != nil {
 		log.Error().Err(err).Msg("start: read response")
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
+	fmt.Println("start opts: ", opts)
+
 	// FIXME: how do we redirect this to the stdout of the calling process?
 	// E.g. when being run in tests.
 	log.Info().Str("output", string(b)).Msg("run command output")
+	fmt.Fprintf(os.Stdout, "something to stdout")
+	fmt.Fprintf(os.Stderr, "something to stderr")
+	fmt.Println("something to println")
+	stdoutpath, err := filepath.Abs(os.Stdout.Name())
+	if err != nil {
+		return err
+	}
+	log.Info().Str("stdoutpath", stdoutpath).Msg("path of os.Stdout (host)")
 	fmt.Fprint(os.Stdout, string(b)) // this doesn't work :/
-	fmt.Println("this is start")
 
 	// 9. Invoke poststart hooks
 	if spec.Hooks != nil {
-		log.Info().Msg("executing poststart hooks")
 		if err := internal.ExecHooks(spec.Hooks.Poststart); err != nil {
 			log.Error().Err(err).Msg("start: exec poststart hooks")
 			return fmt.Errorf("execute poststart hooks: %w", err)
 		}
 	}
 
-	state.Status = specs.StateCreated
+	// FIXME: spec is unclear what this should be
+	// the tests are expecting it to be stopped, I think :/
+	state.Status = specs.StateStopped
 	if err := internal.SaveState(state); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}

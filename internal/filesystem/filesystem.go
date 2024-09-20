@@ -9,7 +9,7 @@ import (
 )
 
 var (
-	defaultFileMode        = os.FileMode(0066)
+	defaultFileMode        = os.FileMode(0666)
 	defaultUID      uint32 = 0
 	defaultGID      uint32 = 0
 

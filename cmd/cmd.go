@@ -44,8 +44,6 @@ func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-			fmt.Println("create", args)
-			stdout.Write([]byte("something in here!!"))
 
 			containerID := args[0]
 
@@ -91,9 +89,7 @@ func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 		Example: "  brownie start busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-			fmt.Println("start", args)
-			cmd.Println("SOMETHING FROM STDOUT OF START CMD")
-			stdout.Write([]byte("MORE FROM START..."))
+
 			containerID := args[0]
 
 			opts := &commands.StartOpts{
@@ -112,8 +108,10 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Kill a container",
 		Args:    cobra.ExactArgs(2),
-		Example: "  brownie delete busybox 9",
+		Example: "  brownie kill busybox 9",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+
 			containerID := args[0]
 			signal := args[1]
 
@@ -131,11 +129,25 @@ func deleteCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie delete busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Str(cmd.Name(), strings.Join(args, " "))
+
 			containerID := args[0]
 
-			return commands.Delete(containerID)
+			force, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+
+			opts := &commands.DeleteOpts{
+				ID:    containerID,
+				Force: force,
+			}
+
+			return commands.Delete(opts, log)
 		},
 	}
+
+	delete.Flags().BoolP("force", "f", false, "force delete")
 
 	return delete
 }
@@ -184,8 +196,6 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 
 			state, err := commands.State(opts, log)
 			if err != nil {
-				e := cmd.ErrOrStderr()
-				e.Write([]byte(err.Error()))
 				return err
 			}
 

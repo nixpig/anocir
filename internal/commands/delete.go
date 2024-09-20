@@ -10,15 +10,21 @@ import (
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func Delete(containerID string) error {
-	state, err := internal.GetState(containerID)
+type DeleteOpts struct {
+	ID    string
+	Force bool
+}
+
+func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
+	state, err := internal.GetState(opts.ID)
 	if err != nil {
 		return fmt.Errorf("get state: %w", err)
 	}
 
-	if state.Status != specs.StateStopped {
+	if !opts.Force && state.Status != specs.StateStopped {
 		return errors.New("container is not stopped")
 	}
 
@@ -26,7 +32,7 @@ func Delete(containerID string) error {
 		return fmt.Errorf("remove ipc socket: %w", err)
 	}
 
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 	if err := os.RemoveAll(containerPath); err != nil {
 		return fmt.Errorf("remove container path: %s", err)
 	}
