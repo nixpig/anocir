@@ -224,22 +224,13 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	for oldname, newname := range filesystem.DefaultFileDescriptors {
+	for oldname, newname := range filesystem.DefaultSymlinks {
 		nn := filepath.Join(containerRootfs, newname)
 		log.Info().Str("newname", nn).Msg("symlinking")
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
 			return err
 		}
-	}
-
-	// symlink ptms/ptmx
-	if err := os.Symlink(
-		"pts/ptmx",
-		filepath.Join(containerRootfs, "dev/ptmx"),
-	); err != nil {
-		log.Error().Err(err).Msg("symlink pts/ptmx")
-		return err
 	}
 
 	if err := syscall.Sethostname([]byte(spec.Hostname)); err != nil {

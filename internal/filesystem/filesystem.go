@@ -20,11 +20,12 @@ var (
 	FifoDevice           = "p"
 )
 
-var DefaultFileDescriptors = map[string]string{
+var DefaultSymlinks = map[string]string{
 	"/proc/self/fd":   "dev/fd",
 	"/proc/self/fd/0": "dev/stdin",
 	"/proc/self/fd/1": "dev/stdout",
 	"/proc/self/fd/2": "dev/stderr",
+	"pts/ptmx":        "dev/ptmx",
 }
 
 var DefaultDevices = []specs.LinuxDevice{
@@ -82,15 +83,6 @@ var DefaultDevices = []specs.LinuxDevice{
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
-	// {
-	// 	Type:     CharDevice,
-	// 	Path:     "/dev/ptmx",
-	// 	Major:    5,
-	// 	Minor:    2,
-	// 	FileMode: &defaultFileMode,
-	// 	UID:      &defaultUID,
-	// 	GID:      &defaultGID,
-	// },
 }
 
 func MountProc(containerRootfs string) error {
