@@ -116,6 +116,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			initSockAddr,
 			containerSockAddr,
 			strconv.Itoa(state.Pid),
+			opts.ConsoleSocket,
 		}...)
 
 	var cloneFlags uintptr
@@ -232,6 +233,12 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
+	}
+
+	// write pid to file if provided
+	if opts.PIDFile != "" {
+		pid := strconv.Itoa(state.Pid)
+		os.WriteFile(opts.PIDFile, []byte(pid), 0666)
 	}
 
 	initConn, err := listener.Accept()

@@ -148,7 +148,7 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(4),
+		Args:    cobra.ExactArgs(5),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -160,12 +160,14 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("convert pid string to int: %w", err)
 			}
+			consoleSocket := args[4]
 
 			opts := &commands.ForkOpts{
 				ID:                containerID,
 				InitSockAddr:      initSockAddr,
 				ContainerSockAddr: containerSockAddr,
 				PID:               ipid,
+				ConsoleSocket:     consoleSocket,
 			}
 
 			return commands.Fork(opts, log)

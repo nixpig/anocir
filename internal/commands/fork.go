@@ -7,7 +7,6 @@ import (
 	"net"
 	"os"
 	"os/exec"
-	"os/user"
 	"path/filepath"
 	"strings"
 	"syscall"
@@ -75,6 +74,7 @@ type ForkOpts struct {
 	InitSockAddr      string
 	ContainerSockAddr string
 	PID               int
+	ConsoleSocket     string
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
@@ -176,12 +176,8 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			flags,
 			data,
 		); err != nil {
-			c, _ := user.Current()
 			log.Error().Err(err).
-				Str("source", mount.Source).
-				Str("dest", dest).
-				Str("options", data).
-				Any("user", c).
+				Any("mount", mount).
 				Msg("mount spec mount")
 			return err
 		}
@@ -200,12 +196,20 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			f, err := os.Create(absPath)
 			if err != nil && !os.IsExist(err) {
 				log.Error().Err(err).Msg("create default device mount point")
+				return err
 			}
 			if f != nil {
 				f.Close()
 			}
-			if err := syscall.Mount(dev.Path, absPath, "bind", syscall.MS_BIND, ""); err != nil {
+			if err := syscall.Mount(
+				dev.Path,
+				absPath,
+				"bind",
+				syscall.MS_BIND,
+				"",
+			); err != nil {
 				log.Error().Err(err).Msg("bind mount default devices")
+				return err
 			}
 		}
 	}
@@ -238,6 +242,31 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		nn := filepath.Join(containerRootfs, newname)
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
+			return err
+		}
+	}
+
+	if opts.ConsoleSocket != "" {
+		f, err := os.Create(filepath.Join(containerRootfs, "dev/console"))
+		if err != nil && !os.IsExist(err) {
+			log.Error().Err(err).Msg("create /dev/console")
+			return err
+		}
+		if f != nil {
+			if err := f.Chmod(0666); err != nil {
+				log.Error().Err(err).Msg("set permission of /dev/console")
+				return err
+			}
+			f.Close()
+		}
+		if err := syscall.Mount(
+			filepath.Join(containerRootfs, "dev/console"),
+			opts.ConsoleSocket,
+			"bind",
+			syscall.MS_BIND,
+			"",
+		); err != nil {
+			log.Error().Err(err).Msg("bind mount /dev/console")
 			return err
 		}
 	}
@@ -344,6 +373,8 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		log.Error().Err(err).Msg("send 'ready' message")
 		return err
 	}
+
+	initConn.Close()
 
 	for {
 		containerConn, err := listener.Accept()
