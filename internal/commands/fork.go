@@ -275,6 +275,18 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		c.Clear(capability.EFFECTIVE)
 		c.Clear(capability.INHERITABLE)
 		c.Clear(capability.PERMITTED)
+		c.Clear(capability.AMBIENT)
+
+		if caps.Ambient != nil {
+			for _, e := range caps.Ambient {
+				if v, ok := capabiliities.Capabilities[e]; ok {
+					c.Set(capability.AMBIENT, capability.Cap(v))
+				} else {
+					log.Error().Err(errors.New(fmt.Sprintf("set ambient capability: %s", e))).Msg("set ambient capability")
+					continue
+				}
+			}
+		}
 
 		if caps.Bounding != nil {
 			for _, e := range caps.Bounding {
@@ -325,7 +337,8 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			capability.INHERITABLE |
 				capability.EFFECTIVE |
 				capability.BOUNDING |
-				capability.PERMITTED,
+				capability.PERMITTED |
+				capability.AMBIENT,
 		); err != nil {
 			log.Error().Err(err).Msg("set capabilities")
 		}
