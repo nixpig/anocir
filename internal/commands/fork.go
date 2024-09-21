@@ -85,6 +85,7 @@ type ForkOpts struct {
 	ID                string
 	InitSockAddr      string
 	ContainerSockAddr string
+	PID               int
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
@@ -345,6 +346,15 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		log.Info().Msg(fmt.Sprintf("new: %s\n", c.String()))
 		log.Info().Str("caps", cap.GetProc().String()).Msg("current (after apply)")
+	}
+
+	for _, rl := range spec.Process.Rlimits {
+		if err := syscall.Setrlimit(int(pkg.Rlimits[rl.Type]), &syscall.Rlimit{
+			Cur: rl.Soft,
+			Max: rl.Hard,
+		}); err != nil {
+			log.Error().Err(err).Str("type", rl.Type).Msg("set rlimit")
+		}
 	}
 
 	time.Sleep(time.Second * 1) // give the listener in 'create' time to come up

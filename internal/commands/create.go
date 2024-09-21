@@ -9,6 +9,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -113,6 +114,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			opts.ID,
 			initSockAddr,
 			containerSockAddr,
+			strconv.Itoa(state.Pid),
 		}...)
 
 	var cloneFlags uintptr

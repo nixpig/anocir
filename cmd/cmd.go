@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 
 	"github.com/nixpig/brownie/internal/commands"
@@ -156,7 +157,7 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(3),
+		Args:    cobra.ExactArgs(4),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -165,11 +166,17 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 			containerID := args[0]
 			initSockAddr := args[1]
 			containerSockAddr := args[2]
+			pid := args[3]
+			ipid, err := strconv.Atoi(pid)
+			if err != nil {
+				return fmt.Errorf("convert pid string to int: %w", err)
+			}
 
 			opts := &commands.ForkOpts{
 				ID:                containerID,
 				InitSockAddr:      initSockAddr,
 				ContainerSockAddr: containerSockAddr,
+				PID:               ipid,
 			}
 
 			return commands.Fork(opts, log)
