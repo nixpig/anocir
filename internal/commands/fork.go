@@ -11,16 +11,14 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
-	"time"
 
-	capabiliities "github.com/nixpig/brownie/internal/capabilities"
+	capabilities "github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/sys/unix"
-	"kernel.org/pub/linux/libs/security/libcap/cap"
 )
 
 func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Logger) {
@@ -40,18 +38,9 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 
 		switch string(b[:n]) {
 		case "start":
-			log.Info().Msg("fork received 'start' command")
-			log.Info().Str("command", spec.Process.Args[0]).Msg("command")
-			log.Info().Str("args", strings.Join(spec.Process.Args[:1], ",")).Msg("args")
 			cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
 
-			stdoutpath, err := filepath.Abs(os.Stdout.Name())
-			if err != nil {
-				continue
-			}
-
-			log.Info().Str("stdoutpath", stdoutpath).Msg("path of os.Stdout (container)")
-
+			cmd.Stdin = nullReader{}
 			cmd.Stdout = conn
 			cmd.Stderr = conn
 
@@ -89,7 +78,6 @@ type ForkOpts struct {
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
-	log.Info().Msg("IN THE DETACHED FORK!!")
 	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 	specJSON, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
 	if err != nil {
@@ -114,7 +102,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	log.Info().Msg("listen on container socket")
 	listener, err := net.Listen("unix", opts.ContainerSockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("listen on container socket")
@@ -124,9 +111,9 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
 
-	// if err := filesystem.MountProc(containerRootfs); err != nil {
-	// 	initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
-	// }
+	if err := filesystem.MountProc(containerRootfs); err != nil {
+		initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
+	}
 
 	if err := filesystem.MountRootfs(containerRootfs); err != nil {
 		log.Error().Err(err).Msg("mount rootfs")
@@ -134,9 +121,9 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 
 	for _, mount := range spec.Mounts {
-		if mount.Destination == "/dev" {
-			continue
-		}
+		// if mount.Destination == "/dev" {
+		// 	continue
+		// }
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
 			dest = containerRootfs + mount.Destination
@@ -200,6 +187,29 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
+	for _, dev := range filesystem.DefaultDevices {
+		var absPath string
+		if strings.Index(dev.Path, "/") == 0 {
+			relPath := strings.TrimPrefix(dev.Path, "/")
+			absPath = filepath.Join(containerRootfs, relPath)
+		} else {
+			absPath = filepath.Join(containerRootfs, dev.Path)
+		}
+
+		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+			f, err := os.Create(absPath)
+			if err != nil && !os.IsExist(err) {
+				log.Error().Err(err).Msg("create default device mount point")
+			}
+			if f != nil {
+				f.Close()
+			}
+			if err := syscall.Mount(dev.Path, absPath, "bind", syscall.MS_BIND, ""); err != nil {
+				log.Error().Err(err).Msg("bind mount default devices")
+			}
+		}
+	}
+
 	for _, dev := range spec.Linux.Devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -226,7 +236,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 	for oldname, newname := range filesystem.DefaultSymlinks {
 		nn := filepath.Join(containerRootfs, newname)
-		log.Info().Str("newname", nn).Msg("symlinking")
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
 			return err
@@ -259,7 +268,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if caps.Ambient != nil {
 			for _, e := range caps.Ambient {
-				if v, ok := capabiliities.Capabilities[e]; ok {
+				if v, ok := capabilities.Capabilities[e]; ok {
 					c.Set(capability.AMBIENT, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set ambient capability: %s", e))).Msg("set ambient capability")
@@ -270,7 +279,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if caps.Bounding != nil {
 			for _, e := range caps.Bounding {
-				if v, ok := capabiliities.Capabilities[e]; ok {
+				if v, ok := capabilities.Capabilities[e]; ok {
 					c.Set(capability.BOUNDING, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set bounding capability: %s", e))).Msg("set bounding capability")
@@ -281,8 +290,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if caps.Effective != nil {
 			for _, e := range caps.Effective {
-				if v, ok := capabiliities.Capabilities[e]; ok {
-					log.Info().Str("cap", v.String()).Msg("set effective capability")
+				if v, ok := capabilities.Capabilities[e]; ok {
 					c.Set(capability.EFFECTIVE, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set effective capability: %s", e))).Msg("set effective capability")
@@ -293,7 +301,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if caps.Permitted != nil {
 			for _, e := range caps.Permitted {
-				if v, ok := capabiliities.Capabilities[e]; ok {
+				if v, ok := capabilities.Capabilities[e]; ok {
 					c.Set(capability.PERMITTED, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set permitted capability: %s", e))).Msg("set permitted capability")
@@ -304,7 +312,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		if caps.Inheritable != nil {
 			for _, e := range caps.Inheritable {
-				if v, ok := capabiliities.Capabilities[e]; ok {
+				if v, ok := capabilities.Capabilities[e]; ok {
 					c.Set(capability.INHERITABLE, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set inheritable capability: %s", e))).Msg("set inheritable capability")
@@ -312,7 +320,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			}
 		}
 
-		log.Info().Str("caps", cap.GetProc().String()).Msg("current (before apply)")
 		if err := c.Apply(
 			capability.INHERITABLE |
 				capability.EFFECTIVE |
@@ -322,9 +329,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		); err != nil {
 			log.Error().Err(err).Msg("set capabilities")
 		}
-
-		log.Info().Msg(fmt.Sprintf("new: %s\n", c.String()))
-		log.Info().Str("caps", cap.GetProc().String()).Msg("current (after apply)")
 	}
 
 	for _, rl := range spec.Process.Rlimits {
@@ -336,7 +340,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	time.Sleep(time.Second * 1) // give the listener in 'create' time to come up
 	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
 		log.Error().Err(err).Msg("send 'ready' message")
 		return err
@@ -352,3 +355,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		go server(containerConn, opts.ID, spec, log)
 	}
 }
+
+type nullReader struct{}
+
+func (nullReader) Read(p []byte) (n int, err error) { return len(p), nil }

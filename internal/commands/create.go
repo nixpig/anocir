@@ -10,17 +10,14 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/nixpig/brownie/internal"
-	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
-	"golang.org/x/sys/unix"
 )
 
 type CreateOpts struct {
@@ -95,38 +92,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 		if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
 			return fmt.Errorf("execute createcontainer hooks: %w", err)
-		}
-	}
-
-	for _, dev := range filesystem.DefaultDevices {
-		var absPath string
-		if strings.Index(dev.Path, "/") == 0 {
-			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(containerRootfs, relPath)
-		} else {
-			absPath = filepath.Join(containerRootfs, dev.Path)
-		}
-
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
-			d := unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))
-			if err := unix.Mknod(
-				absPath,
-				// perms,
-				unix.S_IFCHR,
-				int(d),
-			); err != nil {
-				log.Error().Err(err).Str("absPath", absPath).Msg("make default device (mknod)")
-				return err
-			}
-
-			if err := os.Chown(absPath, int(*dev.UID), int(*dev.GID)); err != nil {
-				log.Error().Err(err).Str("path", absPath).Uint32("UID", *dev.UID).Uint32("GID", *dev.GID).Msg("chown default device")
-				return err
-			}
-
-			if err := os.Chmod(absPath, *dev.FileMode); err != nil {
-				log.Error().Err(err).Str("path", absPath).Msg("chmod")
-			}
 		}
 	}
 
@@ -213,6 +178,48 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		GidMappings:                gidMappings,
 	}
 
+	allowed := []string{
+		// allow mknod for any device
+		"c *:* m",
+		"b *:* m",
+
+		// /dev/null, zero, full
+		"c 1:3 rwm",
+		"c 1:5 rwm",
+		"c 1:7 rwm",
+
+		// consoles
+		"c 5:1 rwm",
+		"c 5:0 rwm",
+		"c 4:0 rwm",
+		"c 4:1 rwm",
+
+		// /dev/urandom,/dev/random
+		"c 1:9 rwm",
+		"c 1:8 rwm",
+
+		// /dev/pts/ - pts namespaces are "coming soon"
+		"c 136:* rwm",
+		"c 5:2 rwm",
+
+		// tuntap
+		"c 10:200 rwm",
+	}
+	cgroups := filepath.Join(containerRootfs, "sys/fs/cgroup/1")
+	os.MkdirAll(cgroups, 0755)
+	for _, val := range allowed {
+		f, err := os.OpenFile(filepath.Join(cgroups, "devices.allow"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
+		if err != nil {
+			return err
+		}
+		defer f.Close()
+		if _, err := f.Write(
+			[]byte(fmt.Sprintf("%s\n", val)),
+		); err != nil {
+			return fmt.Errorf("create devices cgroups: %w", err)
+		}
+	}
+
 	forkCmd.Env = spec.Process.Env
 
 	if err := forkCmd.Start(); err != nil {
@@ -249,7 +256,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}
 
 		if len(b) >= 5 && string(b[:5]) == "ready" {
-			log.Info().Msg("received 'ready' message")
+			log.Info().Msg("ready")
 			break
 		}
 	}

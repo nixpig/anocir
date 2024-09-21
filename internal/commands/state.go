@@ -39,7 +39,6 @@ func stateToCliState(state *specs.State) StateCLI {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
-	log.Info().Msg("getting state...")
 	state, err := internal.GetState(opts.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("get state")
@@ -51,8 +50,6 @@ func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
 		log.Error().Err(err).Msg("marshal state")
 		return "", fmt.Errorf("marshal state: %w", err)
 	}
-
-	log.Info().Bytes("state", s).Msg("STATE")
 
 	// if _, err := os.Stdout.Write(s); err != nil {
 	// 	log.Error().Err(err).Msg("write state to stdout")

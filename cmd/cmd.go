@@ -7,7 +7,6 @@ import (
 	"io"
 	"os"
 	"strconv"
-	"strings"
 
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/rs/zerolog"
@@ -44,8 +43,6 @@ func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 
 			bundle, err := cmd.Flags().GetString("bundle")
@@ -89,8 +86,6 @@ func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie start busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 
 			opts := &commands.StartOpts{
@@ -111,8 +106,6 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		Example: "  brownie kill busybox 9",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 			signal := args[1]
 
@@ -130,8 +123,6 @@ func deleteCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie delete busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 
 			force, err := cmd.Flags().GetBool("force")
@@ -161,8 +152,6 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 			initSockAddr := args[1]
 			containerSockAddr := args[2]
@@ -193,8 +182,6 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie state busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Str(cmd.Name(), strings.Join(args, " "))
-
 			containerID := args[0]
 
 			opts := &commands.StateOpts{
