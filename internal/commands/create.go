@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
@@ -165,7 +166,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	var ambientCapsFlags []uintptr
 	for _, cap := range spec.Process.Capabilities.Ambient {
-		ambientCapsFlags = append(ambientCapsFlags, uintptr(pkg.Capabilities[cap]))
+		ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
 	}
 
 	// apply configuration, e.g. devices, proc, etc...

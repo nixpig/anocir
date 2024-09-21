@@ -1,4 +1,4 @@
-package capabiliities
+package capabilities
 
 import (
 	"github.com/syndtr/gocapability/capability"

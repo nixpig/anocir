@@ -12,7 +12,7 @@ import (
 	"strings"
 	"syscall"
 
-	capabilities "github.com/nixpig/brownie/internal/capabilities"
+	"github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -46,7 +46,7 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 
 			var ambientCapsFlags []uintptr
 			for _, cap := range spec.Process.Capabilities.Ambient {
-				ambientCapsFlags = append(ambientCapsFlags, uintptr(pkg.Capabilities[cap]))
+				ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
 			}
 
 			cmd.SysProcAttr = &syscall.SysProcAttr{
