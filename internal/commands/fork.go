@@ -20,6 +20,7 @@ import (
 	"github.com/rs/zerolog"
 	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/sys/unix"
+	"kernel.org/pub/linux/libs/security/libcap/cap"
 )
 
 func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Logger) {
@@ -270,19 +271,17 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			log.Error().Err(err).Msg("new capabilities")
 		}
 
-		c.Clear(
-			capability.INHERITABLE |
-				capability.EFFECTIVE |
-				capability.BOUNDING |
-				capability.PERMITTED,
-		)
+		c.Clear(capability.BOUNDING)
+		c.Clear(capability.EFFECTIVE)
+		c.Clear(capability.INHERITABLE)
+		c.Clear(capability.PERMITTED)
 
 		if caps.Bounding != nil {
 			for _, e := range caps.Bounding {
 				if v, ok := capabiliities.Capabilities[e]; ok {
 					c.Set(capability.BOUNDING, capability.Cap(v))
 				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set bounding capability: %s", e))).Msg("set effective capability")
+					log.Error().Err(errors.New(fmt.Sprintf("set bounding capability: %s", e))).Msg("set bounding capability")
 					continue
 				}
 			}
@@ -291,6 +290,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		if caps.Effective != nil {
 			for _, e := range caps.Effective {
 				if v, ok := capabiliities.Capabilities[e]; ok {
+					log.Info().Str("cap", v.String()).Msg("set effective capability")
 					c.Set(capability.EFFECTIVE, capability.Cap(v))
 				} else {
 					log.Error().Err(errors.New(fmt.Sprintf("set effective capability: %s", e))).Msg("set effective capability")
@@ -304,7 +304,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 				if v, ok := capabiliities.Capabilities[e]; ok {
 					c.Set(capability.PERMITTED, capability.Cap(v))
 				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set permitted capability: %s", e))).Msg("set effective capability")
+					log.Error().Err(errors.New(fmt.Sprintf("set permitted capability: %s", e))).Msg("set permitted capability")
 					continue
 				}
 			}
@@ -315,11 +315,12 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 				if v, ok := capabiliities.Capabilities[e]; ok {
 					c.Set(capability.INHERITABLE, capability.Cap(v))
 				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set inheritable capability: %s", e))).Msg("set effective capability")
+					log.Error().Err(errors.New(fmt.Sprintf("set inheritable capability: %s", e))).Msg("set inheritable capability")
 				}
 			}
 		}
 
+		log.Info().Str("caps", cap.GetProc().String()).Msg("current (before apply)")
 		if err := c.Apply(
 			capability.INHERITABLE |
 				capability.EFFECTIVE |
@@ -330,6 +331,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 
 		log.Info().Msg(fmt.Sprintf("new: %s\n", c.String()))
+		log.Info().Str("caps", cap.GetProc().String()).Msg("current (after apply)")
 	}
 
 	time.Sleep(time.Second * 1) // give the listener in 'create' time to come up
