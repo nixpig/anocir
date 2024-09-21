@@ -134,6 +134,9 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 
 	for _, mount := range spec.Mounts {
+		if mount.Destination == "/dev" {
+			continue
+		}
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
 			dest = containerRootfs + mount.Destination
@@ -221,37 +224,22 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	for _, dev := range filesystem.DefaultDevices {
-		var absPath string
-		if strings.Index(dev.Path, "/") == 0 {
-			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(containerRootfs, relPath)
-		} else {
-			absPath = filepath.Join(containerRootfs, dev.Path)
-		}
-
-		if err := unix.Mknod(
-			absPath,
-			// syscall.S_IFCHR|uint32(*dev.FileMode),
-			uint32(*dev.FileMode),
-			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
-		); err != nil {
-			log.Error().Err(err).Msg("make default device (mknod)")
-			return err
-		}
-
-		if err := os.Chown(absPath, int(*dev.UID), int(*dev.GID)); err != nil {
-			log.Error().Err(err).Str("path", absPath).Uint32("UID", *dev.UID).Uint32("GID", *dev.GID).Msg("chown default device")
-			return err
-		}
-	}
-
 	for oldname, newname := range filesystem.DefaultFileDescriptors {
 		nn := filepath.Join(containerRootfs, newname)
+		log.Info().Str("newname", nn).Msg("symlinking")
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
 			return err
 		}
+	}
+
+	// symlink ptms/ptmx
+	if err := os.Symlink(
+		"pts/ptmx",
+		filepath.Join(containerRootfs, "dev/ptmx"),
+	); err != nil {
+		log.Error().Err(err).Msg("symlink pts/ptmx")
+		return err
 	}
 
 	if err := syscall.Sethostname([]byte(spec.Hostname)); err != nil {

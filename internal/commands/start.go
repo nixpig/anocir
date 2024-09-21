@@ -77,14 +77,9 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
-	fmt.Println("start opts: ", opts)
-
 	// FIXME: how do we redirect this to the stdout of the calling process?
 	// E.g. when being run in tests.
 	log.Info().Str("output", string(b)).Msg("run command output")
-	fmt.Fprintf(os.Stdout, "something to stdout")
-	fmt.Fprintf(os.Stderr, "something to stderr")
-	fmt.Println("something to println")
 	stdoutpath, err := filepath.Abs(os.Stdout.Name())
 	if err != nil {
 		return err

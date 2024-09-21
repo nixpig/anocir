@@ -10,14 +10,17 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
+	"golang.org/x/sys/unix"
 )
 
 type CreateOpts struct {
@@ -92,6 +95,38 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
 		if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
 			return fmt.Errorf("execute createcontainer hooks: %w", err)
+		}
+	}
+
+	for _, dev := range filesystem.DefaultDevices {
+		var absPath string
+		if strings.Index(dev.Path, "/") == 0 {
+			relPath := strings.TrimPrefix(dev.Path, "/")
+			absPath = filepath.Join(containerRootfs, relPath)
+		} else {
+			absPath = filepath.Join(containerRootfs, dev.Path)
+		}
+
+		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+			d := unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))
+			if err := unix.Mknod(
+				absPath,
+				// perms,
+				unix.S_IFCHR,
+				int(d),
+			); err != nil {
+				log.Error().Err(err).Str("absPath", absPath).Msg("make default device (mknod)")
+				return err
+			}
+
+			if err := os.Chown(absPath, int(*dev.UID), int(*dev.GID)); err != nil {
+				log.Error().Err(err).Str("path", absPath).Uint32("UID", *dev.UID).Uint32("GID", *dev.GID).Msg("chown default device")
+				return err
+			}
+
+			if err := os.Chmod(absPath, *dev.FileMode); err != nil {
+				log.Error().Err(err).Str("path", absPath).Msg("chmod")
+			}
 		}
 	}
 

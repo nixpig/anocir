@@ -82,15 +82,15 @@ var DefaultDevices = []specs.LinuxDevice{
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
-	{
-		Type:     CharDevice,
-		Path:     "/dev/ptmx",
-		Major:    5,
-		Minor:    0,
-		FileMode: &defaultFileMode,
-		UID:      &defaultUID,
-		GID:      &defaultGID,
-	},
+	// {
+	// 	Type:     CharDevice,
+	// 	Path:     "/dev/ptmx",
+	// 	Major:    5,
+	// 	Minor:    2,
+	// 	FileMode: &defaultFileMode,
+	// 	UID:      &defaultUID,
+	// 	GID:      &defaultGID,
+	// },
 }
 
 func MountProc(containerRootfs string) error {
@@ -158,4 +158,14 @@ func PivotRootfs(containerRootfs string) error {
 	}
 
 	return nil
+}
+
+func DevInSpec(mounts []specs.Mount, dev string) bool {
+	for _, mount := range mounts {
+		if mount.Destination == dev {
+			return true
+		}
+	}
+
+	return false
 }
