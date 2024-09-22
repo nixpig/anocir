@@ -1,10 +1,7 @@
-package pkg
+package filesystem
 
 import "golang.org/x/sys/unix"
 
-// MountOptions maps the supported mount option string to the corresponding
-// flag, per MUST in spec:
-// https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-mount-options
 var MountOptions = map[string]struct {
 	No   bool
 	Flag uintptr

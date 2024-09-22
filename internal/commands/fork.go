@@ -176,7 +176,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 		var dataOptions []string
 		for _, opt := range mount.Options {
-			o, ok := pkg.MountOptions[opt]
+			o, ok := filesystem.MountOptions[opt]
 			if !ok {
 				if !strings.HasPrefix(opt, "gid=") &&
 					!strings.HasPrefix(opt, "uid=") &&
