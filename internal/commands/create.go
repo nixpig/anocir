@@ -15,6 +15,7 @@ import (
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/internal/capabilities"
+	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
@@ -22,10 +23,10 @@ import (
 )
 
 type CreateOpts struct {
-	ID            string
-	Bundle        string
-	ConsoleSocket string
-	PIDFile       string
+	ID                string
+	Bundle            string
+	ConsoleSocketPath string
+	PIDFile           string
 }
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
@@ -108,17 +109,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	forkCmd := exec.Command(
-		"/proc/self/exe",
-		[]string{
-			"fork",
-			opts.ID,
-			initSockAddr,
-			containerSockAddr,
-			strconv.Itoa(state.Pid),
-			opts.ConsoleSocket,
-		}...)
-
 	var cloneFlags uintptr
 	for _, ns := range spec.Linux.Namespaces {
 		ns := internal.LinuxNamespace(ns)
@@ -170,6 +160,34 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
 	}
 
+	term := spec.Process != nil && spec.Process.Terminal && opts.ConsoleSocketPath != ""
+
+	var sockFD int
+	var ptySocket *terminal.PtySocket
+	if term {
+		ptySocket, err = terminal.NewPtySocket(opts.ConsoleSocketPath)
+		if err != nil {
+			return fmt.Errorf("create new pty socket: %w", err)
+		}
+
+		if err := ptySocket.Connect(); err != nil {
+			return fmt.Errorf("connect socket: %w", err)
+		}
+
+		sockFD = ptySocket.FD
+	}
+
+	forkCmd := exec.Command(
+		"/proc/self/exe",
+		[]string{
+			"fork",
+			opts.ID,
+			initSockAddr,
+			containerSockAddr,
+			strconv.Itoa(state.Pid),
+			strconv.Itoa(sockFD),
+		}...)
+
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                ambientCapsFlags,
@@ -178,48 +196,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		GidMappingsEnableSetgroups: false,
 		UidMappings:                uidMappings,
 		GidMappings:                gidMappings,
-	}
-
-	allowed := []string{
-		// allow mknod for any device
-		"c *:* m",
-		"b *:* m",
-
-		// /dev/null, zero, full
-		"c 1:3 rwm",
-		"c 1:5 rwm",
-		"c 1:7 rwm",
-
-		// consoles
-		"c 5:1 rwm",
-		"c 5:0 rwm",
-		"c 4:0 rwm",
-		"c 4:1 rwm",
-
-		// /dev/urandom,/dev/random
-		"c 1:9 rwm",
-		"c 1:8 rwm",
-
-		// /dev/pts/ - pts namespaces are "coming soon"
-		"c 136:* rwm",
-		"c 5:2 rwm",
-
-		// tuntap
-		"c 10:200 rwm",
-	}
-	cgroups := filepath.Join(containerRootfs, "sys/fs/cgroup/1")
-	os.MkdirAll(cgroups, 0755)
-	for _, val := range allowed {
-		f, err := os.OpenFile(filepath.Join(cgroups, "devices.allow"), os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0600)
-		if err != nil {
-			return err
-		}
-		defer f.Close()
-		if _, err := f.Write(
-			[]byte(fmt.Sprintf("%s\n", val)),
-		); err != nil {
-			return fmt.Errorf("create devices cgroups: %w", err)
-		}
 	}
 
 	forkCmd.Env = spec.Process.Env

@@ -61,10 +61,10 @@ func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 			}
 
 			opts := &commands.CreateOpts{
-				ID:            containerID,
-				Bundle:        bundle,
-				ConsoleSocket: consoleSocket,
-				PIDFile:       pidFile,
+				ID:                containerID,
+				Bundle:            bundle,
+				ConsoleSocketPath: consoleSocket,
+				PIDFile:           pidFile,
 			}
 
 			return commands.Create(opts, log)
@@ -160,14 +160,18 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("convert pid string to int: %w", err)
 			}
-			consoleSocket := args[4]
+			consoleSocketFD := args[4]
+			iconsolesocketfd, err := strconv.Atoi(consoleSocketFD)
+			if err != nil {
+				return fmt.Errorf("convert console socket fd to int: %w", err)
+			}
 
 			opts := &commands.ForkOpts{
 				ID:                containerID,
 				InitSockAddr:      initSockAddr,
 				ContainerSockAddr: containerSockAddr,
 				PID:               ipid,
-				ConsoleSocket:     consoleSocket,
+				ConsoleSocketFD:   iconsolesocketfd,
 			}
 
 			return commands.Fork(opts, log)

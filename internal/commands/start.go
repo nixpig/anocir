@@ -80,7 +80,8 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// FIXME: how do we redirect this to the stdout of the calling process?
 	// E.g. when being run in tests.
 	log.Info().Str("output", string(b)).Msg("run command output")
-	fmt.Fprint(os.Stdout, string(b)) // this doesn't work :/
+	fmt.Fprint(os.Stdout, string(b)) // this doesn't work via tests :/
+	fmt.Println("FOO")
 
 	// 9. Invoke poststart hooks
 	if spec.Hooks != nil {

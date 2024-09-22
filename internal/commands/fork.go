@@ -13,6 +13,7 @@ import (
 
 	"github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/filesystem"
+	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -38,10 +39,11 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 		switch string(b[:n]) {
 		case "start":
 			cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
+			cmd.Dir = spec.Process.Cwd
 
 			cmd.Stdin = nullReader{}
-			cmd.Stdout = conn
-			cmd.Stderr = conn
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
 
 			var ambientCapsFlags []uintptr
 			for _, cap := range spec.Process.Capabilities.Ambient {
@@ -53,7 +55,7 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 			}
 
 			if err := cmd.Run(); err != nil {
-				log.Error().Err(err).Msg("error executing underlying command")
+				log.Error().Err(err).Msg("error executing command")
 				conn.Write([]byte(err.Error()))
 			}
 
@@ -74,7 +76,8 @@ type ForkOpts struct {
 	InitSockAddr      string
 	ContainerSockAddr string
 	PID               int
-	ConsoleSocket     string
+	ConsoleSocketFD   int
+	ConsoleSocketPath string
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
@@ -109,21 +112,44 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
+	if opts.ConsoleSocketFD != 0 {
+		pty, err := terminal.NewPty()
+		if err != nil {
+			log.Error().Err(err).Msg("new pty")
+			return err
+		}
+		defer pty.Close()
 
-	if err := filesystem.MountProc(containerRootfs); err != nil {
-		initConn.Write([]byte(fmt.Sprintf("mount proc: %s", err)))
+		if err := pty.Connect(); err != nil {
+			log.Error().Err(err).Msg("connect pty")
+			return err
+		}
+
+		consoleSocketPty := terminal.OpenPtySocket(
+			opts.ConsoleSocketFD,
+			opts.ConsoleSocketPath,
+		)
+		defer consoleSocketPty.Close()
+
+		// how does ptysocket struct pass between fork?
+		if err := consoleSocketPty.SendMsg(pty); err != nil {
+			log.Error().Err(err).Msg("send pty msg")
+		}
 	}
+
+	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
 
 	if err := filesystem.MountRootfs(containerRootfs); err != nil {
 		log.Error().Err(err).Msg("mount rootfs")
 		return err
 	}
 
+	if err := filesystem.MountProc(containerRootfs); err != nil {
+		log.Error().Err(err).Msg("mount proc")
+		return err
+	}
+
 	for _, mount := range spec.Mounts {
-		// if mount.Destination == "/dev" {
-		// 	continue
-		// }
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
 			dest = containerRootfs + mount.Destination
@@ -242,31 +268,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		nn := filepath.Join(containerRootfs, newname)
 		if err := os.Symlink(oldname, nn); err != nil {
 			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
-			return err
-		}
-	}
-
-	if opts.ConsoleSocket != "" {
-		f, err := os.Create(filepath.Join(containerRootfs, "dev/console"))
-		if err != nil && !os.IsExist(err) {
-			log.Error().Err(err).Msg("create /dev/console")
-			return err
-		}
-		if f != nil {
-			if err := f.Chmod(0666); err != nil {
-				log.Error().Err(err).Msg("set permission of /dev/console")
-				return err
-			}
-			f.Close()
-		}
-		if err := syscall.Mount(
-			filepath.Join(containerRootfs, "dev/console"),
-			opts.ConsoleSocket,
-			"bind",
-			syscall.MS_BIND,
-			"",
-		); err != nil {
-			log.Error().Err(err).Msg("bind mount /dev/console")
 			return err
 		}
 	}
