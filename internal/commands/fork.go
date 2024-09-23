@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -11,10 +10,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/internal/capabilities"
+	"github.com/nixpig/brownie/internal/cgroups"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/internal/terminal"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"github.com/syndtr/gocapability/capability"
@@ -42,8 +42,8 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 			cmd.Dir = spec.Process.Cwd
 
 			cmd.Stdin = nullReader{}
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
+			cmd.Stdout = conn
+			cmd.Stderr = conn
 
 			var ambientCapsFlags []uintptr
 			for _, cap := range spec.Process.Capabilities.Ambient {
@@ -81,17 +81,9 @@ type ForkOpts struct {
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
-	specJSON, err := os.ReadFile(filepath.Join(containerPath, "config.json"))
+	container, err := internal.LoadContainer(opts.ID)
 	if err != nil {
-		log.Error().Err(err).Msg("read spec")
-		return err
-	}
-
-	var spec specs.Spec
-	if err := json.Unmarshal(specJSON, &spec); err != nil {
-		log.Error().Err(err).Msg("parse config")
-		return err
+		return fmt.Errorf("load existing container for fork: %w", err)
 	}
 
 	initConn, err := net.Dial("unix", opts.InitSockAddr)
@@ -137,116 +129,38 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
-
-	if err := filesystem.MountRootfs(containerRootfs); err != nil {
+	if err := filesystem.MountRootfs(container.Rootfs); err != nil {
 		log.Error().Err(err).Msg("mount rootfs")
 		return err
 	}
 
-	if err := filesystem.MountProc(containerRootfs); err != nil {
+	if err := filesystem.MountProc(container.Rootfs); err != nil {
 		log.Error().Err(err).Msg("mount proc")
 		return err
 	}
 
-	for _, mount := range spec.Mounts {
-		var dest string
-		if strings.Index(mount.Destination, "/") == 0 {
-			dest = containerRootfs + mount.Destination
-		} else {
-			dest = mount.Destination
-		}
-
-		if _, err := os.Stat(dest); err != nil {
-			if !os.IsNotExist(err) {
-				log.Error().Err(err).Msg("check if spec mount destination exists")
-				return err
-			}
-
-			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
-				log.Error().Err(err).Str("dest", dest).Msg("make spec mount dir")
-				return err
-			}
-		}
-
-		var flags uintptr
-		if mount.Type == "bind" {
-			flags = flags | syscall.MS_BIND
-		}
-
-		var dataOptions []string
-		for _, opt := range mount.Options {
-			o, ok := filesystem.MountOptions[opt]
-			if !ok {
-				if !strings.HasPrefix(opt, "gid=") &&
-					!strings.HasPrefix(opt, "uid=") &&
-					opt != "newinstance" {
-					dataOptions = append(dataOptions, opt)
-				}
-			} else {
-				if !o.No {
-					flags = flags | o.Flag
-				}
-			}
-		}
-
-		var data string
-		if len(dataOptions) > 0 {
-			data = strings.Join(dataOptions, ",")
-		}
-
-		if err := syscall.Mount(
-			mount.Source,
-			dest,
-			mount.Type,
-			flags,
-			data,
-		); err != nil {
-			log.Error().Err(err).
-				Any("mount", mount).
-				Msg("mount spec mount")
-			return err
-		}
+	if err := filesystem.MountMounts(
+		container.Spec.Mounts,
+		container.Rootfs,
+	); err != nil {
+		log.Error().Err(err).Msg("mount spec mounts")
 	}
 
-	for _, dev := range filesystem.DefaultDevices {
+	if err := filesystem.MountDevices(
+		filesystem.DefaultDevices,
+		container.Rootfs,
+	); err != nil {
+		log.Error().Err(err).Msg("mount default devices")
+		return err
+	}
+
+	for _, dev := range container.Spec.Linux.Devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
 			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(containerRootfs, relPath)
+			absPath = filepath.Join(container.Rootfs, relPath)
 		} else {
-			absPath = filepath.Join(containerRootfs, dev.Path)
-		}
-
-		if _, err := os.Stat(absPath); os.IsNotExist(err) {
-			f, err := os.Create(absPath)
-			if err != nil && !os.IsExist(err) {
-				log.Error().Err(err).Msg("create default device mount point")
-				return err
-			}
-			if f != nil {
-				f.Close()
-			}
-			if err := syscall.Mount(
-				dev.Path,
-				absPath,
-				"bind",
-				syscall.MS_BIND,
-				"",
-			); err != nil {
-				log.Error().Err(err).Msg("bind mount default devices")
-				return err
-			}
-		}
-	}
-
-	for _, dev := range spec.Linux.Devices {
-		var absPath string
-		if strings.Index(dev.Path, "/") == 0 {
-			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(containerRootfs, relPath)
-		} else {
-			absPath = filepath.Join(containerRootfs, dev.Path)
+			absPath = filepath.Join(container.Rootfs, dev.Path)
 		}
 
 		if err := unix.Mknod(
@@ -264,26 +178,26 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	for oldname, newname := range filesystem.DefaultSymlinks {
-		nn := filepath.Join(containerRootfs, newname)
-		if err := os.Symlink(oldname, nn); err != nil {
-			log.Error().Err(err).Str("newname", newname).Str("oldname", oldname).Msg("link default file descriptors")
-			return err
-		}
-	}
-
-	if err := syscall.Sethostname([]byte(spec.Hostname)); err != nil {
-		log.Error().Err(err).Str("hostname", spec.Hostname).Msg("set hostname")
+	if err := filesystem.CreateSymlinks(
+		filesystem.DefaultSymlinks,
+		container.Rootfs,
+	); err != nil {
+		log.Error().Err(err).Msg("create default symlinks")
 		return err
 	}
 
-	if err := filesystem.PivotRootfs(containerRootfs); err != nil {
+	if err := syscall.Sethostname([]byte(container.Spec.Hostname)); err != nil {
+		log.Error().Err(err).Str("hostname", container.Spec.Hostname).Msg("set hostname")
+		return err
+	}
+
+	if err := filesystem.PivotRootfs(container.Rootfs); err != nil {
 		log.Error().Err(err).Msg("pivot rootfs")
 		return err
 	}
 
-	if spec.Process.Capabilities != nil {
-		caps := spec.Process.Capabilities
+	if container.Spec.Process.Capabilities != nil {
+		caps := container.Spec.Process.Capabilities
 
 		c, err := capability.NewPid2(0)
 		if err != nil {
@@ -361,8 +275,8 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	for _, rl := range spec.Process.Rlimits {
-		if err := syscall.Setrlimit(int(pkg.Rlimits[rl.Type]), &syscall.Rlimit{
+	for _, rl := range container.Spec.Process.Rlimits {
+		if err := syscall.Setrlimit(int(cgroups.Rlimits[rl.Type]), &syscall.Rlimit{
 			Cur: rl.Soft,
 			Max: rl.Hard,
 		}); err != nil {
@@ -384,7 +298,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			continue
 		}
 
-		go server(containerConn, opts.ID, spec, log)
+		go server(containerConn, opts.ID, *container.Spec, log)
 	}
 }
 

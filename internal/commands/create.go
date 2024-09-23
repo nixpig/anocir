@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,11 +13,8 @@ import (
 	"time"
 
 	"github.com/nixpig/brownie/internal"
-	"github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/terminal"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	cp "github.com/otiai10/copy"
 	"github.com/rs/zerolog"
 )
 
@@ -30,76 +26,32 @@ type CreateOpts struct {
 }
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
-	absBundlePath, err := filepath.Abs(opts.Bundle)
+	bundle, err := internal.NewBundle(opts.Bundle)
 	if err != nil {
-		return fmt.Errorf("absolute path to bundle: %w", err)
+		return fmt.Errorf("create bundle: %w", err)
 	}
 
-	bundleSpecPath := filepath.Join(absBundlePath, "config.json")
-
-	bundleSpecJSON, err := os.ReadFile(bundleSpecPath)
-	if err != nil {
-		return fmt.Errorf("read spec from bundle: %w", err)
-	}
-
-	var spec specs.Spec
-	if err := json.Unmarshal(bundleSpecJSON, &spec); err != nil {
-		return fmt.Errorf("parse spec: %w", err)
-	}
-
-	if spec.Linux == nil {
+	if bundle.Spec.Linux == nil {
 		return errors.New("not a linux container")
 	}
 
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
-
-	if stat, _ := os.Stat(containerPath); stat != nil {
-		return pkg.ErrContainerExists
+	container, err := internal.NewContainer(opts.ID, bundle)
+	if err != nil {
+		return fmt.Errorf("create container: %w", err)
 	}
 
-	if err := os.MkdirAll(containerPath, os.ModeDir); err != nil {
-		return fmt.Errorf("make brownie container directory: %w", err)
+	if err := container.ExecHooks("createRuntime"); err != nil {
+		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
 
-	state := &specs.State{
-		Version:     spec.Version,
-		ID:          opts.ID,
-		Status:      specs.StateCreating,
-		Bundle:      absBundlePath,
-		Annotations: spec.Annotations,
+	if err := container.ExecHooks("createContainer"); err != nil {
+		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	if err := internal.SaveState(state); err != nil {
-		return fmt.Errorf("save creating state: %w", err)
-	}
+	container.State.Set(specs.StateCreating)
+	container.State.Save()
 
-	bundleRootfs := filepath.Join(absBundlePath, spec.Root.Path)
-	containerRootfs := filepath.Join(containerPath, spec.Root.Path)
-	containerSpecPath := filepath.Join(containerPath, "config.json")
-
-	if err := cp.Copy(bundleRootfs, containerRootfs); err != nil {
-		return fmt.Errorf("copy bundle rootfs to container rootfs: %w", err)
-	}
-
-	if err := cp.Copy(bundleSpecPath, containerSpecPath); err != nil {
-		return fmt.Errorf("copy bundle spec to container spec: %w", err)
-	}
-
-	if spec.Hooks != nil {
-		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
-		if err := internal.ExecHooks(spec.Hooks.CreateRuntime); err != nil {
-			return fmt.Errorf("execute createruntime hooks: %w", err)
-		}
-
-		// TODO: If error, destroy container and created resources then call 'poststop' hooks.
-		if err := internal.ExecHooks(spec.Hooks.CreateContainer); err != nil {
-			return fmt.Errorf("execute createcontainer hooks: %w", err)
-		}
-	}
-
-	initSockAddr := filepath.Join(containerPath, "init.sock")
-	containerSockAddr := filepath.Join(containerPath, "container.sock")
-
+	initSockAddr := filepath.Join(container.Path, "init.sock")
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return err
 	}
@@ -109,74 +61,17 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	var cloneFlags uintptr
-	for _, ns := range spec.Linux.Namespaces {
-		ns := internal.LinuxNamespace(ns)
-		flag, err := ns.ToFlag()
-		if err != nil {
-			log.Error().Err(err).Msg("convert namespace to flag")
-			return fmt.Errorf("convert namespace to flag: %w", err)
-		}
-
-		cloneFlags = cloneFlags | flag
-	}
-
-	var uidMappings []syscall.SysProcIDMap
-	var gidMappings []syscall.SysProcIDMap
-	if spec.Process != nil {
-		cloneFlags = cloneFlags | syscall.CLONE_NEWUSER
-
-		uidMappings = append(uidMappings, syscall.SysProcIDMap{
-			ContainerID: int(spec.Process.User.UID),
-			HostID:      os.Geteuid(),
-			Size:        1,
-		})
-
-		gidMappings = append(gidMappings, syscall.SysProcIDMap{
-			ContainerID: int(spec.Process.User.GID),
-			HostID:      os.Getegid(),
-			Size:        1,
-		})
-	}
-
-	for _, uidMapping := range spec.Linux.UIDMappings {
-		uidMappings = append(uidMappings, syscall.SysProcIDMap{
-			ContainerID: int(uidMapping.ContainerID),
-			HostID:      int(uidMapping.HostID),
-			Size:        int(uidMapping.Size),
-		})
-	}
-
-	for _, gidMapping := range spec.Linux.GIDMappings {
-		gidMappings = append(gidMappings, syscall.SysProcIDMap{
-			ContainerID: int(gidMapping.ContainerID),
-			HostID:      int(gidMapping.HostID),
-			Size:        int(gidMapping.Size),
-		})
-	}
-
-	var ambientCapsFlags []uintptr
-	for _, cap := range spec.Process.Capabilities.Ambient {
-		ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
-	}
-
-	term := spec.Process != nil && spec.Process.Terminal && opts.ConsoleSocketPath != ""
-
-	var sockFD int
-	var ptySocket *terminal.PtySocket
+	term := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocketPath != ""
+	var termFD int
 	if term {
-		ptySocket, err = terminal.NewPtySocket(opts.ConsoleSocketPath)
+		termsock, err := terminal.New(opts.ConsoleSocketPath)
 		if err != nil {
-			return fmt.Errorf("create new pty socket: %w", err)
+			return fmt.Errorf("create terminal socket: %w", err)
 		}
-
-		if err := ptySocket.Connect(); err != nil {
-			return fmt.Errorf("connect socket: %w", err)
-		}
-
-		sockFD = ptySocket.FD
+		termFD = termsock.FD
 	}
 
+	containerSockAddr := filepath.Join(container.Path, "container.sock")
 	forkCmd := exec.Command(
 		"/proc/self/exe",
 		[]string{
@@ -184,28 +79,28 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			opts.ID,
 			initSockAddr,
 			containerSockAddr,
-			strconv.Itoa(state.Pid),
-			strconv.Itoa(sockFD),
+			strconv.Itoa(container.State.Pid),
+			strconv.Itoa(termFD),
 		}...)
 
 	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps:                ambientCapsFlags,
-		Cloneflags:                 cloneFlags,
+		AmbientCaps:                container.AmbientCapsFlags,
+		Cloneflags:                 container.NamespaceFlags,
 		Unshareflags:               syscall.CLONE_NEWNS,
 		GidMappingsEnableSetgroups: false,
-		UidMappings:                uidMappings,
-		GidMappings:                gidMappings,
+		UidMappings:                container.UIDMappings,
+		GidMappings:                container.GIDMappings,
 	}
 
-	forkCmd.Env = spec.Process.Env
+	forkCmd.Env = container.Spec.Process.Env
 
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
 
 	// need to get the pid off the process _before_ releasing it
-	state.Pid = forkCmd.Process.Pid
+	container.State.Pid = forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
@@ -213,7 +108,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	// write pid to file if provided
 	if opts.PIDFile != "" {
-		pid := strconv.Itoa(state.Pid)
+		pid := strconv.Itoa(container.State.Pid)
 		os.WriteFile(opts.PIDFile, []byte(pid), 0666)
 	}
 
@@ -242,11 +137,13 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		if len(b) >= 5 && string(b[:5]) == "ready" {
 			log.Info().Msg("ready")
 			break
+		} else {
+			fmt.Println(string(b))
 		}
 	}
 
-	state.Status = specs.StateCreated
-	if err := internal.SaveState(state); err != nil {
+	container.State.Set(specs.StateCreated)
+	if err := container.State.Save(); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}
 

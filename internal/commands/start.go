@@ -19,7 +19,12 @@ type StartOpts struct {
 	ID string
 }
 
-func Start(opts *StartOpts, log *zerolog.Logger) error {
+func Start(
+	opts *StartOpts,
+	log *zerolog.Logger,
+	stdout io.Writer,
+	stderr io.Writer,
+) error {
 	state, err := internal.GetState(opts.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("start: get state")
@@ -74,14 +79,14 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	b, err := io.ReadAll(conn)
 	if err != nil {
 		log.Error().Err(err).Msg("start: read response")
+		stderr.Write([]byte(err.Error()))
 		return fmt.Errorf("reading response from socket: %w", err)
 	}
 
 	// FIXME: how do we redirect this to the stdout of the calling process?
 	// E.g. when being run in tests.
-	log.Info().Str("output", string(b)).Msg("run command output")
-	fmt.Fprint(os.Stdout, string(b)) // this doesn't work via tests :/
-	fmt.Println("FOO")
+	stdout.Write(b)
+	stdout.Write([]byte("foo"))
 
 	// 9. Invoke poststart hooks
 	if spec.Hooks != nil {

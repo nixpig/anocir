@@ -3,6 +3,7 @@ package filesystem
 import (
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -53,4 +54,107 @@ func DevInSpec(mounts []specs.Mount, dev string) bool {
 	}
 
 	return false
+}
+
+func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
+	for _, dev := range devices {
+		var absPath string
+		if strings.Index(dev.Path, "/") == 0 {
+			relPath := strings.TrimPrefix(dev.Path, "/")
+			absPath = filepath.Join(rootfs, relPath)
+		} else {
+			absPath = filepath.Join(rootfs, dev.Path)
+		}
+
+		if _, err := os.Stat(absPath); os.IsNotExist(err) {
+			f, err := os.Create(absPath)
+			if err != nil && !os.IsExist(err) {
+				return err
+			}
+			if f != nil {
+				f.Close()
+			}
+			if err := syscall.Mount(
+				dev.Path,
+				absPath,
+				"bind",
+				syscall.MS_BIND,
+				"",
+			); err != nil {
+				return err
+			}
+		}
+	}
+
+	return nil
+}
+
+func CreateSymlinks(symlinks map[string]string, rootfs string) error {
+	for oldname, newname := range symlinks {
+		nn := filepath.Join(rootfs, newname)
+		if err := os.Symlink(oldname, nn); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func MountMounts(mounts []specs.Mount, rootfs string) error {
+	for _, mount := range mounts {
+		var dest string
+		if strings.Index(mount.Destination, "/") == 0 {
+			dest = filepath.Join(rootfs, mount.Destination)
+		} else {
+			dest = mount.Destination
+		}
+
+		if _, err := os.Stat(dest); err != nil {
+			if !os.IsNotExist(err) {
+				return err
+			}
+
+			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
+				return err
+			}
+		}
+
+		var flags uintptr
+		if mount.Type == "bind" {
+			flags = flags | syscall.MS_BIND
+		}
+
+		var dataOptions []string
+		for _, opt := range mount.Options {
+			o, ok := MountOptions[opt]
+			if !ok {
+				if !strings.HasPrefix(opt, "gid=") &&
+					!strings.HasPrefix(opt, "uid=") &&
+					opt != "newinstance" {
+					dataOptions = append(dataOptions, opt)
+				}
+			} else {
+				if !o.No {
+					flags = flags | o.Flag
+				}
+			}
+		}
+
+		var data string
+		if len(dataOptions) > 0 {
+			data = strings.Join(dataOptions, ",")
+		}
+
+		if err := syscall.Mount(
+			mount.Source,
+			dest,
+			mount.Type,
+			flags,
+			data,
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
