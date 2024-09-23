@@ -87,20 +87,13 @@ func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 		Example: "  brownie start busybox",
 	}
 
-	start.OutOrStdout().Write([]byte("\n >>> before\n"))
 	start.RunE = func(cmd *cobra.Command, args []string) error {
-		start.OutOrStdout().Write([]byte("\n >>> after\n"))
-		os.WriteFile("/tmp/out.txt", []byte("even written??"), 0666)
-		stdout.Write([]byte("\n >> from start inner\n"))
-		os.Stdout.Write([]byte("\n >> from start inner\n"))
-		cmd.OutOrStdout().Write([]byte(" \n >>> cmd in start\n"))
 		containerID := args[0]
 
 		opts := &commands.StartOpts{
 			ID: containerID,
 		}
 
-		start.OutOrStdout().Write([]byte("\n\n >>>>>>>> \n\n"))
 		return commands.Start(opts, log, start.OutOrStdout(), start.ErrOrStderr())
 	}
 

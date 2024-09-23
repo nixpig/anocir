@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -17,7 +16,6 @@ import (
 	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
-	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/sys/unix"
 )
 
@@ -30,6 +28,7 @@ func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Log
 		n, err := conn.Read(b)
 		if err != nil {
 			log.Error().Err(err).Msg("read from connection")
+			continue
 		}
 
 		if n == 0 {
@@ -96,13 +95,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		log.Error().Err(err).Msg("remove existing container socket")
 		return err
 	}
-
-	listener, err := net.Listen("unix", opts.ContainerSockAddr)
-	if err != nil {
-		log.Error().Err(err).Msg("listen on container socket")
-		return err
-	}
-	defer listener.Close()
 
 	if opts.ConsoleSocketFD != 0 {
 		pty, err := terminal.NewPty()
@@ -191,104 +183,36 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
+	// need to set up the listener _before_ pivoting root filesystem,
+	// else the container sockaddr is not visible to the process
+	listener, err := net.Listen("unix", opts.ContainerSockAddr)
+	if err != nil {
+		log.Error().Err(err).Msg("listen on container socket")
+		return err
+	}
+	defer listener.Close()
+
 	if err := filesystem.PivotRootfs(container.Rootfs); err != nil {
 		log.Error().Err(err).Msg("pivot rootfs")
 		return err
 	}
 
-	if container.Spec.Process.Capabilities != nil {
-		caps := container.Spec.Process.Capabilities
-
-		c, err := capability.NewPid2(0)
-		if err != nil {
-			log.Error().Err(err).Msg("new capabilities")
-		}
-
-		c.Clear(capability.BOUNDING)
-		c.Clear(capability.EFFECTIVE)
-		c.Clear(capability.INHERITABLE)
-		c.Clear(capability.PERMITTED)
-		c.Clear(capability.AMBIENT)
-
-		if caps.Ambient != nil {
-			for _, e := range caps.Ambient {
-				if v, ok := capabilities.Capabilities[e]; ok {
-					c.Set(capability.AMBIENT, capability.Cap(v))
-				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set ambient capability: %s", e))).Msg("set ambient capability")
-					continue
-				}
-			}
-		}
-
-		if caps.Bounding != nil {
-			for _, e := range caps.Bounding {
-				if v, ok := capabilities.Capabilities[e]; ok {
-					c.Set(capability.BOUNDING, capability.Cap(v))
-				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set bounding capability: %s", e))).Msg("set bounding capability")
-					continue
-				}
-			}
-		}
-
-		if caps.Effective != nil {
-			for _, e := range caps.Effective {
-				if v, ok := capabilities.Capabilities[e]; ok {
-					c.Set(capability.EFFECTIVE, capability.Cap(v))
-				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set effective capability: %s", e))).Msg("set effective capability")
-					continue
-				}
-			}
-		}
-
-		if caps.Permitted != nil {
-			for _, e := range caps.Permitted {
-				if v, ok := capabilities.Capabilities[e]; ok {
-					c.Set(capability.PERMITTED, capability.Cap(v))
-				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set permitted capability: %s", e))).Msg("set permitted capability")
-					continue
-				}
-			}
-		}
-
-		if caps.Inheritable != nil {
-			for _, e := range caps.Inheritable {
-				if v, ok := capabilities.Capabilities[e]; ok {
-					c.Set(capability.INHERITABLE, capability.Cap(v))
-				} else {
-					log.Error().Err(errors.New(fmt.Sprintf("set inheritable capability: %s", e))).Msg("set inheritable capability")
-				}
-			}
-		}
-
-		if err := c.Apply(
-			capability.INHERITABLE |
-				capability.EFFECTIVE |
-				capability.BOUNDING |
-				capability.PERMITTED |
-				capability.AMBIENT,
-		); err != nil {
-			log.Error().Err(err).Msg("set capabilities")
-		}
+	if err := capabilities.SetCapabilities(
+		container.Spec.Process.Capabilities,
+	); err != nil {
+		log.Error().Err(err).Msg("set capabilities")
+		return err
 	}
 
-	for _, rl := range container.Spec.Process.Rlimits {
-		if err := syscall.Setrlimit(int(cgroups.Rlimits[rl.Type]), &syscall.Rlimit{
-			Cur: rl.Soft,
-			Max: rl.Hard,
-		}); err != nil {
-			log.Error().Err(err).Str("type", rl.Type).Msg("set rlimit")
-		}
+	if err := cgroups.SetRlimits(container.Spec.Process.Rlimits); err != nil {
+		log.Error().Err(err).Msg("set rlimits")
+		return err
 	}
 
 	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
 		log.Error().Err(err).Msg("send 'ready' message")
 		return err
 	}
-
 	initConn.Close()
 
 	for {

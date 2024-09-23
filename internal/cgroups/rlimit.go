@@ -1,6 +1,10 @@
 package cgroups
 
-import "syscall"
+import (
+	"syscall"
+
+	"github.com/opencontainers/runtime-spec/specs-go"
+)
 
 var Rlimits = map[string]uint{
 	"RLIMIT_AS":     syscall.RLIMIT_AS,
@@ -10,4 +14,17 @@ var Rlimits = map[string]uint{
 	"RLIMIT_FSIZE":  syscall.RLIMIT_FSIZE,
 	"RLIMIT_STACK":  syscall.RLIMIT_STACK,
 	"RLIMIT_NOFILE": syscall.RLIMIT_NOFILE,
+}
+
+func SetRlimits(rlimits []specs.POSIXRlimit) error {
+	for _, rl := range rlimits {
+		if err := syscall.Setrlimit(int(Rlimits[rl.Type]), &syscall.Rlimit{
+			Cur: rl.Soft,
+			Max: rl.Hard,
+		}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

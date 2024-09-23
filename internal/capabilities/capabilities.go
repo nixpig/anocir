@@ -1,6 +1,7 @@
 package capabilities
 
 import (
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/syndtr/gocapability/capability"
 )
 
@@ -46,4 +47,83 @@ var Capabilities = map[string]capability.Cap{
 	"CAP_SYS_TTY_CONFIG":     capability.CAP_SYS_TTY_CONFIG,
 	"CAP_SYSLOG":             capability.CAP_SYSLOG,
 	"CAP_WAKE_ALARM":         capability.CAP_WAKE_ALARM,
+}
+
+func SetCapabilities(caps *specs.LinuxCapabilities) error {
+	if caps == nil {
+		return nil
+	}
+
+	c, err := capability.NewPid2(0)
+	if err != nil {
+		return err
+	}
+
+	c.Clear(capability.BOUNDING)
+	c.Clear(capability.EFFECTIVE)
+	c.Clear(capability.INHERITABLE)
+	c.Clear(capability.PERMITTED)
+	c.Clear(capability.AMBIENT)
+
+	if caps.Ambient != nil {
+		for _, e := range caps.Ambient {
+			if v, ok := Capabilities[e]; ok {
+				c.Set(capability.AMBIENT, capability.Cap(v))
+			} else {
+				continue
+			}
+		}
+	}
+
+	if caps.Bounding != nil {
+		for _, e := range caps.Bounding {
+			if v, ok := Capabilities[e]; ok {
+				c.Set(capability.BOUNDING, capability.Cap(v))
+			} else {
+				continue
+			}
+		}
+	}
+
+	if caps.Effective != nil {
+		for _, e := range caps.Effective {
+			if v, ok := Capabilities[e]; ok {
+				c.Set(capability.EFFECTIVE, capability.Cap(v))
+			} else {
+				continue
+			}
+		}
+	}
+
+	if caps.Permitted != nil {
+		for _, e := range caps.Permitted {
+			if v, ok := Capabilities[e]; ok {
+				c.Set(capability.PERMITTED, capability.Cap(v))
+			} else {
+				continue
+			}
+		}
+	}
+
+	if caps.Inheritable != nil {
+		for _, e := range caps.Inheritable {
+			if v, ok := Capabilities[e]; ok {
+				c.Set(capability.INHERITABLE, capability.Cap(v))
+			} else {
+				continue
+			}
+		}
+	}
+
+	if err := c.Apply(
+		capability.INHERITABLE |
+			capability.EFFECTIVE |
+			capability.BOUNDING |
+			capability.PERMITTED |
+			capability.AMBIENT,
+	); err != nil {
+		return err
+	}
+
+	return nil
 }
