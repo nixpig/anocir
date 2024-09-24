@@ -14,17 +14,25 @@ import (
 )
 
 func RootCmd(log *zerolog.Logger) *cobra.Command {
+	ch := make(chan []byte)
 	root := &cobra.Command{
 		Use:     "brownie",
 		Short:   "An experimental Linux container runtime.",
 		Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
 		Example: "",
 		Version: "0.0.1",
+		PersistentPostRun: func(cmd *cobra.Command, args []string) {
+			if cmd.Name() == "start" {
+				out := <-ch
+				os.Stdout.Write(out)
+				os.Stdout.Write([]byte("\n\n >< root post run ?? \n\n"))
+			}
+		},
 	}
 
 	root.AddCommand(
 		createCmd(log, root.OutOrStdout()),
-		startCmd(log, root.OutOrStdout()),
+		startCmd(ch, log, root.OutOrStdout()),
 		stateCmd(log),
 		deleteCmd(log),
 		killCmd(log),
@@ -79,7 +87,7 @@ func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
+func startCmd(ch chan []byte, log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -94,7 +102,11 @@ func startCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 			ID: containerID,
 		}
 
-		return commands.Start(opts, log, start.OutOrStdout(), start.ErrOrStderr())
+		go func() {
+			ch <- []byte("foo")
+		}()
+
+		return commands.Start(ch, opts, log, start.OutOrStdout(), start.ErrOrStderr())
 	}
 
 	return start
@@ -149,30 +161,28 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(5),
+		Args:    cobra.ExactArgs(4),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 			initSockAddr := args[1]
-			containerSockAddr := args[2]
-			pid := args[3]
+			pid := args[2]
 			ipid, err := strconv.Atoi(pid)
 			if err != nil {
 				return fmt.Errorf("convert pid string to int: %w", err)
 			}
-			consoleSocketFD := args[4]
+			consoleSocketFD := args[3]
 			iconsolesocketfd, err := strconv.Atoi(consoleSocketFD)
 			if err != nil {
 				return fmt.Errorf("convert console socket fd to int: %w", err)
 			}
 
 			opts := &commands.ForkOpts{
-				ID:                containerID,
-				InitSockAddr:      initSockAddr,
-				ContainerSockAddr: containerSockAddr,
-				PID:               ipid,
-				ConsoleSocketFD:   iconsolesocketfd,
+				ID:              containerID,
+				InitSockAddr:    initSockAddr,
+				PID:             ipid,
+				ConsoleSocketFD: iconsolesocketfd,
 			}
 
 			return commands.Fork(opts, log)

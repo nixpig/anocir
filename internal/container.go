@@ -24,6 +24,7 @@ type Container struct {
 	UIDMappings      []syscall.SysProcIDMap
 	GIDMappings      []syscall.SysProcIDMap
 	AmbientCapsFlags []uintptr
+	SockAddr         string
 
 	State *ContainerState
 }
@@ -174,11 +175,13 @@ func NewContainer(id string, bundle *Bundle) (*Container, error) {
 	}
 
 	return &Container{
-		ID:               id,
-		Path:             path,
-		SpecPath:         specPath,
-		Spec:             &spec,
-		Rootfs:           rootfsPath,
+		ID:       id,
+		Path:     path,
+		SpecPath: specPath,
+		Spec:     &spec,
+		Rootfs:   rootfsPath,
+		SockAddr: filepath.Join(path, "container.sock"),
+
 		NamespaceFlags:   namespaceFlags,
 		UIDMappings:      uidMappings,
 		GIDMappings:      gidMappings,
@@ -214,19 +217,29 @@ func LoadContainer(id string) (*Container, error) {
 		SpecPath: specPath,
 		Spec:     &spec,
 		Rootfs:   rootfsPath,
+		SockAddr: filepath.Join(path, "container.sock"),
 
 		State: state,
 	}, nil
 }
 
 func (c *Container) ExecHooks(lifecycle string) error {
-	var hooks []specs.Hook
+	if c.Spec.Hooks == nil {
+		return nil
+	}
 
+	var hooks []specs.Hook
 	switch lifecycle {
 	case "createRuntime":
 		hooks = c.Spec.Hooks.CreateRuntime
 	case "createContainer":
 		hooks = c.Spec.Hooks.CreateContainer
+	case "startContainer":
+		hooks = c.Spec.Hooks.StartContainer
+	case "poststart":
+		hooks = c.Spec.Hooks.Poststart
+	case "poststop":
+		hooks = c.Spec.Hooks.Poststop
 	}
 
 	return ExecHooks(hooks)

@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -19,48 +20,41 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func server(conn net.Conn, containerID string, spec specs.Spec, log *zerolog.Logger) {
-	defer conn.Close()
-
+func listen(conn net.Conn, spec specs.Spec, log *zerolog.Logger) error {
 	b := make([]byte, 128)
 
-	for {
-		n, err := conn.Read(b)
-		if err != nil {
-			log.Error().Err(err).Msg("read from connection")
-			continue
-		}
-
-		if n == 0 {
-			break
-		}
-
-		switch string(b[:n]) {
-		case "start":
-			cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
-			cmd.Dir = spec.Process.Cwd
-
-			cmd.Stdin = nullReader{}
-			cmd.Stdout = conn
-			cmd.Stderr = conn
-
-			var ambientCapsFlags []uintptr
-			for _, cap := range spec.Process.Capabilities.Ambient {
-				ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
-			}
-
-			cmd.SysProcAttr = &syscall.SysProcAttr{
-				AmbientCaps: ambientCapsFlags,
-			}
-
-			if err := cmd.Run(); err != nil {
-				log.Error().Err(err).Msg("error executing command")
-				conn.Write([]byte(err.Error()))
-			}
-
-			return
-		}
+	n, err := conn.Read(b)
+	if err != nil {
+		log.Error().Err(err).Msg("read from connection")
+		return err
 	}
+
+	if n == 0 {
+		return errors.New("read zero bytes")
+	}
+
+	switch string(b[:n]) {
+	case "start":
+		cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
+		cmd.Dir = spec.Process.Cwd
+
+		cmd.Stdin = nullReader{}
+		cmd.Stdout = conn
+		cmd.Stderr = conn
+
+		var ambientCapsFlags []uintptr
+		for _, cap := range spec.Process.Capabilities.Ambient {
+			ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
+		}
+
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			AmbientCaps: ambientCapsFlags,
+		}
+
+		return cmd.Run()
+	}
+
+	return nil
 }
 
 type ForkStage string
@@ -73,7 +67,6 @@ var (
 type ForkOpts struct {
 	ID                string
 	InitSockAddr      string
-	ContainerSockAddr string
 	PID               int
 	ConsoleSocketFD   int
 	ConsoleSocketPath string
@@ -91,7 +84,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 	defer initConn.Close()
-	if err := os.RemoveAll(opts.ContainerSockAddr); err != nil {
+	if err := os.RemoveAll(container.SockAddr); err != nil {
 		log.Error().Err(err).Msg("remove existing container socket")
 		return err
 	}
@@ -185,7 +178,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 	// need to set up the listener _before_ pivoting root filesystem,
 	// else the container sockaddr is not visible to the process
-	listener, err := net.Listen("unix", opts.ContainerSockAddr)
+	listener, err := net.Listen("unix", container.SockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("listen on container socket")
 		return err
@@ -215,15 +208,14 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	initConn.Close()
 
-	for {
-		containerConn, err := listener.Accept()
-		if err != nil {
-			log.Error().Err(err).Msg("accept connection")
-			continue
-		}
-
-		go server(containerConn, opts.ID, *container.Spec, log)
+	containerConn, err := listener.Accept()
+	if err != nil {
+		log.Error().Err(err).Msg("accept connection")
+		return err
 	}
+	defer containerConn.Close()
+
+	return listen(containerConn, *container.Spec, log)
 }
 
 type nullReader struct{}

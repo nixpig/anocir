@@ -61,24 +61,22 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	term := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocketPath != ""
+	useTerminal := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocketPath != ""
 	var termFD int
-	if term {
-		termsock, err := terminal.New(opts.ConsoleSocketPath)
+	if useTerminal {
+		termSock, err := terminal.New(opts.ConsoleSocketPath)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}
-		termFD = termsock.FD
+		termFD = termSock.FD
 	}
 
-	containerSockAddr := filepath.Join(container.Path, "container.sock")
 	forkCmd := exec.Command(
 		"/proc/self/exe",
 		[]string{
 			"fork",
 			opts.ID,
 			initSockAddr,
-			containerSockAddr,
 			strconv.Itoa(container.State.Pid),
 			strconv.Itoa(termFD),
 		}...)
