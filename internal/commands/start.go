@@ -27,8 +27,7 @@ func Start(
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	if container.State.Status != specs.StateCreated {
-		log.Error().Err(err).Msg("start: check state")
+	if !container.CanBeStarted() {
 		return errors.New("container not created")
 	}
 

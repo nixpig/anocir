@@ -244,3 +244,15 @@ func (c *Container) ExecHooks(lifecycle string) error {
 
 	return ExecHooks(hooks)
 }
+
+func (c *Container) CanBeStarted() bool {
+	return c.State.Status == specs.StateCreated || c.State.Status == specs.StateStopped
+}
+
+func (c *Container) CanBeKilled() bool {
+	return c.State.Status == specs.StateRunning
+}
+
+func (c *Container) CanBeDeleted() bool {
+	return c.State.Status == specs.StateStopped || c.State.Status == specs.StateCreated
+}

@@ -15,7 +15,7 @@ func Kill(containerID, signal string) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	if container.State.Status != specs.StateCreated && container.State.Status != specs.StateRunning {
+	if !container.CanBeKilled() {
 		return errors.New("container is not created or running")
 	}
 
@@ -28,6 +28,7 @@ func Kill(containerID, signal string) error {
 	if err := container.State.Save(); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}
+
 	if err := syscall.Kill(container.State.Pid, s); err != nil {
 		return fmt.Errorf("kill container process: %w", err)
 	}

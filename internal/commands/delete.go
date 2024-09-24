@@ -6,7 +6,6 @@ import (
 	"os"
 
 	"github.com/nixpig/brownie/internal"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
 
@@ -21,7 +20,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	if !opts.Force && container.State.Status != specs.StateStopped {
+	if !opts.Force && !container.CanBeDeleted() {
 		return errors.New("container is not stopped")
 	}
 
