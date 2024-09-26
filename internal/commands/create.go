@@ -3,16 +3,14 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"time"
 
 	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -55,11 +53,12 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return err
 	}
-	listener, err := net.Listen("unix", initSockAddr)
+
+	initCh, closer, err := ipc.NewReceiver(initSockAddr)
 	if err != nil {
-		return fmt.Errorf("failed to listen on init socket: %w", err)
+		return err
 	}
-	defer listener.Close()
+	defer closer()
 
 	useTerminal := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocketPath != ""
 	var termFD int
@@ -77,7 +76,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			"fork",
 			opts.ID,
 			initSockAddr,
-			strconv.Itoa(container.State.Pid),
 			strconv.Itoa(termFD),
 		}...)
 
@@ -98,6 +96,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 
 	// need to get the pid off the process _before_ releasing it
+	// FIXME: should this end up being zero??
 	container.State.Pid = forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
@@ -110,33 +109,11 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		os.WriteFile(opts.PIDFile, []byte(pid), 0666)
 	}
 
-	initConn, err := listener.Accept()
-	if err != nil {
-		return err
-	}
-	defer initConn.Close()
-
-	b := make([]byte, 128)
-
 	for {
-		time.Sleep(time.Second)
-
-		n, err := initConn.Read(b)
-		if err != nil || n == 0 {
-			if err == io.EOF {
-				fmt.Println("error: received EOF from socket")
-				os.Exit(1)
-			}
-
-			fmt.Println("error: ", err)
-			continue
-		}
-
-		if len(b) >= 5 && string(b[:5]) == "ready" {
+		ready := <-initCh
+		if string(ready[:5]) == "ready" {
 			log.Info().Msg("ready")
 			break
-		} else {
-			fmt.Println(string(b))
 		}
 	}
 

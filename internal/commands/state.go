@@ -22,12 +22,15 @@ type StateCLI struct {
 	// Pid is the process ID for the container process.
 	Pid int `json:"pid,omitempty"`
 	// Bundle is the path to the container's bundle directory.
-	Bundle string `json:"bundlePath"`
+	Bundle string `json:"bundle"`
+
+	Rootfs string `json:"rootfs"`
+
 	// Annotations are key values associated with the container.
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-func stateToCliState(state *specs.State) StateCLI {
+func stateToCliState(state *internal.ContainerState) StateCLI {
 	return StateCLI{
 		Version:     state.Version,
 		ID:          state.ID,
@@ -39,11 +42,12 @@ func stateToCliState(state *specs.State) StateCLI {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
-	state, err := internal.GetState(opts.ID)
+	container, err := internal.LoadContainer(opts.ID)
 	if err != nil {
-		log.Error().Err(err).Msg("get state")
-		return "", fmt.Errorf("get state: %w", err)
+		return "", fmt.Errorf("load container: %w", err)
 	}
+
+	state := container.State
 
 	s, err := json.Marshal(stateToCliState(state))
 	if err != nil {

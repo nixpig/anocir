@@ -7,10 +7,16 @@ import (
 
 	"github.com/nixpig/brownie/internal"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func Kill(containerID, signal string) error {
-	container, err := internal.LoadContainer(containerID)
+type KillOpts struct {
+	ID     string
+	Signal string
+}
+
+func Kill(opts *KillOpts, log *zerolog.Logger) error {
+	container, err := internal.LoadContainer(opts.ID)
 	if err != nil {
 		return fmt.Errorf("load container: %w", err)
 	}
@@ -19,7 +25,7 @@ func Kill(containerID, signal string) error {
 		return errors.New("container is not created or running")
 	}
 
-	s, err := internal.ToSignal(signal)
+	s, err := internal.ToSignal(opts.Signal)
 	if err != nil {
 		return fmt.Errorf("convert to signal: %w", err)
 	}

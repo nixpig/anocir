@@ -16,7 +16,6 @@ type StartOpts struct {
 }
 
 func Start(
-	ch chan []byte,
 	opts *StartOpts,
 	log *zerolog.Logger,
 	stdout io.Writer,
@@ -65,10 +64,6 @@ func Start(
 	if _, err := stdout.Write(b); err != nil {
 		log.Error().Err(err).Msg("write to stdout")
 	}
-
-	go func() {
-		ch <- b
-	}()
 
 	if err := container.ExecHooks("poststart"); err != nil {
 		return fmt.Errorf("execute poststart hooks: %w", err)

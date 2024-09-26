@@ -14,25 +14,17 @@ import (
 )
 
 func RootCmd(log *zerolog.Logger) *cobra.Command {
-	ch := make(chan []byte)
 	root := &cobra.Command{
 		Use:     "brownie",
 		Short:   "An experimental Linux container runtime.",
 		Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
 		Example: "",
 		Version: "0.0.1",
-		PersistentPostRun: func(cmd *cobra.Command, args []string) {
-			if cmd.Name() == "start" {
-				out := <-ch
-				os.Stdout.Write(out)
-				os.Stdout.Write([]byte("\n\n >< root post run ?? \n\n"))
-			}
-		},
 	}
 
 	root.AddCommand(
-		createCmd(log, root.OutOrStdout()),
-		startCmd(ch, log, root.OutOrStdout()),
+		createCmd(log),
+		startCmd(log, root.OutOrStdout(), root.ErrOrStderr()),
 		stateCmd(log),
 		deleteCmd(log),
 		killCmd(log),
@@ -44,7 +36,7 @@ func RootCmd(log *zerolog.Logger) *cobra.Command {
 	return root
 }
 
-func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
+func createCmd(log *zerolog.Logger) *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -87,7 +79,7 @@ func createCmd(log *zerolog.Logger, stdout io.Writer) *cobra.Command {
 	return create
 }
 
-func startCmd(ch chan []byte, log *zerolog.Logger, stdout io.Writer) *cobra.Command {
+func startCmd(log *zerolog.Logger, stdout io.Writer, stderr io.Writer) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -102,11 +94,7 @@ func startCmd(ch chan []byte, log *zerolog.Logger, stdout io.Writer) *cobra.Comm
 			ID: containerID,
 		}
 
-		go func() {
-			ch <- []byte("foo")
-		}()
-
-		return commands.Start(ch, opts, log, start.OutOrStdout(), start.ErrOrStderr())
+		return commands.Start(opts, log, stdout, stderr)
 	}
 
 	return start
@@ -122,7 +110,12 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 			containerID := args[0]
 			signal := args[1]
 
-			return commands.Kill(containerID, signal)
+			opts := &commands.KillOpts{
+				ID:     containerID,
+				Signal: signal,
+			}
+
+			return commands.Kill(opts, log)
 		},
 	}
 
@@ -161,18 +154,13 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(4),
+		Args:    cobra.ExactArgs(3),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 			initSockAddr := args[1]
-			pid := args[2]
-			ipid, err := strconv.Atoi(pid)
-			if err != nil {
-				return fmt.Errorf("convert pid string to int: %w", err)
-			}
-			consoleSocketFD := args[3]
+			consoleSocketFD := args[2]
 			iconsolesocketfd, err := strconv.Atoi(consoleSocketFD)
 			if err != nil {
 				return fmt.Errorf("convert console socket fd to int: %w", err)
@@ -181,7 +169,6 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 			opts := &commands.ForkOpts{
 				ID:              containerID,
 				InitSockAddr:    initSockAddr,
-				PID:             ipid,
 				ConsoleSocketFD: iconsolesocketfd,
 			}
 

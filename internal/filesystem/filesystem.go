@@ -43,6 +43,24 @@ func MountRootfs(containerRootfs string) error {
 		return err
 	}
 
+	f, err := os.Create(
+		filepath.Join(containerRootfs, "dev/console"),
+	)
+	if err != nil {
+		return err
+	}
+	f.Close()
+
+	if err := syscall.Mount(
+		"/dev/ptmx",
+		filepath.Join(containerRootfs, "dev/console"),
+		"",
+		syscall.MS_BIND,
+		"",
+	); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -90,9 +108,11 @@ func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
 }
 
 func CreateSymlinks(symlinks map[string]string, rootfs string) error {
-	for oldname, newname := range symlinks {
-		nn := filepath.Join(rootfs, newname)
-		if err := os.Symlink(oldname, nn); err != nil {
+	for src, dest := range symlinks {
+		if err := os.Symlink(
+			src,
+			filepath.Join(rootfs, dest),
+		); err != nil {
 			return err
 		}
 	}

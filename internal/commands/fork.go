@@ -15,12 +15,11 @@ import (
 	"github.com/nixpig/brownie/internal/cgroups"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/internal/terminal"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
 
-func listen(conn net.Conn, spec specs.Spec, log *zerolog.Logger) error {
+func listen(conn net.Conn, container *internal.Container, log *zerolog.Logger) error {
 	b := make([]byte, 128)
 
 	n, err := conn.Read(b)
@@ -35,15 +34,15 @@ func listen(conn net.Conn, spec specs.Spec, log *zerolog.Logger) error {
 
 	switch string(b[:n]) {
 	case "start":
-		cmd := exec.Command(spec.Process.Args[0], spec.Process.Args[1:]...)
-		cmd.Dir = spec.Process.Cwd
+		cmd := exec.Command(container.Spec.Process.Args[0], container.Spec.Process.Args[1:]...)
+		cmd.Dir = container.Spec.Process.Cwd
 
 		cmd.Stdin = nullReader{}
 		cmd.Stdout = conn
 		cmd.Stderr = conn
 
 		var ambientCapsFlags []uintptr
-		for _, cap := range spec.Process.Capabilities.Ambient {
+		for _, cap := range container.Spec.Process.Capabilities.Ambient {
 			ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
 		}
 
@@ -51,7 +50,8 @@ func listen(conn net.Conn, spec specs.Spec, log *zerolog.Logger) error {
 			AmbientCaps: ambientCapsFlags,
 		}
 
-		return cmd.Run()
+		cmd.Start()
+		return cmd.Wait()
 	}
 
 	return nil
@@ -67,7 +67,6 @@ var (
 type ForkOpts struct {
 	ID                string
 	InitSockAddr      string
-	PID               int
 	ConsoleSocketFD   int
 	ConsoleSocketPath string
 }
@@ -215,7 +214,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer containerConn.Close()
 
-	return listen(containerConn, *container.Spec, log)
+	return listen(containerConn, container, log)
 }
 
 type nullReader struct{}
