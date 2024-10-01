@@ -11,6 +11,12 @@ import (
 )
 
 func main() {
+	err := os.MkdirAll(filepath.Join(pkg.BrownieRootDir, "logs"), 0666)
+	if err != nil {
+		fmt.Println("create log dir: %w", err)
+		os.Exit(1)
+	}
+
 	logfile, err := os.OpenFile(
 		filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log"),
 		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
