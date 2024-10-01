@@ -2,10 +2,12 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime; working towards [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/v1.2.0/spec.md) compliance.
+An experimental Linux container runtime.
+
+Currently passing the [default test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes) for [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/v1.2.0/spec.md) compliance.
 
 > [!CAUTION]
-> This is an experimental project. Feel free to have a look around, but **don't use it in anything that even resembles production**.
+> This is an experimental project. It will make changes to your system. Take appropriate precautions.
 
 This is currently a personal project, so I'm not interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/brownie/issues).
 
