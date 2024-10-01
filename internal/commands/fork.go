@@ -7,6 +7,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -15,11 +16,16 @@ import (
 	"github.com/nixpig/brownie/internal/cgroups"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/internal/terminal"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
 
-func listen(conn net.Conn, container *internal.Container, log *zerolog.Logger) error {
+func listen(
+	conn net.Conn,
+	container *internal.Container,
+	log *zerolog.Logger,
+) error {
 	b := make([]byte, 128)
 
 	n, err := conn.Read(b)
@@ -37,18 +43,9 @@ func listen(conn net.Conn, container *internal.Container, log *zerolog.Logger) e
 		cmd := exec.Command(container.Spec.Process.Args[0], container.Spec.Process.Args[1:]...)
 		cmd.Dir = container.Spec.Process.Cwd
 
-		cmd.Stdin = nullReader{}
-		cmd.Stdout = conn
-		cmd.Stderr = conn
-
-		var ambientCapsFlags []uintptr
-		for _, cap := range container.Spec.Process.Capabilities.Ambient {
-			ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
-		}
-
-		cmd.SysProcAttr = &syscall.SysProcAttr{
-			AmbientCaps: ambientCapsFlags,
-		}
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
 		cmd.Start()
 		return cmd.Wait()
@@ -56,13 +53,6 @@ func listen(conn net.Conn, container *internal.Container, log *zerolog.Logger) e
 
 	return nil
 }
-
-type ForkStage string
-
-var (
-	ForkIntermediate ForkStage = "intermediate"
-	ForkDetached     ForkStage = "detached"
-)
 
 type ForkOpts struct {
 	ID                string
@@ -156,8 +146,16 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			return err
 		}
 
-		if err := os.Chown(absPath, int(*dev.UID), int(*dev.GID)); err != nil {
-			log.Error().Err(err).Str("path", absPath).Uint32("UID", *dev.UID).Uint32("GID", *dev.GID).Msg("chown device node")
+		if err := os.Chown(
+			absPath,
+			int(*dev.UID),
+			int(*dev.GID),
+		); err != nil {
+			log.Error().Err(err).
+				Str("path", absPath).
+				Uint32("UID", *dev.UID).
+				Uint32("GID", *dev.GID).
+				Msg("chown device node")
 			return err
 		}
 	}
@@ -170,13 +168,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if err := syscall.Sethostname([]byte(container.Spec.Hostname)); err != nil {
-		log.Error().Err(err).Str("hostname", container.Spec.Hostname).Msg("set hostname")
-		return err
-	}
-
-	// need to set up the listener _before_ pivoting root filesystem,
-	// else the container sockaddr is not visible to the process
+	// set up the socket _before_ pivot root
 	listener, err := net.Listen("unix", container.SockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("listen on container socket")
@@ -184,9 +176,42 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
+	// FIXME: this isn't the correct PID - it should be from _inside_ container
+	container.State.Pid = os.Getpid()
+	log.Info().Int("pid", container.State.Pid).Msg("setting pid")
+	if err := container.State.Save(); err != nil {
+		log.Error().Err(err).Msg("save state after updating pid")
+		return err
+	}
+
 	if err := filesystem.PivotRootfs(container.Rootfs); err != nil {
 		log.Error().Err(err).Msg("pivot rootfs")
 		return err
+	}
+
+	if slices.ContainsFunc(
+		container.Spec.Linux.Namespaces,
+		func(n specs.LinuxNamespace) bool {
+			return n.Type == specs.UTSNamespace
+		},
+	) {
+		if err := syscall.Sethostname(
+			[]byte(container.Spec.Hostname),
+		); err != nil {
+			log.Error().Err(err).
+				Str("hostname", container.Spec.Hostname).
+				Msg("set hostname")
+			return err
+		}
+
+		if err := syscall.Setdomainname(
+			[]byte(container.Spec.Domainname),
+		); err != nil {
+			log.Error().Err(err).
+				Str("domainname", container.Spec.Domainname).
+				Msg("set domainname")
+			return err
+		}
 	}
 
 	if err := capabilities.SetCapabilities(
@@ -216,7 +241,3 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 
 	return listen(containerConn, container, log)
 }
-
-type nullReader struct{}
-
-func (nullReader) Read(p []byte) (n int, err error) { return len(p), nil }

@@ -34,28 +34,20 @@ func MountProc(containerRootfs string) error {
 
 func MountRootfs(containerRootfs string) error {
 	if err := syscall.Mount(
-		containerRootfs,
-		containerRootfs,
 		"",
-		syscall.MS_BIND|syscall.MS_REC,
+		"/",
+		"",
+		syscall.MS_PRIVATE|syscall.MS_REC,
 		"",
 	); err != nil {
 		return err
 	}
 
-	f, err := os.Create(
-		filepath.Join(containerRootfs, "dev/console"),
-	)
-	if err != nil {
-		return err
-	}
-	f.Close()
-
 	if err := syscall.Mount(
-		"/dev/ptmx",
-		filepath.Join(containerRootfs, "dev/console"),
+		containerRootfs,
+		containerRootfs,
 		"",
-		syscall.MS_BIND,
+		syscall.MS_BIND|syscall.MS_REC,
 		"",
 	); err != nil {
 		return err

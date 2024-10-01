@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
 	"strconv"
 
@@ -24,7 +23,7 @@ func RootCmd(log *zerolog.Logger) *cobra.Command {
 
 	root.AddCommand(
 		createCmd(log),
-		startCmd(log, root.OutOrStdout(), root.ErrOrStderr()),
+		startCmd(log),
 		stateCmd(log),
 		deleteCmd(log),
 		killCmd(log),
@@ -79,7 +78,7 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger, stdout io.Writer, stderr io.Writer) *cobra.Command {
+func startCmd(log *zerolog.Logger) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -94,7 +93,7 @@ func startCmd(log *zerolog.Logger, stdout io.Writer, stderr io.Writer) *cobra.Co
 			ID: containerID,
 		}
 
-		return commands.Start(opts, log, stdout, stderr)
+		return commands.Start(opts, log)
 	}
 
 	return start

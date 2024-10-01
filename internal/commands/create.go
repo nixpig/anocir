@@ -89,25 +89,29 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		GidMappings:                container.GIDMappings,
 	}
 
+	forkCmd.Stdin = os.Stdin
+	forkCmd.Stdout = os.Stdout
+	forkCmd.Stderr = os.Stderr
+
 	forkCmd.Env = container.Spec.Process.Env
 
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("fork: %w", err)
 	}
 
-	// need to get the pid off the process _before_ releasing it
-	// FIXME: should this end up being zero??
-	container.State.Pid = forkCmd.Process.Pid
+	// // need to get the pid off the process _before_ releasing it
+	// // FIXME: should this end up being zero??
+	// container.State.Pid = forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
 	}
 
 	// write pid to file if provided
-	if opts.PIDFile != "" {
-		pid := strconv.Itoa(container.State.Pid)
-		os.WriteFile(opts.PIDFile, []byte(pid), 0666)
-	}
+	// if opts.PIDFile != "" {
+	// 	pid := strconv.Itoa(container.State.Pid)
+	// 	os.WriteFile(opts.PIDFile, []byte(pid), 0666)
+	// }
 
 	for {
 		ready := <-initCh

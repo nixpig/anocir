@@ -17,7 +17,7 @@ var DefaultSymlinks = map[string]string{
 	"/proc/self/fd/0": "dev/stdin",
 	"/proc/self/fd/1": "dev/stdout",
 	"/proc/self/fd/2": "dev/stderr",
-	"/dev/pts/ptmx":   "dev/ptmx",
+	"pts/ptmx":        "dev/ptmx",
 }
 
 var DefaultDevices = []specs.LinuxDevice{

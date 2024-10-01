@@ -3,7 +3,6 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"io"
 	"net"
 
 	"github.com/nixpig/brownie/internal"
@@ -18,8 +17,6 @@ type StartOpts struct {
 func Start(
 	opts *StartOpts,
 	log *zerolog.Logger,
-	stdout io.Writer,
-	stderr io.Writer,
 ) error {
 	container, err := internal.LoadContainer(opts.ID)
 	if err != nil {
@@ -50,19 +47,6 @@ func Start(
 	container.State.Set(specs.StateRunning)
 	if err := container.State.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save state")
-	}
-
-	b, err := io.ReadAll(conn)
-	if err != nil {
-		log.Error().Err(err).Msg("start: read response")
-		stderr.Write([]byte(err.Error()))
-		return fmt.Errorf("reading response from socket: %w", err)
-	}
-
-	// FIXME: how do we redirect this to the stdout of the calling process?
-	// E.g. when being run in tests.
-	if _, err := stdout.Write(b); err != nil {
-		log.Error().Err(err).Msg("write to stdout")
 	}
 
 	if err := container.ExecHooks("poststart"); err != nil {
