@@ -1,3 +1,5 @@
 package pkg
 
-const BrownieRootDir = "/var/lib/brownie"
+const (
+	BrownieRootDir = "/var/lib/brownie"
+)

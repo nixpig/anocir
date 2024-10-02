@@ -17,10 +17,10 @@ import (
 )
 
 type CreateOpts struct {
-	ID                string
-	Bundle            string
-	ConsoleSocketPath string
-	PIDFile           string
+	ID            string
+	Bundle        string
+	ConsoleSocket string
+	PIDFile       string
 }
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
@@ -60,10 +60,10 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 	defer closer()
 
-	useTerminal := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocketPath != ""
+	useTerminal := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocket != ""
 	var termFD int
 	if useTerminal {
-		termSock, err := terminal.New(opts.ConsoleSocketPath)
+		termSock, err := terminal.New(opts.ConsoleSocket)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}

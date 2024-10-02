@@ -5,14 +5,16 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 
 	"github.com/nixpig/brownie/internal/commands"
+	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func RootCmd(log *zerolog.Logger) *cobra.Command {
+func RootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:     "brownie",
 		Short:   "An experimental Linux container runtime.",
@@ -22,20 +24,27 @@ func RootCmd(log *zerolog.Logger) *cobra.Command {
 	}
 
 	root.AddCommand(
-		createCmd(log),
-		startCmd(log),
-		stateCmd(log),
-		deleteCmd(log),
-		killCmd(log),
-		forkCmd(log),
+		createCmd(),
+		startCmd(),
+		stateCmd(),
+		deleteCmd(),
+		killCmd(),
+		forkCmd(),
 	)
 
 	root.CompletionOptions.HiddenDefaultCmd = true
 
+	root.PersistentFlags().StringP(
+		"log",
+		"l",
+		filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log"),
+		"Location of log file",
+	)
+
 	return root
 }
 
-func createCmd(log *zerolog.Logger) *cobra.Command {
+func createCmd() *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -60,10 +69,15 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 			}
 
 			opts := &commands.CreateOpts{
-				ID:                containerID,
-				Bundle:            bundle,
-				ConsoleSocketPath: consoleSocket,
-				PIDFile:           pidFile,
+				ID:            containerID,
+				Bundle:        bundle,
+				ConsoleSocket: consoleSocket,
+				PIDFile:       pidFile,
+			}
+
+			log, err := createLogger(cmd)
+			if err != nil {
+				return err
 			}
 
 			return commands.Create(opts, log)
@@ -78,7 +92,7 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger) *cobra.Command {
+func startCmd() *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -93,13 +107,18 @@ func startCmd(log *zerolog.Logger) *cobra.Command {
 			ID: containerID,
 		}
 
+		log, err := createLogger(cmd)
+		if err != nil {
+			return err
+		}
+
 		return commands.Start(opts, log)
 	}
 
 	return start
 }
 
-func killCmd(log *zerolog.Logger) *cobra.Command {
+func killCmd() *cobra.Command {
 	kill := &cobra.Command{
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Kill a container",
@@ -114,6 +133,11 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 				Signal: signal,
 			}
 
+			log, err := createLogger(cmd)
+			if err != nil {
+				return err
+			}
+
 			return commands.Kill(opts, log)
 		},
 	}
@@ -121,8 +145,8 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 	return kill
 }
 
-func deleteCmd(log *zerolog.Logger) *cobra.Command {
-	delete := &cobra.Command{
+func deleteCmd() *cobra.Command {
+	del := &cobra.Command{
 		Use:     "delete [flags] CONTAINER_ID",
 		Short:   "Delete a container",
 		Args:    cobra.ExactArgs(1),
@@ -140,16 +164,21 @@ func deleteCmd(log *zerolog.Logger) *cobra.Command {
 				Force: force,
 			}
 
+			log, err := createLogger(cmd)
+			if err != nil {
+				return err
+			}
+
 			return commands.Delete(opts, log)
 		},
 	}
 
-	delete.Flags().BoolP("force", "f", false, "force delete")
+	del.Flags().BoolP("force", "f", false, "force delete")
 
-	return delete
+	return del
 }
 
-func forkCmd(log *zerolog.Logger) *cobra.Command {
+func forkCmd() *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
@@ -159,8 +188,8 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 			initSockAddr := args[1]
-			consoleSocketFD := args[2]
-			iconsolesocketfd, err := strconv.Atoi(consoleSocketFD)
+
+			consoleSocketFD, err := strconv.Atoi(args[2])
 			if err != nil {
 				return fmt.Errorf("convert console socket fd to int: %w", err)
 			}
@@ -168,7 +197,12 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 			opts := &commands.ForkOpts{
 				ID:              containerID,
 				InitSockAddr:    initSockAddr,
-				ConsoleSocketFD: iconsolesocketfd,
+				ConsoleSocketFD: consoleSocketFD,
+			}
+
+			log, err := createLogger(cmd)
+			if err != nil {
+				return err
 			}
 
 			return commands.Fork(opts, log)
@@ -178,7 +212,7 @@ func forkCmd(log *zerolog.Logger) *cobra.Command {
 	return fork
 }
 
-func stateCmd(log *zerolog.Logger) *cobra.Command {
+func stateCmd() *cobra.Command {
 	state := &cobra.Command{
 		Use:     "state [flags] CONTAINER_ID",
 		Short:   "Query a container state",
@@ -191,18 +225,54 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 				ID: containerID,
 			}
 
+			log, err := createLogger(cmd)
+			if err != nil {
+				return err
+			}
+
 			state, err := commands.State(opts, log)
 			if err != nil {
 				return err
 			}
 
-			var prettified bytes.Buffer
-			json.Indent(&prettified, []byte(state), "", "  ")
+			var formattedState bytes.Buffer
+			json.Indent(&formattedState, []byte(state), "", "  ")
 
-			fmt.Fprint(cmd.OutOrStdout(), prettified.String())
+			if _, err := cmd.OutOrStdout().Write(
+				formattedState.Bytes(),
+			); err != nil {
+				return err
+			}
+
 			return nil
 		},
 	}
 
 	return state
+}
+
+func createLogger(cmd *cobra.Command) (*zerolog.Logger, error) {
+	logPath, err := cmd.InheritedFlags().GetString("log")
+	if err != nil {
+		return nil, err
+	}
+
+	logDir, _ := filepath.Split(logPath)
+
+	if err := os.MkdirAll(logDir, 0666); err != nil {
+		return nil, fmt.Errorf("create log dir: %w", err)
+	}
+
+	logFile, err := os.OpenFile(
+		logPath,
+		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
+		0644,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open log file: %w", err)
+	}
+
+	log := zerolog.New(logFile).With().Timestamp().Logger()
+
+	return &log, nil
 }

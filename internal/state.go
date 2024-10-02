@@ -9,10 +9,15 @@ import (
 
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func GetState(containerID string) (*specs.State, error) {
-	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", containerID)
+type StateOpts struct {
+	ID string
+}
+
+func GetState(opts *StateOpts, log *zerolog.Logger) (*specs.State, error) {
+	containerPath := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
 
 	stateJSON, err := os.ReadFile(filepath.Join(containerPath, "state.json"))
 	if err != nil {
