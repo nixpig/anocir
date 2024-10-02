@@ -69,8 +69,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Ambient {
 			if v, ok := Capabilities[e]; ok {
 				c.Set(capability.AMBIENT, capability.Cap(v))
-			} else {
-				continue
 			}
 		}
 	}
@@ -79,8 +77,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Bounding {
 			if v, ok := Capabilities[e]; ok {
 				c.Set(capability.BOUNDING, capability.Cap(v))
-			} else {
-				continue
 			}
 		}
 	}
@@ -89,8 +85,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Effective {
 			if v, ok := Capabilities[e]; ok {
 				c.Set(capability.EFFECTIVE, capability.Cap(v))
-			} else {
-				continue
 			}
 		}
 	}
@@ -99,8 +93,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Permitted {
 			if v, ok := Capabilities[e]; ok {
 				c.Set(capability.PERMITTED, capability.Cap(v))
-			} else {
-				continue
 			}
 		}
 	}
@@ -109,8 +101,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Inheritable {
 			if v, ok := Capabilities[e]; ok {
 				c.Set(capability.INHERITABLE, capability.Cap(v))
-			} else {
-				continue
 			}
 		}
 	}

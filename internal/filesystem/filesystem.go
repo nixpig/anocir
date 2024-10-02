@@ -112,7 +112,7 @@ func CreateSymlinks(symlinks map[string]string, rootfs string) error {
 	return nil
 }
 
-func MountMounts(mounts []specs.Mount, rootfs string) error {
+func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, mount := range mounts {
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
@@ -133,7 +133,7 @@ func MountMounts(mounts []specs.Mount, rootfs string) error {
 
 		var flags uintptr
 		if mount.Type == "bind" {
-			flags = flags | syscall.MS_BIND
+			flags |= syscall.MS_BIND
 		}
 
 		var dataOptions []string
@@ -147,7 +147,7 @@ func MountMounts(mounts []specs.Mount, rootfs string) error {
 				}
 			} else {
 				if !o.No {
-					flags = flags | o.Flag
+					flags |= o.Flag
 				}
 			}
 		}

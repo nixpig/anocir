@@ -34,6 +34,7 @@ func NewPty() (*Pty, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	slavePts := fmt.Sprintf("/dev/pts/%d", slavePtyFD)
 
 	slaveFD, err := syscall.Open(slavePts, syscall.O_RDWR, 0666)

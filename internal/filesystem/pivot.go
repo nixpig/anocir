@@ -8,13 +8,19 @@ import (
 )
 
 func PivotRootfs(containerRootfs string) error {
-	oldroot := filepath.Join(containerRootfs, "oldroot")
+	oldroot := ".oldroot"
 
-	if err := os.MkdirAll(oldroot, 0700); err != nil {
+	if err := os.MkdirAll(
+		filepath.Join(containerRootfs, oldroot),
+		0700,
+	); err != nil {
 		return fmt.Errorf("make old root dir: %w", err)
 	}
 
-	if err := syscall.PivotRoot(containerRootfs, oldroot); err != nil {
+	if err := syscall.PivotRoot(
+		containerRootfs,
+		filepath.Join(containerRootfs, oldroot),
+	); err != nil {
 		return fmt.Errorf("pivot to new root: %w", err)
 	}
 
@@ -22,11 +28,11 @@ func PivotRootfs(containerRootfs string) error {
 		return fmt.Errorf("chdir to new root: %w", err)
 	}
 
-	if err := syscall.Unmount("oldroot", syscall.MNT_DETACH); err != nil {
+	if err := syscall.Unmount(oldroot, syscall.MNT_DETACH); err != nil {
 		return fmt.Errorf("unmount old root: %w", err)
 	}
 
-	if err := os.RemoveAll("oldroot"); err != nil {
+	if err := os.RemoveAll(oldroot); err != nil {
 		return fmt.Errorf("remove old root: %w", err)
 	}
 

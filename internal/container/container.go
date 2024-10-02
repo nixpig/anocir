@@ -172,9 +172,9 @@ func New(id string, bundle *bundle.Bundle) (*Container, error) {
 		})
 	}
 
-	var ambientCapsFlags []uintptr
-	for _, cap := range spec.Process.Capabilities.Ambient {
-		ambientCapsFlags = append(ambientCapsFlags, uintptr(capabilities.Capabilities[cap]))
+	ambientCapsFlags := make([]uintptr, len(spec.Process.Capabilities.Ambient))
+	for i, cap := range spec.Process.Capabilities.Ambient {
+		ambientCapsFlags[i] = uintptr(capabilities.Capabilities[cap])
 	}
 
 	return &Container{
@@ -249,7 +249,8 @@ func (c *Container) ExecHooks(hook string) error {
 }
 
 func (c *Container) CanBeStarted() bool {
-	return c.State.Status == specs.StateCreated || c.State.Status == specs.StateStopped
+	return c.State.Status == specs.StateCreated ||
+		c.State.Status == specs.StateStopped
 }
 
 func (c *Container) CanBeKilled() bool {
@@ -257,5 +258,6 @@ func (c *Container) CanBeKilled() bool {
 }
 
 func (c *Container) CanBeDeleted() bool {
-	return c.State.Status == specs.StateStopped || c.State.Status == specs.StateCreated
+	return c.State.Status == specs.StateStopped ||
+		c.State.Status == specs.StateCreated
 }

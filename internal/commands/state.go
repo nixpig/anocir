@@ -14,20 +14,13 @@ type StateOpts struct {
 }
 
 type StateCLI struct {
-	Version string `json:"ociVersion"`
-	// ID is the container ID
-	ID string `json:"id"`
-	// Status is the runtime status of the container.
-	Status specs.ContainerState `json:"status"`
-	// Pid is the process ID for the container process.
-	Pid int `json:"pid,omitempty"`
-	// Bundle is the path to the container's bundle directory.
-	Bundle string `json:"bundle"`
-
-	Rootfs string `json:"rootfs"`
-
-	// Annotations are key values associated with the container.
-	Annotations map[string]string `json:"annotations,omitempty"`
+	Version     string               `json:"ociVersion"`
+	ID          string               `json:"id"`
+	Status      specs.ContainerState `json:"status"`
+	Pid         int                  `json:"pid,omitempty"`
+	Bundle      string               `json:"bundle"`
+	Rootfs      string               `json:"rootfs"`
+	Annotations map[string]string    `json:"annotations,omitempty"`
 }
 
 func stateToCliState(state *container.ContainerState) StateCLI {
@@ -54,10 +47,6 @@ func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
 		log.Error().Err(err).Msg("marshal state")
 		return "", fmt.Errorf("marshal state: %w", err)
 	}
-
-	// if _, err := os.Stdout.Write(s); err != nil {
-	// 	log.Error().Err(err).Msg("write state to stdout")
-	// }
 
 	return string(s), nil
 }

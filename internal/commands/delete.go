@@ -21,7 +21,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 	}
 
 	if !opts.Force && !container.CanBeDeleted() {
-		return errors.New("container is not stopped")
+		return errors.New("container cannot be deleted in current state")
 	}
 
 	if err := os.Remove(container.SockAddr); err != nil {

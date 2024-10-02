@@ -23,7 +23,7 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 	}
 
 	if !container.CanBeKilled() {
-		return errors.New("container is not created or running")
+		return errors.New("container cannot be killed in current state")
 	}
 
 	s, err := signal.FromString(opts.Signal)
@@ -31,13 +31,13 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("convert to signal: %w", err)
 	}
 
+	if err := syscall.Kill(container.State.Pid, s); err != nil {
+		return fmt.Errorf("kill container process: %w", err)
+	}
+
 	container.State.Set(specs.StateStopped)
 	if err := container.State.Save(); err != nil {
 		return fmt.Errorf("save state: %w", err)
-	}
-
-	if err := syscall.Kill(container.State.Pid, s); err != nil {
-		return fmt.Errorf("kill container process: %w", err)
 	}
 
 	return nil

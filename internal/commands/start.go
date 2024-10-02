@@ -14,25 +14,20 @@ type StartOpts struct {
 	ID string
 }
 
-func Start(
-	opts *StartOpts,
-	log *zerolog.Logger,
-) error {
+func Start(opts *StartOpts, log *zerolog.Logger) error {
 	container, err := container.LoadContainer(opts.ID)
 	if err != nil {
 		return fmt.Errorf("load container: %w", err)
 	}
 
 	if !container.CanBeStarted() {
-		return errors.New("container not created")
+		return errors.New("container cannot be started in current state")
 	}
 
 	if err := container.ExecHooks("startContainer"); err != nil {
 		return fmt.Errorf("execute startcontainer hooks: %w", err)
 	}
 
-	// 8. TODO: Run the user-specified program from 'process' in the container
-	// and update state to Running
 	conn, err := net.Dial("unix", container.SockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("start: dial socket")

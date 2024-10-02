@@ -48,7 +48,9 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 
 	container.State.Set(specs.StateCreating)
-	container.State.Save()
+	if err := container.State.Save(); err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
 
 	initSockAddr := filepath.Join(container.Path, "init.sock")
 	if err := os.RemoveAll(initSockAddr); err != nil {
@@ -80,7 +82,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 			strconv.Itoa(termFD),
 		}...)
 
-	// apply configuration, e.g. devices, proc, etc...
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                container.AmbientCapsFlags,
 		Cloneflags:                 container.NamespaceFlags,
@@ -100,19 +101,17 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("fork: %w", err)
 	}
 
-	// // need to get the pid off the process _before_ releasing it
-	// // FIXME: should this end up being zero??
-	// container.State.Pid = forkCmd.Process.Pid
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("detach fork")
 		return err
 	}
 
-	// write pid to file if provided
-	// if opts.PIDFile != "" {
-	// 	pid := strconv.Itoa(container.State.Pid)
-	// 	os.WriteFile(opts.PIDFile, []byte(pid), 0666)
-	// }
+	if opts.PIDFile != "" {
+		pid := strconv.Itoa(container.State.Pid)
+		if err := os.WriteFile(opts.PIDFile, []byte(pid), 0666); err != nil {
+			return fmt.Errorf("write pid to file: %w", err)
+		}
+	}
 
 	for {
 		ready := <-initCh
@@ -124,7 +123,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	container.State.Set(specs.StateCreated)
 	if err := container.State.Save(); err != nil {
-		return fmt.Errorf("save created state: %w", err)
+		return fmt.Errorf("save state: %w", err)
 	}
 
 	return nil

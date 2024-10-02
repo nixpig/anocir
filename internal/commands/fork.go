@@ -2,7 +2,6 @@ package commands
 
 import (
 	"errors"
-	"fmt"
 	"net"
 	"os"
 	"os/exec"
@@ -40,15 +39,18 @@ func listen(
 
 	switch string(b[:n]) {
 	case "start":
-		cmd := exec.Command(container.Spec.Process.Args[0], container.Spec.Process.Args[1:]...)
+		cmd := exec.Command(
+			container.Spec.Process.Args[0],
+			container.Spec.Process.Args[1:]...,
+		)
+
 		cmd.Dir = container.Spec.Process.Cwd
 
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		cmd.Start()
-		return cmd.Wait()
+		return cmd.Run()
 	}
 
 	return nil
@@ -64,7 +66,8 @@ type ForkOpts struct {
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	container, err := container.LoadContainer(opts.ID)
 	if err != nil {
-		return fmt.Errorf("load existing container for fork: %w", err)
+		log.Error().Err(err).Msg("load existing container for fork")
+		return err
 	}
 
 	initConn, err := net.Dial("unix", opts.InitSockAddr)
@@ -81,13 +84,13 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	if opts.ConsoleSocketFD != 0 {
 		pty, err := terminal.NewPty()
 		if err != nil {
-			log.Error().Err(err).Msg("new pty")
+			log.Error().Err(err).Msg("create new pty")
 			return err
 		}
 		defer pty.Close()
 
 		if err := pty.Connect(); err != nil {
-			log.Error().Err(err).Msg("connect pty")
+			log.Error().Err(err).Msg("connect to pty")
 			return err
 		}
 
@@ -97,9 +100,10 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		)
 		defer consoleSocketPty.Close()
 
-		// how does ptysocket struct pass between fork?
+		// FIXME: how do we pass ptysocket struct between fork?
 		if err := consoleSocketPty.SendMsg(pty); err != nil {
-			log.Error().Err(err).Msg("send pty msg")
+			log.Error().Err(err).Msg("send message to pty")
+			return err
 		}
 	}
 
@@ -113,7 +117,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if err := filesystem.MountMounts(
+	if err := filesystem.MountSpecMounts(
 		container.Spec.Mounts,
 		container.Rootfs,
 	); err != nil {
@@ -142,7 +146,12 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			uint32(*dev.FileMode),
 			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
 		); err != nil {
-			log.Error().Err(err).Any("dev", dev).Msg("make device node")
+			log.Error().Err(err).
+				Str("path", absPath).
+				Uint32("fileMode", uint32(*dev.FileMode)).
+				Int64("major", dev.Major).
+				Int64("minor", dev.Minor).
+				Any("dev", dev).Msg("make device node")
 			return err
 		}
 
@@ -176,7 +185,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	// FIXME: this isn't the correct PID - it should be from _inside_ container
+	// FIXME: this isn't the correct PID - it should be from _inside_ container, 0 ??
 	container.State.Pid = os.Getpid()
 	log.Info().Int("pid", container.State.Pid).Msg("setting pid")
 	if err := container.State.Save(); err != nil {
