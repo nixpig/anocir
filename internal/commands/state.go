@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/container"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -30,7 +30,7 @@ type StateCLI struct {
 	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
-func stateToCliState(state *internal.ContainerState) StateCLI {
+func stateToCliState(state *container.ContainerState) StateCLI {
 	return StateCLI{
 		Version:     state.Version,
 		ID:          state.ID,
@@ -42,7 +42,7 @@ func stateToCliState(state *internal.ContainerState) StateCLI {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
-	container, err := internal.LoadContainer(opts.ID)
+	container, err := container.LoadContainer(opts.ID)
 	if err != nil {
 		return "", fmt.Errorf("load container: %w", err)
 	}

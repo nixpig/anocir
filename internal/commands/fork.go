@@ -11,9 +11,9 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nixpig/brownie/internal"
 	"github.com/nixpig/brownie/internal/capabilities"
 	"github.com/nixpig/brownie/internal/cgroups"
+	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -23,7 +23,7 @@ import (
 
 func listen(
 	conn net.Conn,
-	container *internal.Container,
+	container *container.Container,
 	log *zerolog.Logger,
 ) error {
 	b := make([]byte, 128)
@@ -62,7 +62,7 @@ type ForkOpts struct {
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
-	container, err := internal.LoadContainer(opts.ID)
+	container, err := container.LoadContainer(opts.ID)
 	if err != nil {
 		return fmt.Errorf("load existing container for fork: %w", err)
 	}

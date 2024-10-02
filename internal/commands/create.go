@@ -9,7 +9,8 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/nixpig/brownie/internal"
+	"github.com/nixpig/brownie/internal/bundle"
+	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -24,7 +25,7 @@ type CreateOpts struct {
 }
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
-	bundle, err := internal.NewBundle(opts.Bundle)
+	bundle, err := bundle.New(opts.Bundle)
 	if err != nil {
 		return fmt.Errorf("create bundle: %w", err)
 	}
@@ -33,7 +34,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return errors.New("not a linux container")
 	}
 
-	container, err := internal.NewContainer(opts.ID, bundle)
+	container, err := container.New(opts.ID, bundle)
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)
 	}

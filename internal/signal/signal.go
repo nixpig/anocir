@@ -1,4 +1,4 @@
-package internal
+package signal
 
 import (
 	"errors"
@@ -7,13 +7,8 @@ import (
 	"syscall"
 )
 
-func ToSignal(s string) (syscall.Signal, error) {
-	sig, err := strconv.Atoi(s)
-	if err != nil {
-		return -1, fmt.Errorf("signal string to int: %w", err)
-	}
-
-	switch sig {
+func FromInt(s int) (syscall.Signal, error) {
+	switch s {
 	case 1:
 		return syscall.SIGHUP, nil
 	case 2:
@@ -33,4 +28,13 @@ func ToSignal(s string) (syscall.Signal, error) {
 	}
 
 	return -1, errors.New("unhandled signal")
+}
+
+func FromString(s string) (syscall.Signal, error) {
+	sig, err := strconv.Atoi(s)
+	if err != nil {
+		return -1, fmt.Errorf("signal string to int: %w", err)
+	}
+
+	return FromInt(sig)
 }

@@ -1,4 +1,4 @@
-package internal
+package container
 
 import (
 	"encoding/json"
@@ -8,7 +8,10 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/nixpig/brownie/internal/bundle"
 	"github.com/nixpig/brownie/internal/capabilities"
+	"github.com/nixpig/brownie/internal/lifecycle"
+	"github.com/nixpig/brownie/internal/namespace"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
@@ -34,7 +37,7 @@ type ContainerState struct {
 	specs.State
 }
 
-func NewContainerState(id string, bundle *Bundle) (*ContainerState, error) {
+func NewState(id string, bundle *bundle.Bundle) (*ContainerState, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id, "state.json")
 	f, err := os.Create(path)
 	if err != nil {
@@ -55,7 +58,7 @@ func NewContainerState(id string, bundle *Bundle) (*ContainerState, error) {
 	}, nil
 }
 
-func LoadContainerState(id string) (*ContainerState, error) {
+func LoadState(id string) (*ContainerState, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id, "state.json")
 	b, err := os.ReadFile(path)
 
@@ -89,7 +92,7 @@ func (c *ContainerState) Save() error {
 	return nil
 }
 
-func NewContainer(id string, bundle *Bundle) (*Container, error) {
+func New(id string, bundle *bundle.Bundle) (*Container, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
 	if stat, _ := os.Stat(path); stat != nil {
 		return nil, errors.New("container with specified ID already exists")
@@ -99,7 +102,7 @@ func NewContainer(id string, bundle *Bundle) (*Container, error) {
 		return nil, fmt.Errorf("make container directory: %w", err)
 	}
 
-	state, err := NewContainerState(id, bundle)
+	state, err := NewState(id, bundle)
 	if err != nil {
 		return nil, fmt.Errorf("create container state: %w", err)
 	}
@@ -126,7 +129,7 @@ func NewContainer(id string, bundle *Bundle) (*Container, error) {
 
 	var namespaceFlags uintptr
 	for _, ns := range spec.Linux.Namespaces {
-		ns := LinuxNamespace(ns)
+		ns := namespace.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
 		if err != nil {
 			return nil, fmt.Errorf("convert namespace to flag: %w", err)
@@ -206,7 +209,7 @@ func LoadContainer(id string) (*Container, error) {
 
 	rootfsPath := filepath.Join(path, spec.Root.Path)
 
-	state, err := LoadContainerState(id)
+	state, err := LoadState(id)
 	if err != nil {
 		return nil, fmt.Errorf("load state for container: %w", err)
 	}
@@ -223,26 +226,26 @@ func LoadContainer(id string) (*Container, error) {
 	}, nil
 }
 
-func (c *Container) ExecHooks(lifecycle string) error {
+func (c *Container) ExecHooks(hook string) error {
 	if c.Spec.Hooks == nil {
 		return nil
 	}
 
-	var hooks []specs.Hook
-	switch lifecycle {
+	var specHooks []specs.Hook
+	switch hook {
 	case "createRuntime":
-		hooks = c.Spec.Hooks.CreateRuntime
+		specHooks = c.Spec.Hooks.CreateRuntime
 	case "createContainer":
-		hooks = c.Spec.Hooks.CreateContainer
+		specHooks = c.Spec.Hooks.CreateContainer
 	case "startContainer":
-		hooks = c.Spec.Hooks.StartContainer
+		specHooks = c.Spec.Hooks.StartContainer
 	case "poststart":
-		hooks = c.Spec.Hooks.Poststart
+		specHooks = c.Spec.Hooks.Poststart
 	case "poststop":
-		hooks = c.Spec.Hooks.Poststop
+		specHooks = c.Spec.Hooks.Poststop
 	}
 
-	return ExecHooks(hooks)
+	return lifecycle.ExecHooks(specHooks)
 }
 
 func (c *Container) CanBeStarted() bool {

@@ -1,4 +1,4 @@
-package internal
+package bundle
 
 import (
 	"encoding/json"
@@ -16,7 +16,7 @@ type Bundle struct {
 	Spec     specs.Spec
 }
 
-func NewBundle(path string) (*Bundle, error) {
+func New(path string) (*Bundle, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return nil, fmt.Errorf("absolute path to bundle: %w", err)
