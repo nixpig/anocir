@@ -27,43 +27,53 @@ type CreateOpts struct {
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	bundle, err := bundle.New(opts.Bundle)
 	if err != nil {
+		log.Error().Err(err).Msg("create bundle")
 		return fmt.Errorf("create bundle: %w", err)
 	}
 
 	if bundle.Spec.Linux == nil {
+		log.Error().Msg("not a linux container")
 		return errors.New("not a linux container")
 	}
 
 	container, err := container.New(opts.ID, bundle)
 	if err != nil {
+		log.Error().Err(err).Msg("create container")
 		return fmt.Errorf("create container: %w", err)
 	}
 
 	if err := container.ExecHooks("createRuntime"); err != nil {
+		log.Error().Err(err).Msg("execute createruntime hooks")
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
 
 	if err := container.ExecHooks("createContainer"); err != nil {
+		log.Error().Err(err).Msg("execute createcontainer hooks")
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
 	container.State.Set(specs.StateCreating)
 	if err := container.State.Save(); err != nil {
-		return fmt.Errorf("save state: %w", err)
+		log.Error().Err(err).Msg("save creating state")
+		return fmt.Errorf("save creating state: %w", err)
 	}
 
 	initSockAddr := filepath.Join(container.Path, "init.sock")
 	if err := os.RemoveAll(initSockAddr); err != nil {
+		log.Error().Err(err).Msg("remove existing init socket")
 		return err
 	}
-
-	initCh, closer, err := ipc.NewReceiver(initSockAddr)
+	initCh, initCloser, err := ipc.NewReceiver(initSockAddr)
 	if err != nil {
+		log.Error().Err(err).Msg("new ipc receiver")
 		return err
 	}
-	defer closer()
+	defer initCloser()
 
-	useTerminal := container.Spec.Process != nil && container.Spec.Process.Terminal && opts.ConsoleSocket != ""
+	useTerminal := container.Spec.Process != nil &&
+		container.Spec.Process.Terminal &&
+		opts.ConsoleSocket != ""
+
 	var termFD int
 	if useTerminal {
 		termSock, err := terminal.New(opts.ConsoleSocket)
@@ -98,7 +108,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	forkCmd.Env = container.Spec.Process.Env
 
 	if err := forkCmd.Start(); err != nil {
-		return fmt.Errorf("fork: %w", err)
+		return fmt.Errorf("start fork: %w", err)
 	}
 
 	if err := forkCmd.Process.Release(); err != nil {
@@ -109,12 +119,17 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	if opts.PIDFile != "" {
 		pid := strconv.Itoa(container.State.Pid)
 		if err := os.WriteFile(opts.PIDFile, []byte(pid), 0666); err != nil {
+			log.Error().Err(err).Msg("write pid to file")
 			return fmt.Errorf("write pid to file: %w", err)
 		}
 	}
 
 	for {
 		ready := <-initCh
+		log.Info().
+			Str("msg", string(ready)).
+			Msg("host received ipc msg")
+
 		if string(ready[:5]) == "ready" {
 			log.Info().Msg("ready")
 			break
@@ -123,6 +138,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 
 	container.State.Set(specs.StateCreated)
 	if err := container.State.Save(); err != nil {
+		log.Error().Err(err).Msg("save created state")
 		return fmt.Errorf("save state: %w", err)
 	}
 

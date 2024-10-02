@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"errors"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,47 +12,12 @@ import (
 	"github.com/nixpig/brownie/internal/cgroups"
 	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/internal/filesystem"
+	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
-
-func listen(
-	conn net.Conn,
-	container *container.Container,
-	log *zerolog.Logger,
-) error {
-	b := make([]byte, 128)
-
-	n, err := conn.Read(b)
-	if err != nil {
-		log.Error().Err(err).Msg("read from connection")
-		return err
-	}
-
-	if n == 0 {
-		return errors.New("read zero bytes")
-	}
-
-	switch string(b[:n]) {
-	case "start":
-		cmd := exec.Command(
-			container.Spec.Process.Args[0],
-			container.Spec.Process.Args[1:]...,
-		)
-
-		cmd.Dir = container.Spec.Process.Cwd
-
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		cmd.Stderr = os.Stderr
-
-		return cmd.Run()
-	}
-
-	return nil
-}
 
 type ForkOpts struct {
 	ID                string
@@ -70,15 +33,11 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	initConn, err := net.Dial("unix", opts.InitSockAddr)
+	initCh, _, err := ipc.NewSender(opts.InitSockAddr)
 	if err != nil {
-		log.Error().Err(err).Msg("dialing init socket")
-		return err
-	}
-	defer initConn.Close()
-	if err := os.RemoveAll(container.SockAddr); err != nil {
-		log.Error().Err(err).Msg("remove existing container socket")
-		return err
+		log.Error().Err(err).
+			Str("InitSockAddr", opts.InitSockAddr).
+			Msg("create ipc sender for init channel")
 	}
 
 	if opts.ConsoleSocketFD != 0 {
@@ -178,12 +137,16 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 
 	// set up the socket _before_ pivot root
-	listener, err := net.Listen("unix", container.SockAddr)
-	if err != nil {
-		log.Error().Err(err).Msg("listen on container socket")
+	if err := os.RemoveAll(container.SockAddr); err != nil {
+		log.Error().Err(err).Msg("remove existing container socket")
 		return err
 	}
-	defer listener.Close()
+	containerCh, containerCloser, err := ipc.NewReceiver(container.SockAddr)
+	if err != nil {
+		log.Error().Err(err).Msg("new container ipc receiver")
+		return err
+	}
+	defer containerCloser()
 
 	// FIXME: this isn't the correct PID - it should be from _inside_ container, 0 ??
 	container.State.Pid = os.Getpid()
@@ -235,18 +198,42 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if n, err := initConn.Write([]byte("ready")); n == 0 || err != nil {
-		log.Error().Err(err).Msg("send 'ready' message")
-		return err
-	}
-	initConn.Close()
+	initCh <- []byte("ready")
 
-	containerConn, err := listener.Accept()
-	if err != nil {
-		log.Error().Err(err).Msg("accept connection")
-		return err
-	}
-	defer containerConn.Close()
+	return waitForMsg(containerCh, container, log)
+}
 
-	return listen(containerConn, container, log)
+func waitForMsg(
+	ch chan []byte,
+	container *container.Container,
+	log *zerolog.Logger,
+) error {
+	for {
+		msg := <-ch
+
+		log.Info().
+			Str("msg", string(msg)).
+			Msg("container received ipc msg")
+
+		switch string(msg) {
+		case "start":
+			cmd := exec.Command(
+				container.Spec.Process.Args[0],
+				container.Spec.Process.Args[1:]...,
+			)
+
+			cmd.Dir = container.Spec.Process.Cwd
+
+			cmd.Stdin = os.Stdin
+			cmd.Stdout = os.Stdout
+			cmd.Stderr = os.Stderr
+
+			return cmd.Run()
+
+		default:
+			log.Warn().
+				Str("msg", string(msg)).
+				Msg("unknown command")
+		}
+	}
 }
