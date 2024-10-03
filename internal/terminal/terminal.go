@@ -13,7 +13,7 @@ func New(consoleSockPath string) (*Terminal, error) {
 	}
 
 	if err := ptySock.Connect(); err != nil {
-		return nil, fmt.Errorf("connect sock: %w", err)
+		return nil, fmt.Errorf("connect to pty sock: %w", err)
 	}
 
 	return &Terminal{FD: ptySock.FD}, nil

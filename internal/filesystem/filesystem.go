@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -9,47 +10,44 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func MountProc(containerRootfs string) error {
-	containerPath := filepath.Join(containerRootfs, "proc")
-
-	if err := os.MkdirAll(
-		containerPath,
-		os.ModeDir,
-	); err != nil {
-		return err
+func MountDevice(device Device) error {
+	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
+		f, err := os.Create(device.Target)
+		if err != nil && !os.IsExist(err) {
+			return fmt.Errorf("create device target if not exists: %w", err)
+		}
+		if f != nil {
+			f.Close()
+		}
 	}
 
-	if err := syscall.Mount(
-		"proc",
-		containerPath,
-		"proc",
-		uintptr(0),
-		"",
-	); err != nil {
-		return err
-	}
-
-	return nil
+	return syscall.Mount(
+		device.Source,
+		device.Target,
+		device.Fstype,
+		device.Flags,
+		device.Data,
+	)
 }
 
 func MountRootfs(containerRootfs string) error {
-	if err := syscall.Mount(
-		"",
-		"/",
-		"",
-		syscall.MS_PRIVATE|syscall.MS_REC,
-		"",
-	); err != nil {
+	if err := MountDevice(Device{
+		Source: "",
+		Target: "/",
+		Fstype: "",
+		Flags:  syscall.MS_PRIVATE | syscall.MS_REC,
+		Data:   "",
+	}); err != nil {
 		return err
 	}
 
-	if err := syscall.Mount(
-		containerRootfs,
-		containerRootfs,
-		"",
-		syscall.MS_BIND|syscall.MS_REC,
-		"",
-	); err != nil {
+	if err := MountDevice(Device{
+		Source: containerRootfs,
+		Target: containerRootfs,
+		Fstype: "",
+		Flags:  syscall.MS_BIND | syscall.MS_REC,
+		Data:   "",
+	}); err != nil {
 		return err
 	}
 
@@ -84,15 +82,16 @@ func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
 			if f != nil {
 				f.Close()
 			}
-			if err := syscall.Mount(
-				dev.Path,
-				absPath,
-				"bind",
-				syscall.MS_BIND,
-				"",
-			); err != nil {
-				return err
-			}
+		}
+
+		if err := MountDevice(Device{
+			Source: dev.Path,
+			Target: absPath,
+			Fstype: "bind",
+			Flags:  syscall.MS_BIND,
+			Data:   "",
+		}); err != nil {
+			return fmt.Errorf("mount device: %w", err)
 		}
 	}
 
@@ -157,14 +156,14 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			data = strings.Join(dataOptions, ",")
 		}
 
-		if err := syscall.Mount(
-			mount.Source,
-			dest,
-			mount.Type,
-			flags,
-			data,
-		); err != nil {
-			return err
+		if err := MountDevice(Device{
+			Source: mount.Source,
+			Target: dest,
+			Fstype: mount.Type,
+			Flags:  flags,
+			Data:   data,
+		}); err != nil {
+			return fmt.Errorf("mount device: %w", err)
 		}
 	}
 

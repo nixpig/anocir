@@ -19,7 +19,11 @@ type Bundle struct {
 func New(path string) (*Bundle, error) {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
-		return nil, fmt.Errorf("absolute path to bundle: %w", err)
+		return nil, fmt.Errorf("get absolute path to bundle: %w", err)
+	}
+
+	if _, err := os.Stat(absPath); err != nil {
+		return nil, fmt.Errorf("check bundle path: %w", err)
 	}
 
 	specPath := filepath.Join(absPath, "config.json")
@@ -34,6 +38,9 @@ func New(path string) (*Bundle, error) {
 	}
 
 	rootfs := filepath.Join(path, spec.Root.Path)
+	if _, err := os.Stat(rootfs); err != nil {
+		return nil, fmt.Errorf("check rootfs path: %w", err)
+	}
 
 	return &Bundle{
 		Path:     absPath,

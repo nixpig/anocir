@@ -1,6 +1,8 @@
 package capabilities
 
 import (
+	"fmt"
+
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/syndtr/gocapability/capability"
 )
@@ -56,7 +58,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	c, err := capability.NewPid2(0)
 	if err != nil {
-		return err
+		return fmt.Errorf("initialise capabilities object: %w", err)
 	}
 
 	c.Clear(capability.BOUNDING)
@@ -112,7 +114,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 			capability.PERMITTED |
 			capability.AMBIENT,
 	); err != nil {
-		return err
+		return fmt.Errorf("apply capabilities: %w", err)
 	}
 
 	return nil

@@ -60,16 +60,15 @@ func NewState(id string, bundle *bundle.Bundle) (*ContainerState, error) {
 
 func LoadState(id string) (*ContainerState, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id, "state.json")
-	b, err := os.ReadFile(path)
 
+	stateJSON, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("read container state file: %w", err)
 	}
 
 	var state ContainerState
-
-	if err := json.Unmarshal(b, &state); err != nil {
-		return nil, fmt.Errorf("unmarshal state file: %w", err)
+	if err := json.Unmarshal(stateJSON, &state); err != nil {
+		return nil, fmt.Errorf("parse state: %w", err)
 	}
 
 	return &state, nil
@@ -94,12 +93,12 @@ func (c *ContainerState) Save() error {
 
 func New(id string, bundle *bundle.Bundle) (*Container, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
-	if stat, _ := os.Stat(path); stat != nil {
+	if stat, err := os.Stat(path); stat != nil || os.IsExist(err) {
 		return nil, errors.New("container with specified ID already exists")
 	}
 
 	if err := os.MkdirAll(path, os.ModeDir); err != nil {
-		return nil, fmt.Errorf("make container directory: %w", err)
+		return nil, fmt.Errorf("create container directory: %w", err)
 	}
 
 	state, err := NewState(id, bundle)
@@ -109,12 +108,12 @@ func New(id string, bundle *bundle.Bundle) (*Container, error) {
 
 	specPath := filepath.Join(path, "config.json")
 	if err := cp.Copy(bundle.SpecPath, specPath); err != nil {
-		return nil, fmt.Errorf("copy bundle spec to container spec: %w", err)
+		return nil, fmt.Errorf("copy spec from bundle to container: %w", err)
 	}
 
 	rootfsPath := filepath.Join(path, bundle.Spec.Root.Path)
 	if err := cp.Copy(bundle.Rootfs, rootfsPath); err != nil {
-		return nil, fmt.Errorf("copy bundle rootfs to container rootfs: %w", err)
+		return nil, fmt.Errorf("copy rootfs from bundle to container: %w", err)
 	}
 
 	specJSON, err := os.ReadFile(specPath)
@@ -172,9 +171,14 @@ func New(id string, bundle *bundle.Bundle) (*Container, error) {
 		})
 	}
 
-	ambientCapsFlags := make([]uintptr, len(spec.Process.Capabilities.Ambient))
-	for i, cap := range spec.Process.Capabilities.Ambient {
-		ambientCapsFlags[i] = uintptr(capabilities.Capabilities[cap])
+	var ambientCapsFlags []uintptr
+	if spec.Process.Capabilities != nil {
+		for _, cap := range spec.Process.Capabilities.Ambient {
+			ambientCapsFlags = append(
+				ambientCapsFlags,
+				uintptr(capabilities.Capabilities[cap]),
+			)
+		}
 	}
 
 	return &Container{
@@ -196,6 +200,10 @@ func New(id string, bundle *bundle.Bundle) (*Container, error) {
 
 func LoadContainer(id string) (*Container, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
+	if _, err := os.Stat(path); err != nil {
+		return nil, fmt.Errorf("check container directory exists: %w", err)
+	}
+
 	specPath := filepath.Join(path, "config.json")
 	specJSON, err := os.ReadFile(specPath)
 	if err != nil {
@@ -208,6 +216,9 @@ func LoadContainer(id string) (*Container, error) {
 	}
 
 	rootfsPath := filepath.Join(path, spec.Root.Path)
+	if _, err := os.Stat(rootfsPath); err != nil {
+		return nil, fmt.Errorf("check container rootfs exists: %w", err)
+	}
 
 	state, err := LoadState(id)
 	if err != nil {

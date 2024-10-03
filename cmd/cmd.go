@@ -75,6 +75,7 @@ func createCmd() *cobra.Command {
 				PIDFile:       pidFile,
 			}
 
+			// TODO: set logging level
 			log, err := createLogger(cmd)
 			if err != nil {
 				return err

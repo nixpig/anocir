@@ -1,6 +1,7 @@
 package cgroups
 
 import (
+	"fmt"
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -22,7 +23,7 @@ func SetRlimits(rlimits []specs.POSIXRlimit) error {
 			Cur: rl.Soft,
 			Max: rl.Hard,
 		}); err != nil {
-			return err
+			return fmt.Errorf("set rlimit: %w", err)
 		}
 	}
 

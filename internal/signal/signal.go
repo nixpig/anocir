@@ -1,7 +1,6 @@
 package signal
 
 import (
-	"errors"
 	"fmt"
 	"strconv"
 	"syscall"
@@ -27,13 +26,13 @@ func FromInt(s int) (syscall.Signal, error) {
 		return syscall.SIGSTOP, nil
 	}
 
-	return -1, errors.New("unhandled signal")
+	return -1, fmt.Errorf("signal not recognised (%d)", s)
 }
 
 func FromString(s string) (syscall.Signal, error) {
 	sig, err := strconv.Atoi(s)
 	if err != nil {
-		return -1, fmt.Errorf("signal string to int: %w", err)
+		return -1, fmt.Errorf("convert signal string to int (%s): %w", s, err)
 	}
 
 	return FromInt(sig)

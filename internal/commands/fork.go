@@ -71,7 +71,15 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if err := filesystem.MountProc(container.Rootfs); err != nil {
+	if err := filesystem.MountDevice(
+		filesystem.Device{
+			Source: "proc",
+			Target: filepath.Join(container.Rootfs, "proc"),
+			Fstype: "proc",
+			Flags:  uintptr(0),
+			Data:   "",
+		},
+	); err != nil {
 		log.Error().Err(err).Msg("mount proc")
 		return err
 	}
@@ -198,6 +206,7 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
+	// notify host that container is ready
 	initCh <- []byte("ready")
 
 	return waitForMsg(containerCh, container, log)

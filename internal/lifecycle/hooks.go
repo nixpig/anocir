@@ -14,7 +14,10 @@ func ExecHooks(hooks []specs.Hook) error {
 		ctx := context.Background()
 		var cancel context.CancelFunc
 		if h.Timeout != nil {
-			ctx, cancel = context.WithTimeout(ctx, time.Duration(*h.Timeout)*time.Second)
+			ctx, cancel = context.WithTimeout(
+				ctx,
+				time.Duration(*h.Timeout)*time.Second,
+			)
 			defer cancel()
 		}
 		cmd := exec.CommandContext(ctx, h.Path, h.Args...)
