@@ -249,8 +249,6 @@ func (c *Container) ExecHooks(hook string) error {
 
 	var specHooks []specs.Hook
 	switch hook {
-	case "prestart":
-		specHooks = c.Spec.Hooks.Prestart
 	case "createRuntime":
 		specHooks = c.Spec.Hooks.CreateRuntime
 	case "createContainer":

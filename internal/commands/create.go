@@ -42,12 +42,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	if err := cntr.ExecHooks("prestart"); err != nil {
-		log.Error().Err(err).Msg("execute prestart hooks")
-		container.ForceClean(opts.ID)
-		return fmt.Errorf("execute prestart hooks: %w", err)
-	}
-
 	if err := cntr.ExecHooks("createRuntime"); err != nil {
 		log.Error().Err(err).Msg("execute createruntime hooks")
 		return fmt.Errorf("execute createruntime hooks: %w", err)
