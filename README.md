@@ -139,7 +139,12 @@ Given this is an exploratory personal project, I'm not interested in taking code
 
 ## Inspiration
 
-While this project was built entirely from scratch, inspiration was taken from existing runtimes: [youki](https://github.com/containers/youki) (Rust), [pura](https://github.com/penumbra23/pura) (Rust), [runc](https://github.com/opencontainers/runc) (Go), [crun](https://github.com/containers/crun) (C).
+While this project was built entirely from scratch, inspiration was taken from existing runtimes:
+
+- [youki](https://github.com/containers/youki) (Rust)
+- [pura](https://github.com/penumbra23/pura) (Rust)
+- [runc](https://github.com/opencontainers/runc) (Go)
+- [crun](https://github.com/containers/crun) (C)
 
 ## License
 

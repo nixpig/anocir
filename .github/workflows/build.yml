@@ -69,7 +69,4 @@ jobs:
 
       - name: run oci tests
         run: |
-          sudo RUNTIME=./brownie ./validation/default/default.t | results.tap | (! grep "not ok")
-
-      - name: summarise test results
-        uses: pcolby/tap-summary@v1
+          sudo RUNTIME=./brownie ./validation/default/default.t > results.tap && cat results.tap && (! grep -F "not ok" results.tap)
