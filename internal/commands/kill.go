@@ -17,12 +17,12 @@ type KillOpts struct {
 }
 
 func Kill(opts *KillOpts, log *zerolog.Logger) error {
-	container, err := container.LoadContainer(opts.ID)
+	cntr, err := container.LoadContainer(opts.ID)
 	if err != nil {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	if !container.CanBeKilled() {
+	if !cntr.CanBeKilled() {
 		return errors.New("container cannot be killed in current state")
 	}
 
@@ -31,12 +31,12 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("convert to signal: %w", err)
 	}
 
-	if err := syscall.Kill(container.State.Pid, s); err != nil {
+	if err := syscall.Kill(cntr.State.Pid, s); err != nil {
 		return fmt.Errorf("kill container process: %w", err)
 	}
 
-	container.State.Set(specs.StateStopped)
-	if err := container.State.Save(); err != nil {
+	cntr.State.Set(specs.StateStopped)
+	if err := cntr.State.Save(); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}
 

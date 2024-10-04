@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/nixpig/brownie/internal/commands"
+	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -81,7 +82,13 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			return commands.Create(opts, log)
+			if err := commands.Create(opts, log); err != nil {
+				if err := container.ForceClean(opts.ID); err != nil {
+					return err
+				}
+			}
+
+			return nil
 		},
 	}
 

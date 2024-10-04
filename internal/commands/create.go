@@ -36,42 +36,48 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return errors.New("not a linux container")
 	}
 
-	container, err := container.New(opts.ID, bundle)
+	cntr, err := container.New(opts.ID, bundle)
 	if err != nil {
 		log.Error().Err(err).Msg("create container")
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	if err := container.ExecHooks("createRuntime"); err != nil {
+	if err := cntr.ExecHooks("prestart"); err != nil {
+		log.Error().Err(err).Msg("execute prestart hooks")
+		container.ForceClean(opts.ID)
+		return fmt.Errorf("execute prestart hooks: %w", err)
+	}
+
+	if err := cntr.ExecHooks("createRuntime"); err != nil {
 		log.Error().Err(err).Msg("execute createruntime hooks")
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
 
-	if err := container.ExecHooks("createContainer"); err != nil {
+	if err := cntr.ExecHooks("createContainer"); err != nil {
 		log.Error().Err(err).Msg("execute createcontainer hooks")
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	container.State.Set(specs.StateCreating)
-	if err := container.State.Save(); err != nil {
+	cntr.State.Set(specs.StateCreating)
+	if err := cntr.State.Save(); err != nil {
 		log.Error().Err(err).Msg("save creating state")
 		return fmt.Errorf("save creating state: %w", err)
 	}
 
-	initSockAddr := filepath.Join(container.Path, "init.sock")
+	initSockAddr := filepath.Join(cntr.Path, "init.sock")
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		log.Error().Err(err).Msg("remove existing init socket")
-		return err
+		return fmt.Errorf("remove existing init socket: %w", err)
 	}
 	initCh, initCloser, err := ipc.NewReceiver(initSockAddr)
 	if err != nil {
-		log.Error().Err(err).Msg("new ipc receiver")
-		return err
+		log.Error().Err(err).Msg("create init ipc receiver")
+		return fmt.Errorf("create init ipc receiver: %w", err)
 	}
 	defer initCloser()
 
-	useTerminal := container.Spec.Process != nil &&
-		container.Spec.Process.Terminal &&
+	useTerminal := cntr.Spec.Process != nil &&
+		cntr.Spec.Process.Terminal &&
 		opts.ConsoleSocket != ""
 
 	var termFD int
@@ -93,19 +99,19 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}...)
 
 	forkCmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps:                container.AmbientCapsFlags,
-		Cloneflags:                 container.NamespaceFlags,
+		AmbientCaps:                cntr.AmbientCapsFlags,
+		Cloneflags:                 cntr.NamespaceFlags,
 		Unshareflags:               syscall.CLONE_NEWNS,
 		GidMappingsEnableSetgroups: false,
-		UidMappings:                container.UIDMappings,
-		GidMappings:                container.GIDMappings,
+		UidMappings:                cntr.UIDMappings,
+		GidMappings:                cntr.GIDMappings,
 	}
 
 	forkCmd.Stdin = os.Stdin
 	forkCmd.Stdout = os.Stdout
 	forkCmd.Stderr = os.Stderr
 
-	forkCmd.Env = container.Spec.Process.Env
+	forkCmd.Env = cntr.Spec.Process.Env
 
 	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("start fork: %w", err)
@@ -117,7 +123,7 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 
 	if opts.PIDFile != "" {
-		pid := strconv.Itoa(container.State.Pid)
+		pid := strconv.Itoa(cntr.State.Pid)
 		if err := os.WriteFile(opts.PIDFile, []byte(pid), 0666); err != nil {
 			log.Error().Err(err).Msg("write pid to file")
 			return fmt.Errorf("write pid to file: %w", err)
@@ -136,8 +142,8 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	container.State.Set(specs.StateCreated)
-	if err := container.State.Save(); err != nil {
+	cntr.State.Set(specs.StateCreated)
+	if err := cntr.State.Save(); err != nil {
 		log.Error().Err(err).Msg("save created state")
 		return fmt.Errorf("save state: %w", err)
 	}

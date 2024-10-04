@@ -198,6 +198,11 @@ func New(id string, bundle *bundle.Bundle) (*Container, error) {
 	}, nil
 }
 
+func ForceClean(id string) error {
+	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
+	return os.RemoveAll(path)
+}
+
 func LoadContainer(id string) (*Container, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
 	if _, err := os.Stat(path); err != nil {
@@ -244,6 +249,8 @@ func (c *Container) ExecHooks(hook string) error {
 
 	var specHooks []specs.Hook
 	switch hook {
+	case "prestart":
+		specHooks = c.Spec.Hooks.Prestart
 	case "createRuntime":
 		specHooks = c.Spec.Hooks.CreateRuntime
 	case "createContainer":

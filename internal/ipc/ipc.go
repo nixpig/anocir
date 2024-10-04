@@ -33,7 +33,6 @@ func NewReceiver(sockAddr string) (chan []byte, closer, error) {
 	}
 
 	go func() {
-
 		conn, err := listener.Accept()
 		if err != nil {
 			return
