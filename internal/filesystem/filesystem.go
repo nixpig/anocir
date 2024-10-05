@@ -98,19 +98,6 @@ func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
 	return nil
 }
 
-func CreateSymlinks(symlinks map[string]string, rootfs string) error {
-	for src, dest := range symlinks {
-		if err := os.Symlink(
-			src,
-			filepath.Join(rootfs, dest),
-		); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, mount := range mounts {
 		var dest string
