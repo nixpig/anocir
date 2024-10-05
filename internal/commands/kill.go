@@ -17,27 +17,43 @@ type KillOpts struct {
 }
 
 func Kill(opts *KillOpts, log *zerolog.Logger) error {
+	log.Info().Any("opts", opts).Msg("run kill command")
+	log.Info().Str("id", opts.ID).Msg("load container")
 	cntr, err := container.LoadContainer(opts.ID)
 	if err != nil {
+		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return fmt.Errorf("load container: %w", err)
 	}
 
+	log.Info().Msg("check if container can be killed")
 	if !cntr.CanBeKilled() {
+		log.Error().Msg("container cannot be killed")
 		return errors.New("container cannot be killed in current state")
 	}
 
+	log.Info().Str("signal", opts.Signal).Msg("get kill signal")
 	s, err := signal.FromString(opts.Signal)
 	if err != nil {
-		return fmt.Errorf("convert to signal: %w", err)
+		log.Error().Str("signal", opts.Signal).Msg("failed to convert to signal")
+		return fmt.Errorf("failed to convert to signal: %w", err)
 	}
 
+	log.Info().
+		Int("pid", cntr.State.Pid).
+		Str("signal", s.String()).
+		Msg("execute kill syscall")
 	if err := syscall.Kill(cntr.State.Pid, s); err != nil {
-		return fmt.Errorf("kill container process: %w", err)
+		log.Error().Err(err).Msg("failed to execute kill syscall")
+		return fmt.Errorf("failed to execute kill syscall: %w", err)
 	}
 
+	log.Info().
+		Any("state", cntr.State.Status).
+		Msg("set stopped state and save")
 	cntr.State.Set(specs.StateStopped)
 	if err := cntr.State.Save(); err != nil {
-		return fmt.Errorf("save state: %w", err)
+		log.Error().Err(err).Msg("failed to save stopped state")
+		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
 
 	return nil

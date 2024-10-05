@@ -35,18 +35,23 @@ func stateToCliState(state *container.ContainerState) StateCLI {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
+	log.Info().Any("opts", opts).Msg("run state command")
+	log.Info().Str("id", opts.ID).Msg("load container")
 	cntr, err := container.LoadContainer(opts.ID)
 	if err != nil {
+		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return "", fmt.Errorf("load container: %w", err)
 	}
 
 	state := cntr.State
 
+	log.Info().Any("state", state).Msg("parse container state")
 	s, err := json.Marshal(stateToCliState(state))
 	if err != nil {
-		log.Error().Err(err).Msg("marshal state")
+		log.Error().Err(err).Msg("failed to parse container state")
 		return "", fmt.Errorf("marshal state: %w", err)
 	}
 
+	log.Info().Any("state", s).Msg("returning container state")
 	return string(s), nil
 }

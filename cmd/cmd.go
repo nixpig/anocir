@@ -9,7 +9,6 @@ import (
 	"strconv"
 
 	"github.com/nixpig/brownie/internal/commands"
-	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -82,13 +81,7 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			if err := commands.Create(opts, log); err != nil {
-				if err := container.ForceClean(opts.ID); err != nil {
-					return err
-				}
-			}
-
-			return nil
+			return commands.Create(opts, log)
 		},
 	}
 
@@ -246,6 +239,8 @@ func stateCmd() *cobra.Command {
 			var formattedState bytes.Buffer
 			json.Indent(&formattedState, []byte(state), "", "  ")
 
+			log.Info().Str("state", formattedState.String()).Msg("formatted state")
+
 			if _, err := cmd.OutOrStdout().Write(
 				formattedState.Bytes(),
 			); err != nil {
@@ -280,7 +275,7 @@ func createLogger(cmd *cobra.Command) (*zerolog.Logger, error) {
 		return nil, fmt.Errorf("open log file: %w", err)
 	}
 
-	log := zerolog.New(logFile).With().Timestamp().Logger()
+	log := zerolog.New(logFile).With().Timestamp().Logger().Level(zerolog.InfoLevel)
 
 	return &log, nil
 }

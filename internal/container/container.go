@@ -2,7 +2,6 @@ package container
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -94,7 +93,7 @@ func (c *ContainerState) Save() error {
 func New(id string, bundle *bundle.Bundle) (*Container, error) {
 	path := filepath.Join(pkg.BrownieRootDir, "containers", id)
 	if stat, err := os.Stat(path); stat != nil || os.IsExist(err) {
-		return nil, errors.New("container with specified ID already exists")
+		return nil, fmt.Errorf("container with specified ID (%s) already exists", id)
 	}
 
 	if err := os.MkdirAll(path, os.ModeDir); err != nil {
@@ -265,8 +264,7 @@ func (c *Container) ExecHooks(hook string) error {
 }
 
 func (c *Container) CanBeStarted() bool {
-	return c.State.Status == specs.StateCreated ||
-		c.State.Status == specs.StateStopped
+	return c.State.Status == specs.StateCreated
 }
 
 func (c *Container) CanBeKilled() bool {
@@ -274,6 +272,5 @@ func (c *Container) CanBeKilled() bool {
 }
 
 func (c *Container) CanBeDeleted() bool {
-	return c.State.Status == specs.StateStopped ||
-		c.State.Status == specs.StateCreated
+	return c.State.Status == specs.StateStopped
 }

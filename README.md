@@ -7,11 +7,11 @@ An experimental Linux container runtime, implementing the OCI Runtime Spec.
 > [!NOTE]
 > As of October 1st, 2024, `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
 
-This is a personal project for me to explore and better understand the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) to support other projects I'm working on. Feel free to have a look around.
+This is a personal project for me to explore and better understand the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) to support other projects I'm working on. The state of the code is as you would expect for something experimental and exploratory, but feel free to have a look around!
 
 ## Installation
 
-`brownie` has been tested on:
+I'm developing `brownie` on the following environment. Even with the same set up, YMMV. Maybe I'll create a Vagrant box in future.
 
 - `go version go1.23.0 linux/amd64`
 - `Linux 6.10.2-arch1-1 x86_64 GNU/Linux`
@@ -132,6 +132,11 @@ Examples:
 Flags:
   -h, --help   help for state
 ```
+
+## To do
+
+- [ ] Pass _all_ OCI spec tests.
+- [ ] Networking and port forwarding.
 
 ## Contributing
 
