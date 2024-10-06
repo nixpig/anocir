@@ -209,7 +209,8 @@ func (c *Container) CanBeStarted() bool {
 }
 
 func (c *Container) CanBeKilled() bool {
-	return c.State.Status == specs.StateRunning
+	return c.State.Status == specs.StateRunning ||
+		c.State.Status == specs.StateStopped
 }
 
 func (c *Container) CanBeDeleted() bool {

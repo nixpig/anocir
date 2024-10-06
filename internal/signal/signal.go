@@ -2,7 +2,6 @@ package signal
 
 import (
 	"fmt"
-	"strconv"
 	"syscall"
 )
 
@@ -30,10 +29,24 @@ func FromInt(s int) (syscall.Signal, error) {
 }
 
 func FromString(s string) (syscall.Signal, error) {
-	sig, err := strconv.Atoi(s)
-	if err != nil {
-		return -1, fmt.Errorf("convert signal string to int (%s): %w", s, err)
+	switch s {
+	case "HUP", "SIGHUP":
+		return syscall.SIGHUP, nil
+	case "INT", "SIGINT":
+		return syscall.SIGINT, nil
+	case "QUIT", "SIGQUIT":
+		return syscall.SIGQUIT, nil
+	case "ABRT", "SIGABRT":
+		return syscall.SIGABRT, nil
+	case "KILL", "SIGKILL":
+		return syscall.SIGKILL, nil
+	case "TERM", "SIGTERM":
+		return syscall.SIGTERM, nil
+	case "CHLD", "SIGCHLD":
+		return syscall.SIGCHLD, nil
+	case "STOP", "SIGSTOP":
+		return syscall.SIGSTOP, nil
 	}
 
-	return FromInt(sig)
+	return syscall.Signal(-1), fmt.Errorf("convert signal string to int (%s)", s)
 }

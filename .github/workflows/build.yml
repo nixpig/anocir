@@ -71,5 +71,5 @@ jobs:
         run: |
           touch results.tap &&
             sudo RUNTIME=./brownie ./validation/default/default.t >> results.tap &&
-            sudo RUNTIME=./brownie ./validation/hostname/hostname.t >> results.tap &&
+            sudo RUNTIME=./brownie ./validation/pidfile/pidfile.t >> results.tap &&
             cat results.tap && (! grep -F "not ok" results.tap)

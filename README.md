@@ -180,7 +180,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] linux_uid_mappings
 - [ ] misc_props
 - [ ] mounts
-- [ ] pidfile
+- [x] pidfile
 - [ ] poststart
 - [ ] poststart_fail
 - [ ] poststop
