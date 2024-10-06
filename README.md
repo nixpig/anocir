@@ -137,6 +137,8 @@ Flags:
 
 ## Progress
 
+This is the full list of suites in the [opencontainers OCI Runtime Spec tests](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes). The intention is to (eventually) pass all of them.
+
 - [ ] config_updates_without_affect
 - [ ] create
 - [x] default
