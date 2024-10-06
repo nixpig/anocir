@@ -139,8 +139,8 @@ Flags:
 
 This is the full list of suites in the [opencontainers OCI Runtime Spec tests](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes). The intention is to (eventually) pass all of them.
 
-- [ ] config_updates_without_affect
-- [ ] create
+- [x] config_updates_without_affect
+- [x] create
 - [x] default
 - [ ] delete
 - [ ] delete_only_create_resources
@@ -149,7 +149,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] hooks_stdin
 - [ ] hostname
 - [ ] kill
-- [ ] kill_no_effect
+- [x] kill_no_effect
 - [ ] killsig
 - [ ] linux_cgroups_blkio
 - [ ] linux_cgroups_cpus
@@ -167,16 +167,16 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] linux_cgroups_relative_pids
 - [ ] linux_devices
 - [ ] linux_masked_paths
-- [ ] linux_mount_label
+- [x] linux_mount_label
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
-- [ ] linux_readonly_paths
+- [x] linux_readonly_paths
 - [ ] linux_rootfs_propagation
 - [ ] linux_seccomp
-- [ ] linux_sysctl
+- [x] linux_sysctl
 - [ ] linux_uid_mappings
 - [ ] misc_props
 - [ ] mounts
@@ -196,8 +196,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] process_user
 - [ ] root_readonly_true
 - [ ] start
-- [ ] state
-- [ ] util
+- [x] state
 
 ## Contributing
 
