@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"syscall"
 
 	"github.com/nixpig/brownie/internal/container"
 	"github.com/rs/zerolog"
@@ -29,7 +30,14 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 		return errors.New("container cannot be deleted in current state")
 	}
 
-	// TODO: kill stop forked container
+	log.Info().Int("pid", cntr.State.Pid).Msg("kill the container host process")
+	if err := syscall.Kill(cntr.State.Pid, 9); err != nil {
+		log.Error().
+			Err(err).
+			Int("pid", cntr.State.Pid).
+			Msg("failed to kill the container host process")
+		return fmt.Errorf("kill container host process")
+	}
 
 	log.Info().Str("sockaddr", cntr.SockAddr).Msg("remove container sockaddr")
 	if err := os.Remove(cntr.SockAddr); err != nil {

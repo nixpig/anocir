@@ -137,20 +137,30 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("start fork: %w", err)
 	}
 
+	pid := forkCmd.Process.Pid
+
 	log.Info().Msg("release fork exec process")
 	if err := forkCmd.Process.Release(); err != nil {
 		log.Error().Err(err).Msg("failed to release fork exec process")
 		return err
 	}
 
+	cntr.State.Pid = pid
+	log.Info().Int("pid", cntr.State.Pid).Msg("get/set pid and save state")
+	if err := cntr.State.Save(); err != nil {
+		log.Error().Err(err).Msg("failed to save state with pid")
+		return err
+	}
+
 	if opts.PIDFile != "" {
 		log.Info().Msg("write pid to file")
-		pid := strconv.Itoa(cntr.State.Pid)
-		if err := os.WriteFile(opts.PIDFile, []byte(pid), 0666); err != nil {
+		if err := os.WriteFile(opts.PIDFile, []byte(strconv.Itoa(pid)), 0666); err != nil {
 			log.Error().Err(err).Msg("failed to write pid to file")
 			return fmt.Errorf("write pid to file: %w", err)
 		}
 	}
+
+	// FIXME: this isn't the correct PID - it should be from _inside_ container, 0 ??
 
 	log.Info().Msg("waiting for ready message on init")
 	for {

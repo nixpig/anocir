@@ -3,7 +3,6 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"syscall"
 
 	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/internal/signal"
@@ -42,10 +41,11 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 		Int("pid", cntr.State.Pid).
 		Str("signal", s.String()).
 		Msg("execute kill syscall")
-	if err := syscall.Kill(cntr.State.Pid, s); err != nil {
-		log.Error().Err(err).Msg("failed to execute kill syscall")
-		return fmt.Errorf("failed to execute kill syscall: %w", err)
-	}
+	// FIXME: this is wrong - it needs to send the signal to the process _in_ the container, not the container process itself
+	// if err := syscall.Kill(cntr.State.Pid, s); err != nil {
+	// 	log.Error().Err(err).Msg("failed to execute kill syscall")
+	// 	return fmt.Errorf("failed to execute kill syscall: %w", err)
+	// }
 
 	log.Info().
 		Any("state", cntr.State.Status).

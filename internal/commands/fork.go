@@ -173,14 +173,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer listener.Close()
 
-	// FIXME: this isn't the correct PID - it should be from _inside_ container, 0 ??
-	cntr.State.Pid = os.Getpid()
-	log.Info().Int("pid", cntr.State.Pid).Msg("get/set pid and save state")
-	if err := cntr.State.Save(); err != nil {
-		log.Error().Err(err).Msg("failed to save state with pid")
-		return err
-	}
-
 	log.Info().Str("rootfs", cntr.Rootfs).Msg("pivot container rootfs")
 	if err := filesystem.PivotRootfs(cntr.Rootfs); err != nil {
 		log.Error().Err(err).Msg("failed to pivot container rootfs")
