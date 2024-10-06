@@ -29,6 +29,9 @@ jobs:
       - name: audit code
         run: make audit
 
+      - name: run unit tests
+        run: make test
+
       - name: build artifact
         run: make build
 
@@ -66,9 +69,6 @@ jobs:
 
       - name: chmod brownie
         run: chmod 755 ./brownie
-
-      - name: run unit tests
-        run: make test
 
       - name: run oci tests
         run: |
