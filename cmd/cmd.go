@@ -275,7 +275,7 @@ func createLogger(cmd *cobra.Command) (*zerolog.Logger, error) {
 		return nil, fmt.Errorf("open log file: %w", err)
 	}
 
-	log := zerolog.New(logFile).With().Timestamp().Logger().Level(zerolog.InfoLevel)
+	log := zerolog.New(logFile).With().Timestamp().Logger().Level(zerolog.ErrorLevel)
 
 	return &log, nil
 }
