@@ -188,7 +188,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] prestart
 - [ ] prestart_fail
 - [ ] process
-- [ ] process_capabilities
+- [x] process_capabilities
 - [ ] process_capabilities_fail
 - [ ] process_oom_score_adj
 - [ ] process_rlimits
