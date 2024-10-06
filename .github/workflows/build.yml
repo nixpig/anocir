@@ -69,6 +69,7 @@ jobs:
 
       - name: run oci tests
         run: |
-          sudo RUNTIME=./brownie ./validation/default/default.t >> results.tap \
-          sudo RUNTIME=./brownie ./validation/hostname/hostname.t >> results.tap \
-          cat results.tap && (! grep -F "not ok" results.tap)
+          touch results.tap &&
+            sudo RUNTIME=./brownie ./validation/default/default.t >> results.tap &&
+            sudo RUNTIME=./brownie ./validation/hostname/hostname.t >> results.tap &&
+            cat results.tap && (! grep -F "not ok" results.tap)
