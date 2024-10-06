@@ -15,8 +15,17 @@ build:
 	go build -o tmp/bin/brownie main.go
 
 .PHONY: test
-test:
+test: 
+	go run gotest.tools/gotestsum@latest ./...
 
+.PHONY: coverage
+coverage:
+	go test -v -race -buildvcs -covermode atomic -coverprofile=coverage.out ./...
+	go tool cover -html=coverage.out
+
+.PHONY: coveralls
+coveralls:
+	go run github.com/mattn/goveralls@latest -coverprofile=coverage.out -service=github
 
 .PHONY: run
 run:
