@@ -67,6 +67,9 @@ jobs:
       - name: chmod brownie
         run: chmod 755 ./brownie
 
+      - name: run unit tests
+        run: make test
+
       - name: run oci tests
         run: |
           touch results.tap &&
