@@ -9,6 +9,7 @@ import (
 	"strconv"
 
 	"github.com/nixpig/brownie/internal/commands"
+	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
@@ -195,18 +196,19 @@ func forkCmd() *cobra.Command {
 				return fmt.Errorf("convert console socket fd to int: %w", err)
 			}
 
-			opts := &commands.ForkOpts{
+			opts := &container.ForkOpts{
 				ID:              containerID,
 				InitSockAddr:    initSockAddr,
 				ConsoleSocketFD: consoleSocketFD,
 			}
 
-			log, err := createLogger(cmd)
+			root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+			cntr, err := container.Load(root)
 			if err != nil {
 				return err
 			}
 
-			return commands.Fork(opts, log)
+			return cntr.Fork(opts)
 		},
 	}
 

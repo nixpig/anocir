@@ -55,6 +55,20 @@ func MountRootfs(containerRootfs string) error {
 	return nil
 }
 
+func MountProc(containerRootfs string) error {
+	if err := MountDevice(Device{
+		Source: "proc",
+		Target: filepath.Join(containerRootfs, "proc"),
+		Fstype: "proc",
+		Flags:  uintptr(0),
+		Data:   "",
+	}); err != nil {
+		return err
+	}
+
+	return nil
+}
+
 func DevInSpec(mounts []specs.Mount, dev string) bool {
 	for _, mount := range mounts {
 		if mount.Destination == dev {

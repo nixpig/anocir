@@ -42,18 +42,15 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	}
 
 	// FIXME: ??? this isn't the correct PID - it should be from _inside_ container, 0 ??
-	if err := cntr.Init(opts.ConsoleSocket); err != nil {
-		return fmt.Errorf("init container: %w", err)
-	}
-
-	pid, err := cntr.Fork(
-		opts.PIDFile,
-		os.Stdin,
-		os.Stdout,
-		os.Stderr,
-	)
+	pid, err := cntr.Init(&container.InitOpts{
+		PIDFile:       opts.PIDFile,
+		ConsoleSocket: opts.ConsoleSocket,
+		Stdin:         os.Stdin,
+		Stdout:        os.Stdout,
+		Stderr:        os.Stderr,
+	})
 	if err != nil {
-		return fmt.Errorf("fork container: %w", err)
+		return fmt.Errorf("init container: %w", err)
 	}
 
 	fmt.Println("pid: ", pid)
