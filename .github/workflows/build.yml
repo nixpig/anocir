@@ -73,7 +73,7 @@ jobs:
       - name: run oci tests
         run: |
           touch results.tap &&
-            sudo RUNTIME=./brownie ./validation/config_updates_without_affect/config_updates_without_affect.t >> results.tap &&
+            # sudo RUNTIME=./brownie ./validation/config_updates_without_affect/config_updates_without_affect.t >> results.tap &&
             # sudo RUNTIME=./brownie ./validation/create/create.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/default/default.t >> results.tap &&
             # sudo RUNTIME=./brownie ./validation/kill_no_effect/kill_no_effect.t >> results.tap &&

@@ -71,6 +71,16 @@ func New(
 		)
 	}
 
+	b, err := os.ReadFile(filepath.Join(bundle, configFilename))
+	if err != nil {
+		return nil, fmt.Errorf("read container config: %w", err)
+	}
+
+	var spec specs.Spec
+	if err := json.Unmarshal(b, &spec); err != nil {
+		return nil, fmt.Errorf("parse container config: %w", err)
+	}
+
 	if err := os.MkdirAll(root, os.ModeDir); err != nil {
 		return nil, fmt.Errorf("create container directory")
 	}
@@ -80,16 +90,6 @@ func New(
 		filepath.Join(root, configFilename),
 	); err != nil {
 		return nil, fmt.Errorf("copy config.json: %w", err)
-	}
-
-	b, err := os.ReadFile(filepath.Join(root, configFilename))
-	if err != nil {
-		return nil, fmt.Errorf("read container config: %w", err)
-	}
-
-	var spec specs.Spec
-	if err := json.Unmarshal(b, &spec); err != nil {
-		return nil, fmt.Errorf("parse container config: %w", err)
 	}
 
 	rootfs := "rootfs"
