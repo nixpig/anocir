@@ -3,8 +3,10 @@ package commands
 import (
 	"encoding/json"
 	"fmt"
+	"path/filepath"
 
-	"github.com/nixpig/brownie/internal/container"
+	"github.com/nixpig/brownie/internal/state"
+	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -23,35 +25,18 @@ type StateCLI struct {
 	Annotations map[string]string    `json:"annotations,omitempty"`
 }
 
-func stateToCliState(state *container.ContainerState) StateCLI {
-	return StateCLI{
-		Version:     state.Version,
-		ID:          state.ID,
-		Status:      state.Status,
-		Pid:         state.Pid,
-		Bundle:      state.Bundle,
-		Annotations: state.Annotations,
-	}
-}
-
 func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
-	log.Info().Any("opts", opts).Msg("run state command")
-	log.Info().Str("id", opts.ID).Msg("load container")
-	cntr, err := container.LoadContainer(opts.ID)
+	root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+
+	state, err := state.Load(root)
 	if err != nil {
-		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return "", fmt.Errorf("load container: %w", err)
 	}
 
-	state := cntr.State
-
-	log.Info().Any("state", state).Msg("parse container state")
-	s, err := json.Marshal(stateToCliState(state))
+	s, err := json.Marshal(state)
 	if err != nil {
-		log.Error().Err(err).Msg("failed to parse container state")
 		return "", fmt.Errorf("marshal state: %w", err)
 	}
 
-	log.Info().Any("state", s).Msg("returning container state")
 	return string(s), nil
 }

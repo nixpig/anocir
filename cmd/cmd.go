@@ -239,8 +239,6 @@ func stateCmd() *cobra.Command {
 			var formattedState bytes.Buffer
 			json.Indent(&formattedState, []byte(state), "", "  ")
 
-			log.Info().Str("state", formattedState.String()).Msg("formatted state")
-
 			if _, err := cmd.OutOrStdout().Write(
 				formattedState.Bytes(),
 			); err != nil {

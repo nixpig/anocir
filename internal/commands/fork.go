@@ -15,10 +15,13 @@ import (
 	"github.com/nixpig/brownie/internal/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/internal/terminal"
+	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
+
+const containerSockFilename = "container.sock"
 
 type ForkOpts struct {
 	ID                string
@@ -28,15 +31,14 @@ type ForkOpts struct {
 }
 
 func Fork(opts *ForkOpts, log *zerolog.Logger) error {
-	log.Info().Any("opts", opts).Msg("run fork command")
-	log.Info().Str("id", opts.ID).Msg("load container")
-	cntr, err := container.LoadContainer(opts.ID)
+	root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+
+	cntr, err := container.Load(root)
 	if err != nil {
 		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return err
 	}
 
-	log.Info().Msg("create init ipc sender")
 	initCh, initCloser, err := ipc.NewSender(opts.InitSockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create init ipc sender")
@@ -45,7 +47,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	defer initCloser()
 
 	if opts.ConsoleSocketFD != 0 {
-		log.Info().Msg("create new terminal pty")
 		pty, err := terminal.NewPty()
 		if err != nil {
 			log.Error().Err(err).Msg("failed to create new terminal pty")
@@ -53,13 +54,11 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 		defer pty.Close()
 
-		log.Info().Msg("connect to terminal pty")
 		if err := pty.Connect(); err != nil {
 			log.Error().Err(err).Msg("failed to connect to pty")
 			return err
 		}
 
-		log.Info().Msg("open terminal pty socket")
 		consoleSocketPty := terminal.OpenPtySocket(
 			opts.ConsoleSocketFD,
 			opts.ConsoleSocketPath,
@@ -67,24 +66,28 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		defer consoleSocketPty.Close()
 
 		// FIXME: how do we pass ptysocket struct between fork?
-		log.Info().Msg("send message on terminal pty socket")
 		if err := consoleSocketPty.SendMsg(pty); err != nil {
 			log.Error().Err(err).Msg("failed to send message on terminal pty socket")
 			return err
 		}
 	}
 
-	log.Info().Str("rootfs", cntr.Rootfs).Msg("mount container rootfs")
-	if err := filesystem.MountRootfs(cntr.Rootfs); err != nil {
+	rootfs := "rootfs"
+	if cntr.Spec.Root != nil {
+		rootfs = cntr.Spec.Root.Path
+	}
+
+	rootfs = filepath.Join(cntr.Root, rootfs)
+
+	if err := filesystem.MountRootfs(rootfs); err != nil {
 		log.Error().Err(err).Msg("failed to mount container rootfs")
 		return err
 	}
 
-	log.Info().Msg("mount proc device")
 	if err := filesystem.MountDevice(
 		filesystem.Device{
 			Source: "proc",
-			Target: filepath.Join(cntr.Rootfs, "proc"),
+			Target: filepath.Join(rootfs, "proc"),
 			Fstype: "proc",
 			Flags:  uintptr(0),
 			Data:   "",
@@ -94,31 +97,28 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	log.Info().Msg("mount spec mount points")
 	if err := filesystem.MountSpecMounts(
 		cntr.Spec.Mounts,
-		cntr.Rootfs,
+		rootfs,
 	); err != nil {
 		log.Error().Err(err).Msg("failed to mount spec mount points")
 	}
 
-	log.Info().Msg("mount default devices")
 	if err := filesystem.MountDevices(
 		filesystem.DefaultDevices,
-		cntr.Rootfs,
+		rootfs,
 	); err != nil {
 		log.Error().Err(err).Msg("failed to mount default devices")
 		return err
 	}
 
-	log.Info().Msg("mount spec devices")
 	for _, dev := range cntr.Spec.Linux.Devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
 			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(cntr.Rootfs, relPath)
+			absPath = filepath.Join(rootfs, relPath)
 		} else {
-			absPath = filepath.Join(cntr.Rootfs, dev.Path)
+			absPath = filepath.Join(rootfs, dev.Path)
 		}
 
 		if err := unix.Mknod(
@@ -149,32 +149,33 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().Msg("create default symlinks")
 	if err := filesystem.CreateSymlinks(
 		filesystem.DefaultSymlinks,
-		cntr.Rootfs,
+		rootfs,
 	); err != nil {
 		log.Error().Err(err).Msg("failed to create default symlinks")
 		return err
 	}
 
 	// set up the socket _before_ pivot root
-	log.Info().Str("sockaddr", cntr.SockAddr).Msg("remove existing container sockaddr")
-	if err := os.RemoveAll(cntr.SockAddr); err != nil {
+	if err := os.RemoveAll(
+		filepath.Join(cntr.Root, containerSockFilename),
+	); err != nil {
 		log.Error().Err(err).Msg("failed to remove existing container socket")
 		return err
 	}
 
-	log.Info().Str("sockaddr", cntr.SockAddr).Msg("listen on container socket")
-	listener, err := net.Listen("unix", cntr.SockAddr)
+	listener, err := net.Listen(
+		"unix",
+		filepath.Join(cntr.Root, containerSockFilename),
+	)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to listen on container socket")
 		return err
 	}
 	defer listener.Close()
 
-	log.Info().Str("rootfs", cntr.Rootfs).Msg("pivot container rootfs")
-	if err := filesystem.PivotRootfs(cntr.Rootfs); err != nil {
+	if err := filesystem.PivotRootfs(rootfs); err != nil {
 		log.Error().Err(err).Msg("failed to pivot container rootfs")
 		return err
 	}
@@ -185,7 +186,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			return n.Type == specs.UTSNamespace
 		},
 	) {
-		log.Info().Str("hostname", cntr.Spec.Hostname).Msg("set hostname")
 		if err := syscall.Sethostname(
 			[]byte(cntr.Spec.Hostname),
 		); err != nil {
@@ -195,7 +195,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 			return err
 		}
 
-		log.Info().Str("domainname", cntr.Spec.Domainname).Msg("set domainname")
 		if err := syscall.Setdomainname(
 			[]byte(cntr.Spec.Domainname),
 		); err != nil {
@@ -206,9 +205,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().
-		Any("capabilities", cntr.Spec.Process.Capabilities).
-		Msg("set capabilities")
 	if err := capabilities.SetCapabilities(
 		cntr.Spec.Process.Capabilities,
 	); err != nil {
@@ -216,16 +212,13 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	log.Info().Any("rlimits", cntr.Spec.Process.Rlimits).Msg("set rlimits")
 	if err := cgroups.SetRlimits(cntr.Spec.Process.Rlimits); err != nil {
 		log.Error().Err(err).Msg("failed to 1set rlimits")
 		return err
 	}
 
-	log.Info().Msg("send 'ready' message to init channel")
 	initCh <- []byte("ready")
 
-	log.Info().Msg("accept on container connection")
 	containerConn, err := listener.Accept()
 	if err != nil {
 		log.Error().Err(err).Msg("failed to accept on container connection")
@@ -233,7 +226,6 @@ func Fork(opts *ForkOpts, log *zerolog.Logger) error {
 	}
 	defer containerConn.Close()
 
-	log.Info().Msg("listen on container connection")
 	return listen(containerConn, cntr, log)
 }
 
@@ -242,7 +234,6 @@ func listen(
 	cntr *container.Container,
 	log *zerolog.Logger,
 ) error {
-	log.Info().Msg("waiting for message in fork")
 	for {
 		b := make([]byte, 128)
 
@@ -258,30 +249,17 @@ func listen(
 
 		switch string(b[:n]) {
 		case "start":
-			log.Info().
-				Str("cmd", cntr.Spec.Process.Args[0]).
-				Any("args", cntr.Spec.Process.Args[1:]).
-				Msg("create command")
 			cmd := exec.Command(
 				cntr.Spec.Process.Args[0],
 				cntr.Spec.Process.Args[1:]...,
 			)
 
-			log.Info().
-				Str("cwd", cntr.Spec.Process.Cwd).
-				Msg("set current working directory")
 			cmd.Dir = cntr.Spec.Process.Cwd
 
-			log.Info().
-				Str("stdin", os.Stdin.Name()).
-				Str("stdout", os.Stdout.Name()).
-				Str("stderr", os.Stderr.Name()).
-				Msg("attach stdio")
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr
 
-			log.Info().Msg("start process in container")
 			if err := cmd.Run(); err != nil {
 				log.Error().Err(err).Msg("failed to start process in container")
 			}

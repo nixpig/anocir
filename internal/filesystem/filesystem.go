@@ -14,6 +14,7 @@ func MountDevice(device Device) error {
 	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
 		f, err := os.Create(device.Target)
 		if err != nil && !os.IsExist(err) {
+			fmt.Println("device target: ", device.Target)
 			return fmt.Errorf("create device target if not exists: %w", err)
 		}
 		if f != nil {
