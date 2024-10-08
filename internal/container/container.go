@@ -104,9 +104,14 @@ func New(
 		return nil, fmt.Errorf("copy rootfs: %w", err)
 	}
 
+	absBundlePath, err := filepath.Abs(bundle)
+	if err != nil {
+		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
+	}
+
 	return &Container{
 		Root:  root,
-		State: state.New(id, bundle, status),
+		State: state.New(id, absBundlePath, status),
 		Spec:  &spec,
 	}, nil
 }
