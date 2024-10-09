@@ -146,6 +146,8 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [x] config_updates_without_affect
 - [x] create
 - [x] kill_no_effect
+- [x] linux_sysctl
+- [x] pidfile
 
 ---
 
@@ -182,11 +184,9 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [x] linux_readonly_paths
 - [ ] linux_rootfs_propagation
 - [ ] linux_seccomp
-- [x] linux_sysctl
 - [ ] linux_uid_mappings
 - [ ] misc_props
 - [ ] mounts
-- [x] pidfile
 - [ ] poststart
 - [ ] poststart_fail
 - [ ] poststop
