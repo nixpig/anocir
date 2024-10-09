@@ -4,8 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -264,13 +262,7 @@ func (c *Container) Init(opts *InitOpts) (int, error) {
 		}
 	}
 
-	for {
-		ready := <-c.initIPC.ch
-
-		if string(ready[:5]) == "ready" {
-			break
-		}
-	}
+	ipc.WaitForMsg(c.initIPC.ch, "ready", func() error { return nil })
 
 	c.State.Status = specs.StateCreated
 	if err := c.State.Save(c.Root); err != nil {
@@ -318,14 +310,11 @@ func (c *Container) Fork(opts *ForkOpts) error {
 		return err
 	}
 
-	listener, err := net.Listen(
-		"unix",
-		filepath.Join(c.Root, containerSockFilename),
-	)
+	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Root, containerSockFilename))
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
+	defer listCloser()
 
 	rootfs := filepath.Join(c.Root, pkg.DefaultRootfs)
 	if err := filesystem.SetupRootfs(rootfs, c.Spec); err != nil {
@@ -363,42 +352,22 @@ func (c *Container) Fork(opts *ForkOpts) error {
 
 	c.initIPC.ch <- []byte("ready")
 
-	containerConn, err := listener.Accept()
-	if err != nil {
-		return err
-	}
-	defer containerConn.Close()
+	ipc.WaitForMsg(listCh, "start", func() error {
+		cmd := exec.Command(
+			c.Spec.Process.Args[0],
+			c.Spec.Process.Args[1:]...,
+		)
 
-	return wait(containerConn, c.Spec.Process)
-}
+		cmd.Dir = c.Spec.Process.Cwd
 
-func wait(conn io.Reader, process *specs.Process) error {
-	for {
-		b := make([]byte, 128)
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
 
-		n, _ := conn.Read(b)
-		if n == 0 {
-			continue
-		}
+		return cmd.Run()
+	})
 
-		switch string(b[:n]) {
-		case "start":
-			cmd := exec.Command(
-				process.Args[0],
-				process.Args[1:]...,
-			)
-
-			cmd.Dir = process.Cwd
-
-			cmd.Stdin = os.Stdin
-			cmd.Stdout = os.Stdout
-			cmd.Stderr = os.Stderr
-
-			if err := cmd.Run(); err != nil {
-				return err
-			}
-		}
-	}
+	return nil
 }
 
 func Load(root string) (*Container, error) {
