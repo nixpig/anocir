@@ -1,3 +1,4 @@
+[![Go Report Card](https://goreportcard.com/badge/github.com/opencontainers/runc)](https://goreportcard.com/report/github.com/opencontainers/runc)
 [![build](https://github.com/nixpig/brownie/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/nixpig/brownie/actions/workflows/build.yml)
 
 # 🍪 brownie
@@ -17,6 +18,7 @@ This is a personal project for me to explore and better understand the [OCI Runt
 ## Installation
 
 > [!CAUTION]
+>
 > This is an experimental project. It requires `sudo` and will make changes to your system. Take appropriate precautions.
 
 I'm developing `brownie` on the following environment. Even with the same set up, YMMV. Maybe I'll create a Vagrant box in future.
@@ -38,6 +40,12 @@ mv tmp/bin/brownie ~/.local/bin
 ## Usage
 
 ### Docker
+
+> [!IMPORTANT]
+>
+> Using `brownie` as a drop in replacement for `runc` in Docker is currently broken and I don't know why. FWIW, other runtimes seem to also be broken, so maybe it's just 'on my machine'.
+>
+> Until I get around to investigating and fixing this, you may get issues, should you choose to try it.
 
 By default, the Docker daemon uses the runc container runtime. `brownie` can be used as a drop-in replacement for runc.
 
@@ -140,14 +148,12 @@ Flags:
 
 ## Progress
 
-This is the full list of suites in the [opencontainers OCI Runtime Spec tests](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes). The intention is to (eventually) pass all of them.
+My goal is for `brownie` to (eventually) pass all test suites in the [opencontainers OCI Runtime Spec tests](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes). Below is progress against that goal.
 
-### ✅ Default test suite
+### ✅ Passing
 
 - [x] default
-
-### ✅ Done
-
+- [x] \_\_\_
 - [x] config_updates_without_affect
 - [x] create
 - [x] hostname
