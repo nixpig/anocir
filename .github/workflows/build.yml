@@ -81,6 +81,6 @@ jobs:
             # sudo RUNTIME=./brownie ./validation/linux_readonly_paths/linux_readonly_paths.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/linux_sysctl/linux_sysctl.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/pidfile/pidfile.t >> results.tap &&
-            # sudo RUNTIME=./brownie ./validation/process_capabilities/process_capabilities.t >> results.tap &&
+            sudo RUNTIME=./brownie ./validation/process_capabilities/process_capabilities.t >> results.tap &&
             # sudo RUNTIME=./brownie ./validation/state/state.t >> results.tap &&
             (! grep -F "not ok" results.tap)
