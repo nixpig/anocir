@@ -6,9 +6,9 @@ An experimental Linux container runtime, implementing the OCI Runtime Spec.
 
 > [!NOTE]
 >
-> **October 1st, 2024**
+> 📅 **October 1st, 2024**
 >
-> `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+> ✅ `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
 >
 > See the [Progress](#progress) section below for progress against the remaining test suites.
 
