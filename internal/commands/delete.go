@@ -29,7 +29,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 
 	process, _ := os.FindProcess(cntr.State.PID)
 	if process != nil {
-		process.Signal(syscall.Signal(0))
+		process.Signal(syscall.Signal(9))
 	}
 
 	if err := os.RemoveAll(cntr.Root); err != nil {
