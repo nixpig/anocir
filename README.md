@@ -149,6 +149,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [x] create
 - [x] kill_no_effect
 - [x] linux_mount_label
+- [x] linux_readonly_paths
 - [x] linux_sysctl
 - [x] pidfile
 - [x] process_capabilities
@@ -184,7 +185,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
-- [x] linux_readonly_paths
 - [ ] linux_rootfs_propagation
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings

@@ -1,7 +1,6 @@
 package commands
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"syscall"
@@ -24,7 +23,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 	}
 
 	if !opts.Force && !cntr.CanBeDeleted() {
-		return errors.New("container cannot be deleted in current state")
+		return fmt.Errorf("container cannot be deleted in current state: %s", cntr.State.Status)
 	}
 
 	process, _ := os.FindProcess(cntr.State.PID)
