@@ -3,6 +3,7 @@ package container
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"os/exec"
@@ -420,10 +421,14 @@ func (c *Container) Fork(opts *ForkOpts) error {
 	}
 	defer containerConn.Close()
 
+	return wait(containerConn, c.Spec.Process)
+}
+
+func wait(conn io.Reader, process *specs.Process) error {
 	for {
 		b := make([]byte, 128)
 
-		n, _ := containerConn.Read(b)
+		n, _ := conn.Read(b)
 		// if err != nil {
 		// 	log.Error().Err(err).Msg("read from connection")
 		// 	return err
@@ -436,11 +441,11 @@ func (c *Container) Fork(opts *ForkOpts) error {
 		switch string(b[:n]) {
 		case "start":
 			cmd := exec.Command(
-				c.Spec.Process.Args[0],
-				c.Spec.Process.Args[1:]...,
+				process.Args[0],
+				process.Args[1:]...,
 			)
 
-			cmd.Dir = c.Spec.Process.Cwd
+			cmd.Dir = process.Cwd
 
 			cmd.Stdin = os.Stdin
 			cmd.Stdout = os.Stdout
