@@ -141,8 +141,13 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 
 - [x] default
 
+---
+
 - [x] config_updates_without_affect
 - [x] create
+- [x] kill_no_effect
+
+---
 
 - [ ] delete
 - [ ] delete_only_create_resources
@@ -151,7 +156,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] hooks_stdin
 - [ ] hostname
 - [ ] kill
-- [x] kill_no_effect
 - [ ] killsig
 - [ ] linux_cgroups_blkio
 - [ ] linux_cgroups_cpus
