@@ -4,11 +4,9 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 
 	"github.com/nixpig/brownie/internal/container"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 )
 
@@ -18,7 +16,7 @@ type DeleteOpts struct {
 }
 
 func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
-	root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+	root := container.GetRoot(opts.ID)
 
 	cntr, err := container.Load(root)
 	if err != nil {

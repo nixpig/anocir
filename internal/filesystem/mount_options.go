@@ -2,7 +2,7 @@ package filesystem
 
 import "golang.org/x/sys/unix"
 
-var MountOptions = map[string]struct {
+var mountOptions = map[string]struct {
 	No   bool
 	Flag uintptr
 }{

@@ -2,6 +2,7 @@ package container
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -21,9 +22,9 @@ import (
 	"github.com/nixpig/brownie/internal/namespace"
 	"github.com/nixpig/brownie/internal/state"
 	"github.com/nixpig/brownie/internal/terminal"
+	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	cp "github.com/otiai10/copy"
-	"golang.org/x/sys/unix"
 )
 
 const configFilename = "config.json"
@@ -82,6 +83,10 @@ func New(
 		return nil, fmt.Errorf("parse container config: %w", err)
 	}
 
+	if spec.Linux == nil {
+		return nil, errors.New("only linux containers are supported")
+	}
+
 	if err := os.MkdirAll(root, os.ModeDir); err != nil {
 		return nil, fmt.Errorf("create container directory")
 	}
@@ -93,14 +98,18 @@ func New(
 		return nil, fmt.Errorf("copy config.json: %w", err)
 	}
 
-	rootfs := "rootfs"
-	if spec.Root != nil {
-		rootfs = spec.Root.Path
+	var bundleRootfs string
+	if strings.Index(spec.Root.Path, "/") == 0 {
+		bundleRootfs = spec.Root.Path
+	} else {
+		bundleRootfs = filepath.Join(bundle, spec.Root.Path)
 	}
 
+	containerRootfs := filepath.Join(root, pkg.DefaultRootfs)
+
 	if err := cp.Copy(
-		filepath.Join(bundle, rootfs),
-		filepath.Join(root, rootfs),
+		bundleRootfs,
+		containerRootfs,
 	); err != nil {
 		return nil, fmt.Errorf("copy rootfs: %w", err)
 	}
@@ -164,7 +173,7 @@ func (c *Container) Init(opts *InitOpts) (int, error) {
 	}
 
 	var cloneFlags uintptr
-	if c.Spec.Linux != nil && c.Spec.Linux.Namespaces != nil {
+	if c.Spec.Linux.Namespaces != nil {
 		for _, ns := range c.Spec.Linux.Namespaces {
 			ns := namespace.LinuxNamespace(ns)
 			flag, err := ns.ToFlag()
@@ -302,68 +311,6 @@ func (c *Container) Fork(opts *ForkOpts) error {
 		}
 	}
 
-	rootfs := "rootfs"
-	if c.Spec.Root != nil {
-		rootfs = c.Spec.Root.Path
-	}
-
-	rootfs = filepath.Join(c.Root, rootfs)
-
-	if err := filesystem.MountRootfs(rootfs); err != nil {
-		return err
-	}
-
-	if err := filesystem.MountProc(rootfs); err != nil {
-		return err
-	}
-
-	if err := filesystem.MountSpecMounts(
-		c.Spec.Mounts,
-		rootfs,
-	); err != nil {
-		return err
-	}
-
-	if err := filesystem.MountDevices(
-		filesystem.DefaultDevices,
-		rootfs,
-	); err != nil {
-		return err
-	}
-
-	for _, dev := range c.Spec.Linux.Devices {
-		var absPath string
-		if strings.Index(dev.Path, "/") == 0 {
-			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(rootfs, relPath)
-		} else {
-			absPath = filepath.Join(rootfs, dev.Path)
-		}
-
-		if err := unix.Mknod(
-			absPath,
-			uint32(*dev.FileMode),
-			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
-		); err != nil {
-			return err
-		}
-
-		if err := os.Chown(
-			absPath,
-			int(*dev.UID),
-			int(*dev.GID),
-		); err != nil {
-			return err
-		}
-	}
-
-	if err := filesystem.CreateSymlinks(
-		filesystem.DefaultSymlinks,
-		rootfs,
-	); err != nil {
-		return err
-	}
-
 	// set up the socket _before_ pivot root
 	if err := os.RemoveAll(
 		filepath.Join(c.Root, containerSockFilename),
@@ -380,7 +327,8 @@ func (c *Container) Fork(opts *ForkOpts) error {
 	}
 	defer listener.Close()
 
-	if err := filesystem.PivotRootfs(rootfs); err != nil {
+	rootfs := filepath.Join(c.Root, pkg.DefaultRootfs)
+	if err := filesystem.SetupRootfs(rootfs, c.Spec); err != nil {
 		return err
 	}
 
@@ -429,11 +377,6 @@ func wait(conn io.Reader, process *specs.Process) error {
 		b := make([]byte, 128)
 
 		n, _ := conn.Read(b)
-		// if err != nil {
-		// 	log.Error().Err(err).Msg("read from connection")
-		// 	return err
-		// }
-		//
 		if n == 0 {
 			continue
 		}
@@ -522,4 +465,8 @@ func (c *Container) CanBeKilled() bool {
 
 func (c *Container) CanBeDeleted() bool {
 	return c.State.Status == specs.StateStopped
+}
+
+func GetRoot(id string) string {
+	return filepath.Join(pkg.BrownieContainerDir, id)
 }

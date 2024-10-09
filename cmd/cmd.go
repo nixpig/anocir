@@ -202,7 +202,7 @@ func forkCmd() *cobra.Command {
 				ConsoleSocketFD: consoleSocketFD,
 			}
 
-			root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+			root := container.GetRoot(opts.ID)
 			cntr, err := container.Load(root)
 			if err != nil {
 				return err

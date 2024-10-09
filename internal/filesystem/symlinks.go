@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 )
 
-var DefaultSymlinks = map[string]string{
+var defaultSymlinks = map[string]string{
 	"/proc/self/fd":   "dev/fd",
 	"/proc/self/fd/0": "dev/stdin",
 	"/proc/self/fd/1": "dev/stdout",
@@ -13,7 +13,7 @@ var DefaultSymlinks = map[string]string{
 	"pts/ptmx":        "dev/ptmx",
 }
 
-func CreateSymlinks(symlinks map[string]string, rootfs string) error {
+func createSymlinks(symlinks map[string]string, rootfs string) error {
 	for src, dest := range symlinks {
 		if err := os.Symlink(
 			src,
@@ -24,4 +24,8 @@ func CreateSymlinks(symlinks map[string]string, rootfs string) error {
 	}
 
 	return nil
+}
+
+func createDefaultSymlinks(rootfs string) error {
+	return createSymlinks(defaultSymlinks, rootfs)
 }

@@ -10,7 +10,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func MountDevice(device Device) error {
+func mountDevice(device Device) error {
 	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
 		f, err := os.Create(device.Target)
 		if err != nil && !os.IsExist(err) {
@@ -31,8 +31,8 @@ func MountDevice(device Device) error {
 	)
 }
 
-func MountRootfs(containerRootfs string) error {
-	if err := MountDevice(Device{
+func mountRootfs(containerRootfs string) error {
+	if err := mountDevice(Device{
 		Source: "",
 		Target: "/",
 		Fstype: "",
@@ -42,7 +42,7 @@ func MountRootfs(containerRootfs string) error {
 		return err
 	}
 
-	if err := MountDevice(Device{
+	if err := mountDevice(Device{
 		Source: containerRootfs,
 		Target: containerRootfs,
 		Fstype: "",
@@ -55,8 +55,8 @@ func MountRootfs(containerRootfs string) error {
 	return nil
 }
 
-func MountProc(containerRootfs string) error {
-	if err := MountDevice(Device{
+func mountProc(containerRootfs string) error {
+	if err := mountDevice(Device{
 		Source: "proc",
 		Target: filepath.Join(containerRootfs, "proc"),
 		Fstype: "proc",
@@ -69,7 +69,7 @@ func MountProc(containerRootfs string) error {
 	return nil
 }
 
-func DevInSpec(mounts []specs.Mount, dev string) bool {
+func devIsInSpec(mounts []specs.Mount, dev string) bool {
 	for _, mount := range mounts {
 		if mount.Destination == dev {
 			return true
@@ -79,7 +79,7 @@ func DevInSpec(mounts []specs.Mount, dev string) bool {
 	return false
 }
 
-func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
+func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
 	for _, dev := range devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -99,7 +99,7 @@ func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
 			}
 		}
 
-		if err := MountDevice(Device{
+		if err := mountDevice(Device{
 			Source: dev.Path,
 			Target: absPath,
 			Fstype: "bind",
@@ -113,7 +113,7 @@ func MountDevices(devices []specs.LinuxDevice, rootfs string) error {
 	return nil
 }
 
-func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
+func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, mount := range mounts {
 		var dest string
 		if strings.Index(mount.Destination, "/") == 0 {
@@ -139,7 +139,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		var dataOptions []string
 		for _, opt := range mount.Options {
-			o, ok := MountOptions[opt]
+			o, ok := mountOptions[opt]
 			if !ok {
 				if !strings.HasPrefix(opt, "gid=") &&
 					!strings.HasPrefix(opt, "uid=") &&
@@ -158,7 +158,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			data = strings.Join(dataOptions, ",")
 		}
 
-		if err := MountDevice(Device{
+		if err := mountDevice(Device{
 			Source: mount.Source,
 			Target: dest,
 			Fstype: mount.Type,

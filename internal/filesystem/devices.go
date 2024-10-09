@@ -2,8 +2,11 @@ package filesystem
 
 import (
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
 type Device struct {
@@ -28,7 +31,7 @@ var (
 	FifoDevice           = "p"
 )
 
-var DefaultDevices = []specs.LinuxDevice{
+var defaultDevices = []specs.LinuxDevice{
 	{
 		Path:     "/dev/null",
 		Type:     CharDevice,
@@ -83,4 +86,38 @@ var DefaultDevices = []specs.LinuxDevice{
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
+}
+
+func mountDefaultDevices(rootfs string) error {
+	return mountDevices(defaultDevices, rootfs)
+}
+
+func mountSpecDevices(devices []specs.LinuxDevice, rootfs string) error {
+	for _, dev := range devices {
+		var absPath string
+		if strings.Index(dev.Path, "/") == 0 {
+			relPath := strings.TrimPrefix(dev.Path, "/")
+			absPath = filepath.Join(rootfs, relPath)
+		} else {
+			absPath = filepath.Join(rootfs, dev.Path)
+		}
+
+		if err := unix.Mknod(
+			absPath,
+			uint32(*dev.FileMode),
+			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
+		); err != nil {
+			return err
+		}
+
+		if err := os.Chown(
+			absPath,
+			int(*dev.UID),
+			int(*dev.GID),
+		); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }

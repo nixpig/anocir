@@ -7,9 +7,9 @@ import (
 	"syscall"
 )
 
-func PivotRootfs(containerRootfs string) error {
-	oldroot := ".oldroot"
+const oldroot = ".oldroot"
 
+func pivotRootfs(containerRootfs string) error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootfs, oldroot),
 		0700,

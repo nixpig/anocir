@@ -3,10 +3,8 @@ package commands
 import (
 	"errors"
 	"fmt"
-	"path/filepath"
 
 	"github.com/nixpig/brownie/internal/container"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -17,7 +15,7 @@ type KillOpts struct {
 }
 
 func Kill(opts *KillOpts, log *zerolog.Logger) error {
-	root := filepath.Join(pkg.BrownieRootDir, "containers", opts.ID)
+	root := container.GetRoot(opts.ID)
 
 	cntr, err := container.Load(root)
 	if err != nil {
