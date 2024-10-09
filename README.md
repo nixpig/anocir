@@ -5,7 +5,10 @@
 An experimental Linux container runtime, implementing the OCI Runtime Spec.
 
 > [!NOTE]
-> As of October 1st, 2024, `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+>
+> **October 1st, 2024**
+>
+> `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
 >
 > See the [Progress](#progress) section below for progress against the remaining test suites.
 
@@ -153,6 +156,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [x] linux_readonly_paths
 - [x] linux_sysctl
 - [x] pidfile
+- [x] process
 - [x] process_capabilities
 
 ### ⚠️ To do
@@ -196,7 +200,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] poststop_fail
 - [ ] prestart
 - [ ] prestart_fail
-- [ ] process
 - [ ] process_capabilities_fail
 - [ ] process_oom_score_adj
 - [ ] process_rlimits
