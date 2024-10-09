@@ -27,8 +27,9 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 		return errors.New("container cannot be deleted in current state")
 	}
 
-	if err := syscall.Kill(cntr.State.PID, 9); err != nil {
-		return fmt.Errorf("kill container host process")
+	process, _ := os.FindProcess(cntr.State.PID)
+	if process != nil {
+		process.Signal(syscall.Signal(0))
 	}
 
 	if err := os.RemoveAll(cntr.Root); err != nil {
