@@ -147,6 +147,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 
 - [x] config_updates_without_affect
 - [x] create
+- [x] hostname
 - [x] kill_no_effect
 - [x] linux_mount_label
 - [x] linux_readonly_paths
@@ -161,7 +162,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] delete_resources
 - [ ] hooks
 - [ ] hooks_stdin
-- [ ] hostname
 - [ ] kill
 - [ ] killsig
 - [ ] linux_cgroups_blkio
