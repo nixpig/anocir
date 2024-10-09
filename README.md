@@ -139,17 +139,20 @@ Flags:
 
 This is the full list of suites in the [opencontainers OCI Runtime Spec tests](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes). The intention is to (eventually) pass all of them.
 
+### ✅ Default test suite
+
 - [x] default
 
----
+### ✅ Done
 
 - [x] config_updates_without_affect
 - [x] create
 - [x] kill_no_effect
+- [x] linux_mount_label
 - [x] linux_sysctl
 - [x] pidfile
 
----
+### ⚠️ To do
 
 - [ ] delete
 - [ ] delete_only_create_resources
@@ -175,7 +178,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] linux_cgroups_relative_pids
 - [ ] linux_devices
 - [ ] linux_masked_paths
-- [x] linux_mount_label
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path
