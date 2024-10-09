@@ -84,4 +84,5 @@ jobs:
             sudo RUNTIME=./brownie ./validation/process_capabilities/process_capabilities.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/hostname/hostname.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/process/process.t >> results.tap &&
+            sudo RUNTIME=./brownie ./validation/linux_masked_paths/linux_masked_paths.t >> results.tap &&
             (! grep -F "not ok" results.tap)

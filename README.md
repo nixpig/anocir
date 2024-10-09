@@ -152,6 +152,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [x] create
 - [x] hostname
 - [x] kill_no_effect
+- [x] linux_masked_paths
 - [x] linux_mount_label
 - [x] linux_readonly_paths
 - [x] linux_sysctl
@@ -183,7 +184,6 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] linux_cgroups_relative_network
 - [ ] linux_cgroups_relative_pids
 - [ ] linux_devices
-- [ ] linux_masked_paths
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path
@@ -207,7 +207,7 @@ This is the full list of suites in the [opencontainers OCI Runtime Spec tests](h
 - [ ] process_user
 - [ ] root_readonly_true
 - [ ] start
-- [x] state
+- [ ] state
 
 ## Contributing
 
