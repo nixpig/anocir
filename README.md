@@ -165,7 +165,6 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [x] pidfile
 - [x] process
 - [x] process_capabilities
-- [x] state
 
 ### ⚠️ To do
 
@@ -214,6 +213,7 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [ ] process_user
 - [ ] root_readonly_true
 - [ ] start
+- [ ] state
 
 ## Contributing
 
