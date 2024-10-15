@@ -30,21 +30,21 @@ func FromInt(s int) (syscall.Signal, error) {
 
 func FromString(s string) (syscall.Signal, error) {
 	switch s {
-	case "HUP", "SIGHUP":
+	case "1", "HUP", "SIGHUP":
 		return syscall.SIGHUP, nil
-	case "INT", "SIGINT":
+	case "2", "INT", "SIGINT":
 		return syscall.SIGINT, nil
-	case "QUIT", "SIGQUIT":
+	case "3", "QUIT", "SIGQUIT":
 		return syscall.SIGQUIT, nil
-	case "ABRT", "SIGABRT":
+	case "6", "ABRT", "SIGABRT":
 		return syscall.SIGABRT, nil
-	case "KILL", "SIGKILL":
+	case "9", "KILL", "SIGKILL":
 		return syscall.SIGKILL, nil
-	case "TERM", "SIGTERM":
+	case "15", "TERM", "SIGTERM":
 		return syscall.SIGTERM, nil
-	case "CHLD", "SIGCHLD":
+	case "17", "CHLD", "SIGCHLD":
 		return syscall.SIGCHLD, nil
-	case "STOP", "SIGSTOP":
+	case "19", "20", "21", "22", "STOP", "SIGSTOP":
 		return syscall.SIGSTOP, nil
 	}
 

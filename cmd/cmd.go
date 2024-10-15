@@ -17,11 +17,12 @@ import (
 
 func RootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:     "brownie",
-		Short:   "An experimental Linux container runtime.",
-		Long:    "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
-		Example: "",
-		Version: "0.0.1",
+		Use:          "brownie",
+		Short:        "An experimental Linux container runtime.",
+		Long:         "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
+		Example:      "",
+		Version:      "0.0.1",
+		SilenceUsage: true,
 	}
 
 	root.AddCommand(
