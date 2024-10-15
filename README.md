@@ -3,7 +3,7 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime, implementing the OCI Runtime Spec.
+An experimental Linux container runtime, attempting to implement the OCI Runtime Spec. See below for progress against that goal.
 
 > [!NOTE]
 >
@@ -13,7 +13,7 @@ An experimental Linux container runtime, implementing the OCI Runtime Spec.
 >
 > See the [Progress](#progress) section below for progress against the remaining test suites.
 
-This is a personal project for me to explore and better understand the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) to support other projects I'm working on. The state of the code is as you would expect for something experimental and exploratory, but feel free to have a look around!
+This is a personal project for me to explore and better understand the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki); it does things a bit differently and is pretty cool.
 
 ## Installation
 
@@ -160,9 +160,7 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [x] kill_no_effect
 - [x] linux_masked_paths
 - [x] linux_mount_label
-- [x] linux_readonly_paths
 - [x] linux_sysctl
-- [x] pidfile
 - [x] process
 - [x] process_capabilities
 
@@ -195,11 +193,13 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
+- [ ] linux_readonly_paths
 - [ ] linux_rootfs_propagation
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
 - [ ] misc_props
 - [ ] mounts
+- [ ] pidfile
 - [ ] poststart
 - [ ] poststart_fail
 - [ ] poststop
@@ -221,12 +221,12 @@ Given this is an exploratory personal project, I'm not interested in taking code
 
 ## Inspiration
 
-While this project was built entirely from scratch, inspiration was taken from existing runtimes:
+While this project was built entirely from scratch, inspiration was taken from existing runtimes, in no particular order:
 
-- [youki](https://github.com/containers/youki) (Rust)
-- [pura](https://github.com/penumbra23/pura) (Rust)
-- [runc](https://github.com/opencontainers/runc) (Go)
-- [crun](https://github.com/containers/crun) (C)
+- [`youki`](https://github.com/containers/youki) (Rust)
+- [`pura`](https://github.com/penumbra23/pura) (Rust)
+- [`runc`](https://github.com/opencontainers/runc) (Go)
+- [`crun`](https://github.com/containers/crun) (C)
 
 ## License
 

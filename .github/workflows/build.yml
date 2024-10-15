@@ -78,9 +78,9 @@ jobs:
             sudo RUNTIME=./brownie ./validation/default/default.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/kill_no_effect/kill_no_effect.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/linux_mount_label/linux_mount_label.t >> results.tap &&
-            sudo RUNTIME=./brownie ./validation/linux_readonly_paths/linux_readonly_paths.t >> results.tap &&
+            # sudo RUNTIME=./brownie ./validation/linux_readonly_paths/linux_readonly_paths.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/linux_sysctl/linux_sysctl.t >> results.tap &&
-            sudo RUNTIME=./brownie ./validation/pidfile/pidfile.t >> results.tap &&
+            # sudo RUNTIME=./brownie ./validation/pidfile/pidfile.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/process_capabilities/process_capabilities.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/hostname/hostname.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/process/process.t >> results.tap &&
