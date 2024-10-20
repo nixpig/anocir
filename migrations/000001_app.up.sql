@@ -14,5 +14,5 @@ create table if not exists annotations_ (
   key_ varchar(1024) not null,
   value_ varchar(1024) not null,
 
-  foreign key (container_id_) references containers_(id_)
+  foreign key (container_id_) references containers_(id_) on delete cascade
 )
