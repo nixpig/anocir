@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"fmt"
 	"net"
 	"runtime"
 )
@@ -56,6 +57,7 @@ func NewReceiver(sockAddr string) (chan []byte, closer, error) {
 }
 
 func WaitForMsg(ch chan []byte, msg string, cb func() error) error {
+	fmt.Printf("waiting for '%s' msg...\n", msg)
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 

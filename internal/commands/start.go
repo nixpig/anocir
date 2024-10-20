@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"net"
@@ -17,10 +18,8 @@ type StartOpts struct {
 	ID string
 }
 
-func Start(opts *StartOpts, log *zerolog.Logger) error {
-	root := container.GetRoot(opts.ID)
-
-	cntr, err := container.Load(root)
+func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
+	cntr, err := container.Load(opts.ID, log, db)
 	if err != nil {
 		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return fmt.Errorf("load container: %w", err)
@@ -36,7 +35,7 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
-	conn, err := net.Dial("unix", filepath.Join(root, containerSockFilename))
+	conn, err := net.Dial("unix", filepath.Join(cntr.State.Bundle, containerSockFilename))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to dial container sockaddr")
 		return fmt.Errorf("dial socket: %w", err)
@@ -51,7 +50,7 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	// FIXME: ?? when process starts, the PID in state should be updated to the process IN the container??
 
 	cntr.State.Status = specs.StateRunning
-	if err := cntr.State.Save(root); err != nil {
+	if err := cntr.State.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save state")
 	}
 
@@ -60,7 +59,7 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 	}
 
 	cntr.State.Status = specs.StateStopped
-	if err := cntr.State.Save(root); err != nil {
+	if err := cntr.State.Save(); err != nil {
 		return fmt.Errorf("save state: %w", err)
 	}
 

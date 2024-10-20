@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"bytes"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -15,7 +16,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func RootCmd() *cobra.Command {
+func RootCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	root := &cobra.Command{
 		Use:          "brownie",
 		Short:        "An experimental Linux container runtime.",
@@ -26,12 +27,12 @@ func RootCmd() *cobra.Command {
 	}
 
 	root.AddCommand(
-		createCmd(),
-		startCmd(),
-		stateCmd(),
-		deleteCmd(),
-		killCmd(),
-		forkCmd(),
+		createCmd(log, db),
+		startCmd(log, db),
+		stateCmd(log, db),
+		deleteCmd(log, db),
+		killCmd(log, db),
+		forkCmd(log, db),
 	)
 
 	root.CompletionOptions.HiddenDefaultCmd = true
@@ -46,7 +47,7 @@ func RootCmd() *cobra.Command {
 	return root
 }
 
-func createCmd() *cobra.Command {
+func createCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -77,13 +78,7 @@ func createCmd() *cobra.Command {
 				PIDFile:       pidFile,
 			}
 
-			// TODO: set logging level
-			log, err := createLogger(cmd)
-			if err != nil {
-				return err
-			}
-
-			return commands.Create(opts, log)
+			return commands.Create(opts, log, db)
 		},
 	}
 
@@ -95,7 +90,7 @@ func createCmd() *cobra.Command {
 	return create
 }
 
-func startCmd() *cobra.Command {
+func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -110,18 +105,13 @@ func startCmd() *cobra.Command {
 			ID: containerID,
 		}
 
-		log, err := createLogger(cmd)
-		if err != nil {
-			return err
-		}
-
-		return commands.Start(opts, log)
+		return commands.Start(opts, log, db)
 	}
 
 	return start
 }
 
-func killCmd() *cobra.Command {
+func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	kill := &cobra.Command{
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Kill a container",
@@ -136,19 +126,14 @@ func killCmd() *cobra.Command {
 				Signal: signal,
 			}
 
-			log, err := createLogger(cmd)
-			if err != nil {
-				return err
-			}
-
-			return commands.Kill(opts, log)
+			return commands.Kill(opts, log, db)
 		},
 	}
 
 	return kill
 }
 
-func deleteCmd() *cobra.Command {
+func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	del := &cobra.Command{
 		Use:     "delete [flags] CONTAINER_ID",
 		Short:   "Delete a container",
@@ -167,12 +152,7 @@ func deleteCmd() *cobra.Command {
 				Force: force,
 			}
 
-			log, err := createLogger(cmd)
-			if err != nil {
-				return err
-			}
-
-			return commands.Delete(opts, log)
+			return commands.Delete(opts, log, db)
 		},
 	}
 
@@ -181,7 +161,7 @@ func deleteCmd() *cobra.Command {
 	return del
 }
 
-func forkCmd() *cobra.Command {
+func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
@@ -203,20 +183,20 @@ func forkCmd() *cobra.Command {
 				ConsoleSocketFD: consoleSocketFD,
 			}
 
-			root := container.GetRoot(opts.ID)
-			cntr, err := container.Load(root)
+			cntr, err := container.Load(opts.ID, log, db)
 			if err != nil {
+				log.Error().Err(err).Msg("failed to load container")
 				return err
 			}
 
-			return cntr.Fork(opts)
+			return cntr.Fork(opts, log, db)
 		},
 	}
 
 	return fork
 }
 
-func stateCmd() *cobra.Command {
+func stateCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	state := &cobra.Command{
 		Use:     "state [flags] CONTAINER_ID",
 		Short:   "Query a container state",
@@ -229,18 +209,16 @@ func stateCmd() *cobra.Command {
 				ID: containerID,
 			}
 
-			log, err := createLogger(cmd)
-			if err != nil {
-				return err
-			}
-
-			state, err := commands.State(opts, log)
+			state, err := commands.State(opts, log, db)
 			if err != nil {
 				return err
 			}
 
 			var formattedState bytes.Buffer
-			json.Indent(&formattedState, []byte(state), "", "  ")
+			if err := json.Indent(&formattedState, []byte(state), "", "  "); err != nil {
+				log.Error().Err(err).Msg("failed to format state as json")
+				return err
+			}
 
 			if _, err := cmd.OutOrStdout().Write(
 				formattedState.Bytes(),
@@ -253,30 +231,4 @@ func stateCmd() *cobra.Command {
 	}
 
 	return state
-}
-
-func createLogger(cmd *cobra.Command) (*zerolog.Logger, error) {
-	logPath, err := cmd.InheritedFlags().GetString("log")
-	if err != nil {
-		return nil, err
-	}
-
-	logDir, _ := filepath.Split(logPath)
-
-	if err := os.MkdirAll(logDir, 0666); err != nil {
-		return nil, fmt.Errorf("create log dir: %w", err)
-	}
-
-	logFile, err := os.OpenFile(
-		logPath,
-		os.O_APPEND|os.O_CREATE|os.O_WRONLY,
-		0644,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("open log file: %w", err)
-	}
-
-	log := zerolog.New(logFile).With().Timestamp().Logger().Level(zerolog.ErrorLevel)
-
-	return &log, nil
 }

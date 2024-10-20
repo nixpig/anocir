@@ -56,9 +56,14 @@ func mountRootfs(containerRootfs string) error {
 }
 
 func mountProc(containerRootfs string) error {
+	containerProc := filepath.Join(containerRootfs, "proc")
+	if err := os.MkdirAll(containerProc, 0666); err != nil {
+		return fmt.Errorf("create proc dir: %w", err)
+	}
+
 	if err := mountDevice(Device{
 		Source: "proc",
-		Target: filepath.Join(containerRootfs, "proc"),
+		Target: containerProc,
 		Fstype: "proc",
 		Flags:  uintptr(0),
 		Data:   "",

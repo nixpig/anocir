@@ -1,12 +1,14 @@
 package commands
 
 import (
+	"database/sql"
 	"errors"
 	"fmt"
 	"syscall"
 
+	_ "github.com/mattn/go-sqlite3"
 	"github.com/nixpig/brownie/internal/container"
-	"github.com/nixpig/brownie/internal/signal"
+	"github.com/nixpig/brownie/internal/container/signal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -16,10 +18,8 @@ type KillOpts struct {
 	Signal string
 }
 
-func Kill(opts *KillOpts, log *zerolog.Logger) error {
-	root := container.GetRoot(opts.ID)
-
-	cntr, err := container.Load(root)
+func Kill(opts *KillOpts, log *zerolog.Logger, db *sql.DB) error {
+	cntr, err := container.Load(opts.ID, log, db)
 	if err != nil {
 		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
 		return fmt.Errorf("load container: %w", err)
@@ -30,7 +30,6 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 		return errors.New("container cannot be killed in current state")
 	}
 
-	log.Info().Str("signal", opts.Signal).Msg("get kill signal")
 	s, err := signal.FromString(opts.Signal)
 	if err != nil {
 		log.Error().Str("signal", opts.Signal).Msg("failed to convert to signal")
@@ -43,7 +42,7 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 	}
 
 	cntr.State.Status = specs.StateStopped
-	if err := cntr.State.Save(root); err != nil {
+	if err := cntr.State.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save stopped state")
 		return fmt.Errorf("failed to save stopped state: %w", err)
 	}

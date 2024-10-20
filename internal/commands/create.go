@@ -1,6 +1,7 @@
 package commands
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
@@ -16,14 +17,13 @@ type CreateOpts struct {
 	PIDFile       string
 }
 
-func Create(opts *CreateOpts, log *zerolog.Logger) error {
-	root := container.GetRoot(opts.ID)
-
+func Create(opts *CreateOpts, log *zerolog.Logger, db *sql.DB) error {
 	cntr, err := container.New(
 		opts.ID,
 		opts.Bundle,
-		root,
 		specs.StateCreating,
+		log,
+		db,
 	)
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)
@@ -46,12 +46,13 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		Stdin:         os.Stdin,
 		Stdout:        os.Stdout,
 		Stderr:        os.Stderr,
-	})
+	}, log)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to init container")
 		return fmt.Errorf("init container: %w", err)
 	}
 
-	fmt.Println("pid: ", pid)
+	log.Info().Int("pid", pid).Msg("initialised container")
 
 	return nil
 }

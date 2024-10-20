@@ -1,6 +1,7 @@
 package container
 
 import (
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -9,28 +10,25 @@ import (
 	"path/filepath"
 	"slices"
 	"strconv"
-	"strings"
 	"syscall"
 
-	"github.com/nixpig/brownie/internal/capabilities"
-	"github.com/nixpig/brownie/internal/cgroups"
-	"github.com/nixpig/brownie/internal/filesystem"
+	_ "github.com/mattn/go-sqlite3"
+	"github.com/nixpig/brownie/internal/container/capabilities"
+	"github.com/nixpig/brownie/internal/container/cgroups"
+	"github.com/nixpig/brownie/internal/container/filesystem"
+	"github.com/nixpig/brownie/internal/container/lifecycle"
+	"github.com/nixpig/brownie/internal/container/namespace"
+	"github.com/nixpig/brownie/internal/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
-	"github.com/nixpig/brownie/internal/lifecycle"
-	"github.com/nixpig/brownie/internal/namespace"
 	"github.com/nixpig/brownie/internal/state"
-	"github.com/nixpig/brownie/internal/terminal"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	cp "github.com/otiai10/copy"
+	"github.com/rs/zerolog"
 )
 
-const configFilename = "config.json"
 const initSockFilename = "init.sock"
 const containerSockFilename = "container.sock"
 
 type Container struct {
-	Root  string
 	State *state.State
 	Spec  *specs.Spec
 
@@ -61,23 +59,26 @@ type ipcCtrl struct {
 func New(
 	id string,
 	bundle string,
-	root string,
 	status specs.ContainerState,
+	log *zerolog.Logger,
+	db *sql.DB,
 ) (*Container, error) {
-	if stat, err := os.Stat(root); stat != nil || os.IsExist(err) {
+	_, err := db.Query(`select id_ from containers_ where id_ = $id`, sql.Named("id", id))
+	if err != nil && err != sql.ErrNoRows {
 		return nil, fmt.Errorf(
-			"container path already exists (%s): %w",
-			root, err,
+			"container already exists (%s): %w",
+			id, err,
 		)
 	}
 
-	b, err := os.ReadFile(filepath.Join(bundle, configFilename))
+	b, err := os.ReadFile(filepath.Join(bundle, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read container config: %w", err)
 	}
 
 	var spec specs.Spec
 	if err := json.Unmarshal(b, &spec); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal state spec")
 		return nil, fmt.Errorf("parse container config: %w", err)
 	}
 
@@ -85,47 +86,43 @@ func New(
 		return nil, errors.New("only linux containers are supported")
 	}
 
-	if err := os.MkdirAll(root, os.ModeDir); err != nil {
-		return nil, fmt.Errorf("create container directory")
-	}
-
-	if err := cp.Copy(
-		filepath.Join(bundle, configFilename),
-		filepath.Join(root, configFilename),
-	); err != nil {
-		return nil, fmt.Errorf("copy config.json: %w", err)
-	}
-
-	var bundleRootfs string
-	if strings.Index(spec.Root.Path, "/") == 0 {
-		bundleRootfs = spec.Root.Path
-	} else {
-		bundleRootfs = filepath.Join(bundle, spec.Root.Path)
-	}
-
-	containerRootfs := filepath.Join(root, pkg.DefaultRootfs)
-
-	if err := cp.Copy(
-		bundleRootfs,
-		containerRootfs,
-	); err != nil {
-		return nil, fmt.Errorf("copy rootfs: %w", err)
-	}
-
 	absBundlePath, err := filepath.Abs(bundle)
 	if err != nil {
 		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
 	}
 
-	return &Container{
-		Root:  root,
-		State: state.New(id, absBundlePath, status),
+	st := state.New(id, absBundlePath, status)
+
+	// TODO: save to database
+
+	query := `insert into containers_ (
+		id_, version_, bundle_, pid_, status_, config_
+	) values (
+		$id, $version, $bundle, $pid, $status, $config
+	)`
+
+	if _, err := db.Exec(
+		query,
+		sql.Named("id", id),
+		sql.Named("version", st.Version),
+		sql.Named("bundle", st.Bundle),
+		sql.Named("pid", st.PID),
+		sql.Named("status", st.Status),
+		sql.Named("config", string(b)),
+	); err != nil {
+		return nil, fmt.Errorf("insert into db: %w", err)
+	}
+
+	cntr := Container{
+		State: st,
 		Spec:  &spec,
-	}, nil
+	}
+
+	return &cntr, nil
 }
 
-func (c *Container) Init(opts *InitOpts) (int, error) {
-	initSockAddr := filepath.Join(c.Root, initSockFilename)
+func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
+	initSockAddr := filepath.Join(c.State.Bundle, initSockFilename)
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return -1, fmt.Errorf("remove existing init socket: %w", err)
 	}
@@ -186,19 +183,19 @@ func (c *Container) Init(opts *InitOpts) (int, error) {
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
 	if c.Spec.Process != nil {
-		cloneFlags |= syscall.CLONE_NEWUSER
+		// cloneFlags |= syscall.CLONE_NEWUSER
 
-		uidMappings = append(uidMappings, syscall.SysProcIDMap{
-			ContainerID: int(c.Spec.Process.User.UID),
-			HostID:      os.Geteuid(),
-			Size:        1,
-		})
-
-		gidMappings = append(gidMappings, syscall.SysProcIDMap{
-			ContainerID: int(c.Spec.Process.User.GID),
-			HostID:      os.Getegid(),
-			Size:        1,
-		})
+		// uidMappings = append(uidMappings, syscall.SysProcIDMap{
+		// 	ContainerID: int(c.Spec.Process.User.UID),
+		// 	HostID:      os.Geteuid(),
+		// 	Size:        1,
+		// })
+		//
+		// gidMappings = append(gidMappings, syscall.SysProcIDMap{
+		// 	ContainerID: int(c.Spec.Process.User.GID),
+		// 	HostID:      os.Getegid(),
+		// 	Size:        1,
+		// })
 	}
 
 	if c.Spec.Linux.UIDMappings != nil {
@@ -238,13 +235,14 @@ func (c *Container) Init(opts *InitOpts) (int, error) {
 	c.forkCmd.Stdout = opts.Stdout
 	c.forkCmd.Stderr = opts.Stderr
 
+	log.Info().Any("args", c.forkCmd.Args).Msg("start fork process...")
 	if err := c.forkCmd.Start(); err != nil {
 		return -1, fmt.Errorf("start fork container: %w", err)
 	}
 
 	pid := c.forkCmd.Process.Pid
 	c.State.PID = pid
-	if err := c.State.Save(c.Root); err != nil {
+	if err := c.State.Save(); err != nil {
 		return -1, fmt.Errorf("save state for fork: %w", err)
 	}
 
@@ -265,21 +263,23 @@ func (c *Container) Init(opts *InitOpts) (int, error) {
 	ipc.WaitForMsg(c.initIPC.ch, "ready", func() error { return nil })
 
 	c.State.Status = specs.StateCreated
-	if err := c.State.Save(c.Root); err != nil {
+	if err := c.State.Save(); err != nil {
 		return -1, fmt.Errorf("save created state: %w", err)
 	}
 
 	return pid, nil
 }
 
-func (c *Container) Fork(opts *ForkOpts) error {
+func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error {
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(opts.InitSockAddr)
 	if err != nil {
+		log.Error().Err(err).Msg("failed creating ipc sender")
 		return err
 	}
 	defer c.initIPC.closer()
 
+	log.Info().Msg("create console socket?")
 	if opts.ConsoleSocketFD != 0 {
 		pty, err := terminal.NewPty()
 		if err != nil {
@@ -304,20 +304,23 @@ func (c *Container) Fork(opts *ForkOpts) error {
 	}
 
 	// set up the socket _before_ pivot root
+	log.Info().Msg("try to remove existing container sock")
 	if err := os.RemoveAll(
-		filepath.Join(c.Root, containerSockFilename),
+		filepath.Join(c.State.Bundle, containerSockFilename),
 	); err != nil {
 		return err
 	}
 
-	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Root, containerSockFilename))
+	log.Info().Msg("try to create new ipc receiver")
+	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.State.Bundle, containerSockFilename))
 	if err != nil {
+		log.Error().Err(err).Msg("failed to create new ipc receiver")
 		return err
 	}
 	defer listCloser()
 
-	rootfs := filepath.Join(c.Root, pkg.DefaultRootfs)
-	if err := filesystem.SetupRootfs(rootfs, c.Spec); err != nil {
+	if err := filesystem.SetupRootfs(c.State.Bundle, c.Spec); err != nil {
+		log.Error().Err(err).Msg("failed to setup rootfs")
 		return err
 	}
 
@@ -340,16 +343,23 @@ func (c *Container) Fork(opts *ForkOpts) error {
 		}
 	}
 
-	if err := capabilities.SetCapabilities(
-		c.Spec.Process.Capabilities,
-	); err != nil {
-		return err
+	if c.Spec.Process != nil {
+		if c.Spec.Process.Capabilities != nil {
+			if err := capabilities.SetCapabilities(
+				c.Spec.Process.Capabilities,
+			); err != nil {
+				return err
+			}
+		}
+
+		if c.Spec.Process.Rlimits != nil {
+			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+				return err
+			}
+		}
 	}
 
-	if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-		return err
-	}
-
+	fmt.Println("BEFORE READY!!")
 	c.initIPC.ch <- []byte("ready")
 
 	ipc.WaitForMsg(listCh, "start", func() error {
@@ -370,35 +380,42 @@ func (c *Container) Fork(opts *ForkOpts) error {
 	return nil
 }
 
-func Load(root string) (*Container, error) {
-	state, err := state.Load(root)
-	if err != nil {
-		return nil, fmt.Errorf("load container state: %w", err)
+func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
+	st := state.State{}
+	var c string
+
+	row := db.QueryRow(`select id_, version_, bundle_, pid_, status_, config_ from containers_ where id_ = $id`, sql.Named("id", id))
+
+	if err := row.Scan(
+		&st.ID,
+		&st.Version,
+		&st.Bundle,
+		&st.PID,
+		&st.Status,
+		&c,
+	); err != nil {
+		return nil, fmt.Errorf("scan container to struct: %w", err)
 	}
 
-	b, err := os.ReadFile(filepath.Join(root, configFilename))
-	if err != nil {
-		return nil, fmt.Errorf("read container config: %w", err)
+	conf := specs.Spec{}
+	if err := json.Unmarshal([]byte(c), &conf); err != nil {
+		log.Error().Err(err).Msg("failed to unmarshal state in loader")
+		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
 	}
 
-	var spec specs.Spec
-	if err := json.Unmarshal(b, &spec); err != nil {
-		return nil, fmt.Errorf("parse container config: %w", err)
-	}
+	cntr := Container{}
+	cntr.State = &st
+	cntr.Spec = &conf
 
-	return &Container{
-		Root:  root,
-		State: state,
-		Spec:  &spec,
-	}, nil
+	return &cntr, nil
 }
 
 func (c *Container) Save() error {
-	return c.State.Save(c.Root)
+	return c.State.Save()
 }
 
 func (c *Container) Clean() error {
-	return os.RemoveAll(c.Root)
+	return os.RemoveAll(c.State.Bundle)
 }
 
 func (c *Container) ExecHooks(hook string) error {
@@ -434,8 +451,4 @@ func (c *Container) CanBeKilled() bool {
 
 func (c *Container) CanBeDeleted() bool {
 	return c.State.Status == specs.StateStopped
-}
-
-func GetRoot(id string) string {
-	return filepath.Join(pkg.BrownieContainerDir, id)
 }
