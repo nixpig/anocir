@@ -50,12 +50,18 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 	// FIXME: ?? when process starts, the PID in state should be updated to the process IN the container??
 
 	cntr.State.Status = specs.StateRunning
-	if err := cntr.State.Save(); err != nil {
+	if err := cntr.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save state")
 	}
 
 	if err := cntr.ExecHooks("poststart"); err != nil {
 		log.Warn().Err(err).Msg("failed to execute poststart hooks")
+	}
+
+	cntr.State.Status = specs.StateStopped
+	if err := cntr.Save(); err != nil {
+		log.Error().Err(err).Msg("save state after stopped")
+		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
 
 	return nil

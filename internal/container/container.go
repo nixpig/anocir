@@ -20,7 +20,7 @@ import (
 	"github.com/nixpig/brownie/internal/container/namespace"
 	"github.com/nixpig/brownie/internal/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
-	"github.com/nixpig/brownie/internal/state"
+	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -29,11 +29,21 @@ const initSockFilename = "init.sock"
 const containerSockFilename = "container.sock"
 
 type Container struct {
-	State *state.State
+	State *State
 	Spec  *specs.Spec
 
 	forkCmd *exec.Cmd
 	initIPC ipcCtrl
+	db      *sql.DB
+}
+
+type State struct {
+	Version     string
+	ID          string
+	Bundle      string
+	Annotations map[string]string
+	Status      specs.ContainerState
+	PID         int
 }
 
 type InitOpts struct {
@@ -91,7 +101,13 @@ func New(
 		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
 	}
 
-	st := state.New(id, absBundlePath, status)
+	state := &State{
+		Version:     pkg.OCIVersion,
+		ID:          id,
+		Bundle:      absBundlePath,
+		Annotations: map[string]string{},
+		Status:      status,
+	}
 
 	// TODO: save to database
 
@@ -104,18 +120,19 @@ func New(
 	if _, err := db.Exec(
 		query,
 		sql.Named("id", id),
-		sql.Named("version", st.Version),
-		sql.Named("bundle", st.Bundle),
-		sql.Named("pid", st.PID),
-		sql.Named("status", st.Status),
+		sql.Named("version", state.Version),
+		sql.Named("bundle", state.Bundle),
+		sql.Named("pid", state.PID),
+		sql.Named("status", state.Status),
 		sql.Named("config", string(b)),
 	); err != nil {
 		return nil, fmt.Errorf("insert into db: %w", err)
 	}
 
 	cntr := Container{
-		State: st,
+		State: state,
 		Spec:  &spec,
+		db:    db,
 	}
 
 	return &cntr, nil
@@ -243,7 +260,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 
 	pid := c.forkCmd.Process.Pid
 	c.State.PID = pid
-	if err := c.State.Save(); err != nil {
+	if err := c.Save(); err != nil {
 		return -1, fmt.Errorf("save state for fork: %w", err)
 	}
 
@@ -264,7 +281,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 	ipc.WaitForMsg(c.initIPC.ch, "ready", func() error { return nil })
 
 	c.State.Status = specs.StateCreated
-	if err := c.State.Save(); err != nil {
+	if err := c.Save(); err != nil {
 		return -1, fmt.Errorf("save created state: %w", err)
 	}
 
@@ -375,10 +392,11 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 			return err
 		}
 
-		c.State.Status = specs.StateStopped
-		if err := c.State.Save(); err != nil {
-			return fmt.Errorf("failed to save stopped state: %w", err)
-		}
+		// c.State.Status = specs.StateStopped
+		// if err := c.Save(); err != nil {
+		// 	log.Error().Err(err).Msg("save state after stopped")
+		// 	return fmt.Errorf("failed to save stopped state: %w", err)
+		// }
 
 		return nil
 	})
@@ -387,17 +405,17 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 }
 
 func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
-	st := state.State{}
+	state := State{}
 	var c string
 
 	row := db.QueryRow(`select id_, version_, bundle_, pid_, status_, config_ from containers_ where id_ = $id`, sql.Named("id", id))
 
 	if err := row.Scan(
-		&st.ID,
-		&st.Version,
-		&st.Bundle,
-		&st.PID,
-		&st.Status,
+		&state.ID,
+		&state.Version,
+		&state.Bundle,
+		&state.PID,
+		&state.Status,
 		&c,
 	); err != nil {
 		return nil, fmt.Errorf("scan container to struct: %w", err)
@@ -409,15 +427,32 @@ func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
 		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
 	}
 
-	cntr := Container{}
-	cntr.State = &st
-	cntr.Spec = &conf
-
-	return &cntr, nil
+	return &Container{
+		State: &state,
+		Spec:  &conf,
+		db:    db,
+	}, nil
 }
 
 func (c *Container) Save() error {
-	return c.State.Save()
+	_, err := c.db.Exec(
+		`update containers_ set 
+		status_ = $status,
+		pid_ = $pid,
+		bundle_ = $bundle,
+		version_ = $version
+		where id_ = $id`,
+		sql.Named("status", c.State.Status),
+		sql.Named("id", c.State.ID),
+		sql.Named("pid", c.State.PID),
+		sql.Named("bundle", c.State.Bundle),
+		sql.Named("version", c.State.Version),
+	)
+	if err != nil {
+		return fmt.Errorf("save state: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Container) Clean() error {

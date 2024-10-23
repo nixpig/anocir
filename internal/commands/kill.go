@@ -42,7 +42,7 @@ func Kill(opts *KillOpts, log *zerolog.Logger, db *sql.DB) error {
 	}
 
 	cntr.State.Status = specs.StateStopped
-	if err := cntr.State.Save(); err != nil {
+	if err := cntr.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save stopped state")
 		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
