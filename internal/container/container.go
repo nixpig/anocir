@@ -285,6 +285,21 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 		return -1, fmt.Errorf("save created state: %w", err)
 	}
 
+	// p, err := os.FindProcess(pid)
+	// if err != nil {
+	// 	log.Error().Err(err).Int("pid", pid).Msg("failed to find process")
+	// 	return -1, err
+	// }
+
+	// fmt.Println("waiting for process to exit", p.Pid)
+	// o, err := p.Wait()
+	// if err != nil {
+	// 	log.Error().Err(err).Int("pid", pid).Msg("waiting for process to exit")
+	// 	return -1, err
+	// }
+	//
+	// fmt.Println(o)
+
 	return pid, nil
 }
 
@@ -388,9 +403,17 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
+		log.Info().Msg("BEFORE THE  COMMAND RUN")
 		if err := cmd.Run(); err != nil {
 			return err
 		}
+
+		log.Info().Msg("UPDATING STATE FILE")
+		if err := os.WriteFile("/state", []byte(specs.StateStopped), 0644); err != nil {
+			log.Error().Err(err).Msg("failed to write state file")
+			return fmt.Errorf("write state file: %w", err)
+		}
+		log.Info().Msg("UPDATED STATE FILE")
 
 		// c.State.Status = specs.StateStopped
 		// if err := c.Save(); err != nil {
@@ -427,11 +450,32 @@ func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
 		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
 	}
 
-	return &Container{
+	cntr := &Container{
 		State: &state,
 		Spec:  &conf,
 		db:    db,
-	}, nil
+	}
+
+	if err := cntr.RefreshState(); err != nil {
+		log.Error().Err(err).Msg("failed to refresh state")
+		return nil, fmt.Errorf("refresh state: %w", err)
+	}
+
+	return cntr, nil
+}
+
+func (c *Container) RefreshState() error {
+	b, err := os.ReadFile(filepath.Join(c.State.Bundle, c.Spec.Root.Path, "state"))
+	if err != nil {
+		return err
+	}
+
+	c.State.Status = specs.ContainerState(string(b))
+	if err := c.Save(); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func (c *Container) Save() error {
@@ -450,6 +494,10 @@ func (c *Container) Save() error {
 	)
 	if err != nil {
 		return fmt.Errorf("save state: %w", err)
+	}
+
+	if err := os.WriteFile(filepath.Join(c.State.Bundle, c.Spec.Root.Path, "state"), []byte(c.State.Status), 0644); err != nil {
+		return fmt.Errorf("failed to write state file: %w", err)
 	}
 
 	return nil
