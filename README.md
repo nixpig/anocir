@@ -156,7 +156,6 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [x] \_\_\_
 - [x] config_updates_without_affect
 - [x] create
-- [x] delete
 - [x] hostname
 - [x] kill_no_effect
 - [x] linux_masked_paths
@@ -169,6 +168,7 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 
 ### ⚠️ To do
 
+- [ ] delete
 - [ ] delete_only_create_resources
 - [ ] delete_resources
 - [ ] hooks
