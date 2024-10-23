@@ -30,7 +30,6 @@ func main() {
 	}
 
 	// create database
-
 	db := database.New()
 	if err := db.Connect(); err != nil {
 		log.Error().Err(err).Msg("failed to connect to database")
@@ -61,8 +60,6 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	log.Info().Any("args", os.Args).Msg("arguments being run")
 
 	// exec root
 	if err := cmd.RootCmd(log, db.Conn).Execute(); err != nil {

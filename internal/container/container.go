@@ -237,7 +237,6 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 	c.forkCmd.Stdout = opts.Stdout
 	c.forkCmd.Stderr = opts.Stderr
 
-	log.Info().Any("args", c.forkCmd.Args).Msg("start fork process...")
 	if err := c.forkCmd.Start(); err != nil {
 		return -1, fmt.Errorf("start fork container: %w", err)
 	}
@@ -281,7 +280,6 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 	}
 	defer c.initIPC.closer()
 
-	log.Info().Msg("create console socket?")
 	if opts.ConsoleSocketFD != 0 {
 		pty, err := terminal.NewPty()
 		if err != nil {
@@ -306,14 +304,12 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 	}
 
 	// set up the socket _before_ pivot root
-	log.Info().Msg("try to remove existing container sock")
 	if err := os.RemoveAll(
 		filepath.Join(c.State.Bundle, containerSockFilename),
 	); err != nil {
 		return err
 	}
 
-	log.Info().Msg("try to create new ipc receiver")
 	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.State.Bundle, containerSockFilename))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create new ipc receiver")
@@ -361,7 +357,6 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		}
 	}
 
-	fmt.Println("BEFORE READY!!")
 	c.initIPC.ch <- []byte("ready")
 
 	ipc.WaitForMsg(listCh, "start", func() error {
@@ -376,7 +371,16 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		return cmd.Run()
+		if err := cmd.Run(); err != nil {
+			return err
+		}
+
+		c.State.Status = specs.StateStopped
+		if err := c.State.Save(); err != nil {
+			return fmt.Errorf("failed to save stopped state: %w", err)
+		}
+
+		return nil
 	})
 
 	return nil

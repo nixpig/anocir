@@ -58,10 +58,5 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 		log.Warn().Err(err).Msg("failed to execute poststart hooks")
 	}
 
-	cntr.State.Status = specs.StateStopped
-	if err := cntr.State.Save(); err != nil {
-		return fmt.Errorf("save state: %w", err)
-	}
-
 	return nil
 }

@@ -5,6 +5,7 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -26,6 +27,7 @@ func CreateLogger(logfile string, level zerolog.Level) (*zerolog.Logger, error) 
 
 	log := zerolog.New(logFile).
 		With().
+		Str("Correlation-ID", uuid.New().String()).
 		Timestamp().
 		Logger().
 		Level(level)

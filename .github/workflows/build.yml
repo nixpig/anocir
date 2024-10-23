@@ -86,4 +86,5 @@ jobs:
             sudo RUNTIME=./brownie ./validation/process/process.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/state/state.t >> results.tap &&
             sudo RUNTIME=./brownie ./validation/start/start.t >> results.tap &&
+            sudo RUNTIME=./brownie ./validation/delete/delete.t >> results.tap &&
             (! grep -F "not ok" results.tap)

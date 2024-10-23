@@ -185,7 +185,6 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 
 			cntr, err := container.Load(opts.ID, log, db)
 			if err != nil {
-				log.Error().Err(err).Msg("failed to load container")
 				return err
 			}
 
