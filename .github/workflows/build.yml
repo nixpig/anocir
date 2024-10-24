@@ -84,4 +84,4 @@ jobs:
 
       - name: run oci tests
         run: |
-          bash sudo RUNTIME=./brownie ./oci.sh
+          sudo RUNTIME=./brownie bash ./oci.sh
