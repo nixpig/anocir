@@ -158,8 +158,8 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [x] create
 - [x] delete
 - [x] hostname
+- [x] kill
 - [x] kill_no_effect
-- [x] linux_masked_paths
 - [x] linux_mount_label
 - [x] linux_sysctl
 - [x] process
@@ -173,7 +173,6 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [ ] delete_resources
 - [ ] hooks
 - [ ] hooks_stdin
-- [ ] kill
 - [ ] killsig
 - [ ] linux_cgroups_blkio
 - [ ] linux_cgroups_cpus
@@ -190,6 +189,7 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [ ] linux_cgroups_relative_network
 - [ ] linux_cgroups_relative_pids
 - [ ] linux_devices
+- [ ] linux_masked_paths
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path

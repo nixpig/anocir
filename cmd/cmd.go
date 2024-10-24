@@ -12,6 +12,7 @@ import (
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/pkg"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -54,6 +55,7 @@ func createCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg(" >> CREATE << ")
 			containerID := args[0]
 
 			bundle, err := cmd.Flags().GetString("bundle")
@@ -99,13 +101,18 @@ func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	}
 
 	start.RunE = func(cmd *cobra.Command, args []string) error {
+		log.Info().Msg(" >> START << ")
 		containerID := args[0]
 
 		opts := &commands.StartOpts{
 			ID: containerID,
 		}
 
-		return commands.Start(opts, log, db)
+		if err := commands.Start(opts, log, db); err != nil {
+			return fmt.Errorf("fucked trying to start: %w", err)
+		}
+
+		return nil
 	}
 
 	return start
@@ -118,6 +125,7 @@ func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		Example: "  brownie kill busybox 9",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg(" >> KILL << ")
 			containerID := args[0]
 			signal := args[1]
 
@@ -140,6 +148,7 @@ func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie delete busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg(" >> DELETE << ")
 			containerID := args[0]
 
 			force, err := cmd.Flags().GetBool("force")
@@ -169,6 +178,7 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg(" >> FORK << ")
 			containerID := args[0]
 			initSockAddr := args[1]
 
@@ -188,7 +198,15 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 				return err
 			}
 
-			return cntr.Fork(opts, log, db)
+			if err := cntr.Fork(opts, log, db); err != nil {
+				cntr.State.Status = specs.StateStopped
+				if err := cntr.Save(); err != nil {
+					log.Error().Err(err).Msg("failed to write state file")
+					return fmt.Errorf("write state file: %w", err)
+				}
+			}
+
+			return nil
 		},
 	}
 
@@ -202,6 +220,7 @@ func stateCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie state busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			log.Info().Msg(" >> STATE << ")
 			containerID := args[0]
 
 			opts := &commands.StateOpts{

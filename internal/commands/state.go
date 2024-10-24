@@ -14,9 +14,14 @@ type StateOpts struct {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger, db *sql.DB) (string, error) {
+	log.Info().Msg("get state...")
 	cntr, err := container.Load(opts.ID, log, db)
 	if err != nil {
 		return "", fmt.Errorf("load container in state: %w", err)
+	}
+
+	if err := cntr.RefreshState(); err != nil {
+		return "", err
 	}
 
 	s, err := json.Marshal(cntr.State)

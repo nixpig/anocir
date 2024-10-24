@@ -25,6 +25,16 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
+	if cntr.Spec.Process == nil {
+		log.Info().Msg("NO PROCESS SET!!")
+		cntr.State.Status = specs.StateStopped
+		if err := cntr.Save(); err != nil {
+			log.Error().Err(err).Msg("failed to write state file")
+			return fmt.Errorf("write state file: %w", err)
+		}
+		return nil
+	}
+
 	if !cntr.CanBeStarted() {
 		log.Error().Msg("container cannot be started in current state")
 		return errors.New("container cannot be started in current state")
@@ -48,11 +58,6 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 	defer conn.Close()
 
 	// FIXME: ?? when process starts, the PID in state should be updated to the process IN the container??
-
-	cntr.State.Status = specs.StateRunning
-	if err := cntr.Save(); err != nil {
-		log.Error().Err(err).Msg("failed to save state")
-	}
 
 	if err := cntr.ExecHooks("poststart"); err != nil {
 		log.Warn().Err(err).Msg("failed to execute poststart hooks")

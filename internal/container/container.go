@@ -88,7 +88,7 @@ func New(
 
 	var spec specs.Spec
 	if err := json.Unmarshal(b, &spec); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal state spec")
+		log.Error().Err(err).Msg("failed to unmarshal spec")
 		return nil, fmt.Errorf("parse container config: %w", err)
 	}
 
@@ -110,7 +110,6 @@ func New(
 	}
 
 	// TODO: save to database
-
 	query := `insert into containers_ (
 		id_, version_, bundle_, pid_, status_, config_
 	) values (
@@ -135,19 +134,23 @@ func New(
 		db:    db,
 	}
 
+	if err := cntr.Save(); err != nil {
+		return nil, fmt.Errorf("save newly created container: %w", err)
+	}
+
 	return &cntr, nil
 }
 
-func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
+func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 	initSockAddr := filepath.Join(c.State.Bundle, initSockFilename)
 	if err := os.RemoveAll(initSockAddr); err != nil {
-		return -1, fmt.Errorf("remove existing init socket: %w", err)
+		return fmt.Errorf("remove existing init socket: %w", err)
 	}
 
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewReceiver(initSockAddr)
 	if err != nil {
-		return -1, fmt.Errorf("create init ipc receiver: %w", err)
+		return fmt.Errorf("create init ipc receiver: %w", err)
 	}
 	defer c.initIPC.closer()
 
@@ -159,7 +162,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 	if useTerminal {
 		termSock, err := terminal.New(opts.ConsoleSocket)
 		if err != nil {
-			return -1, fmt.Errorf("create terminal socket: %w", err)
+			return fmt.Errorf("create terminal socket: %w", err)
 		}
 		termFD = termSock.FD
 	}
@@ -190,7 +193,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 			ns := namespace.LinuxNamespace(ns)
 			flag, err := ns.ToFlag()
 			if err != nil {
-				return -1, fmt.Errorf("convert namespace to flag: %w", err)
+				return fmt.Errorf("convert namespace to flag: %w", err)
 			}
 
 			cloneFlags |= flag
@@ -255,35 +258,37 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 	c.forkCmd.Stderr = opts.Stderr
 
 	if err := c.forkCmd.Start(); err != nil {
-		return -1, fmt.Errorf("start fork container: %w", err)
+		return fmt.Errorf("start fork container: %w", err)
 	}
 
 	pid := c.forkCmd.Process.Pid
 	c.State.PID = pid
 	if err := c.Save(); err != nil {
-		return -1, fmt.Errorf("save state for fork: %w", err)
+		return fmt.Errorf("save pid for fork: %w", err)
 	}
 
 	if err := c.forkCmd.Process.Release(); err != nil {
-		return -1, fmt.Errorf("detach fork container: %w", err)
+		return fmt.Errorf("detach fork container: %w", err)
 	}
 
 	if opts.PIDFile != "" {
+		log.Info().Str("pidfile", opts.PIDFile).Int("pid", pid).Msg("writing pidfile")
 		if err := os.WriteFile(
 			opts.PIDFile,
 			[]byte(strconv.Itoa(pid)),
 			0666,
 		); err != nil {
-			return -1, fmt.Errorf("write pid to file (%s): %w", opts.PIDFile, err)
+			return fmt.Errorf("write pid to file (%s): %w", opts.PIDFile, err)
 		}
 	}
 
-	ipc.WaitForMsg(c.initIPC.ch, "ready", func() error { return nil })
-
-	c.State.Status = specs.StateCreated
-	if err := c.Save(); err != nil {
-		return -1, fmt.Errorf("save created state: %w", err)
-	}
+	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
+		c.State.Status = specs.StateCreated
+		if err := c.Save(); err != nil {
+			return fmt.Errorf("save created state: %w", err)
+		}
+		return nil
+	})
 
 	// p, err := os.FindProcess(pid)
 	// if err != nil {
@@ -300,7 +305,6 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) (int, error) {
 	//
 	// fmt.Println(o)
 
-	return pid, nil
 }
 
 func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error {
@@ -363,12 +367,22 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		if err := syscall.Sethostname(
 			[]byte(c.Spec.Hostname),
 		); err != nil {
+			c.State.Status = specs.StateStopped
+			if err := c.SaveState(); err != nil {
+				log.Error().Err(err).Msg("failed to write state file")
+				return fmt.Errorf("write state file: %w", err)
+			}
 			return err
 		}
 
 		if err := syscall.Setdomainname(
 			[]byte(c.Spec.Domainname),
 		); err != nil {
+			c.State.Status = specs.StateStopped
+			if err := c.SaveState(); err != nil {
+				log.Error().Err(err).Msg("failed to write state file")
+				return fmt.Errorf("write state file: %w", err)
+			}
 			return err
 		}
 	}
@@ -378,12 +392,22 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 			if err := capabilities.SetCapabilities(
 				c.Spec.Process.Capabilities,
 			); err != nil {
+				c.State.Status = specs.StateStopped
+				if err := c.SaveState(); err != nil {
+					log.Error().Err(err).Msg("failed to write state file")
+					return fmt.Errorf("write state file: %w", err)
+				}
 				return err
 			}
 		}
 
 		if c.Spec.Process.Rlimits != nil {
 			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+				c.State.Status = specs.StateStopped
+				if err := c.SaveState(); err != nil {
+					log.Error().Err(err).Msg("failed to write state file")
+					return fmt.Errorf("write state file: %w", err)
+				}
 				return err
 			}
 		}
@@ -391,7 +415,12 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 
 	c.initIPC.ch <- []byte("ready")
 
-	ipc.WaitForMsg(listCh, "start", func() error {
+	return ipc.WaitForMsg(listCh, "start", func() error {
+		c.State.Status = specs.StateRunning
+		if err := c.SaveState(); err != nil {
+			log.Error().Err(err).Msg("failed to save state")
+		}
+
 		cmd := exec.Command(
 			c.Spec.Process.Args[0],
 			c.Spec.Process.Args[1:]...,
@@ -404,27 +433,19 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		cmd.Stderr = os.Stderr
 
 		log.Info().Msg("BEFORE THE  COMMAND RUN")
-		if err := cmd.Run(); err != nil {
-			return err
-		}
+		cmd.Run()
+		log.Info().Msg("AFTER THE COMMAND RUN")
 
 		log.Info().Msg("UPDATING STATE FILE")
-		if err := os.WriteFile("/state", []byte(specs.StateStopped), 0644); err != nil {
+		c.State.Status = specs.StateStopped
+		if err := c.SaveState(); err != nil {
 			log.Error().Err(err).Msg("failed to write state file")
 			return fmt.Errorf("write state file: %w", err)
 		}
 		log.Info().Msg("UPDATED STATE FILE")
 
-		// c.State.Status = specs.StateStopped
-		// if err := c.Save(); err != nil {
-		// 	log.Error().Err(err).Msg("save state after stopped")
-		// 	return fmt.Errorf("failed to save stopped state: %w", err)
-		// }
-
 		return nil
 	})
-
-	return nil
 }
 
 func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
@@ -465,14 +486,26 @@ func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
 }
 
 func (c *Container) RefreshState() error {
-	b, err := os.ReadFile(filepath.Join(c.State.Bundle, c.Spec.Root.Path, "state"))
+	b, err := os.ReadFile(filepath.Join(c.State.Bundle, "state.json"))
+	if err != nil {
+		fmt.Println("WARNING: unable to refresh from state file")
+		return nil
+	}
+
+	if err := json.Unmarshal(b, c.State); err != nil {
+		return fmt.Errorf("unmarshall refreshed state: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) SaveState() error {
+	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
 	}
-
-	c.State.Status = specs.ContainerState(string(b))
-	if err := c.Save(); err != nil {
-		return err
+	if err := os.WriteFile("/state.json", b, 0644); err != nil {
+		return fmt.Errorf("write state file: %w", err)
 	}
 
 	return nil
@@ -496,8 +529,12 @@ func (c *Container) Save() error {
 		return fmt.Errorf("save state: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(c.State.Bundle, c.Spec.Root.Path, "state"), []byte(c.State.Status), 0644); err != nil {
-		return fmt.Errorf("failed to write state file: %w", err)
+	b, err := json.Marshal(c.State)
+	if err != nil {
+		return err
+	}
+	if err := os.WriteFile(filepath.Join(c.State.Bundle, "state.json"), b, 0644); err != nil {
+		return fmt.Errorf("write state file: %w", err)
 	}
 
 	return nil

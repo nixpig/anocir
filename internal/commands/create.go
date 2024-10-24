@@ -39,20 +39,11 @@ func Create(opts *CreateOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	// FIXME: ??? this isn't the correct PID - it should be from _inside_ container, 0 ??
-	pid, err := cntr.Init(&container.InitOpts{
+	return cntr.Init(&container.InitOpts{
 		PIDFile:       opts.PIDFile,
 		ConsoleSocket: opts.ConsoleSocket,
 		Stdin:         os.Stdin,
 		Stdout:        os.Stdout,
 		Stderr:        os.Stderr,
 	}, log)
-	if err != nil {
-		log.Error().Err(err).Msg("failed to init container")
-		return fmt.Errorf("init container: %w", err)
-	}
-
-	log.Info().Int("pid", pid).Msg("initialised container")
-
-	return nil
 }
