@@ -35,13 +35,17 @@ jobs:
       - name: build artifact
         run: make build
 
-      - name: upload artifact
+      - name: upload binary artifact
         uses: actions/upload-artifact@master
         with:
-          name: artifacts
-          path: |
-            tmp/bin/brownie
-            test/oci.sh
+          name: binary
+          path: tmp/bin/brownie
+
+      - name: upload test artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: test
+          path: test/oci.sh
 
   test:
     needs: build
@@ -63,12 +67,17 @@ jobs:
       - name: build runtime-tools
         run: make runtimetest validation-executables
 
-      - name: download artifact
+      - name: download binary artifact
         uses: actions/download-artifact@master
         with:
-          name: artifacts
+          name: binary
           path: .
-          merge_multiple: true
+
+      - name: download test artifact
+        uses: actions/download-artifact@master
+        with:
+          name: test
+          path: .
 
       - name: chmod brownie
         run: chmod 755 ./brownie
