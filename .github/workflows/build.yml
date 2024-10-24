@@ -45,7 +45,7 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: test
-          path: test/oci.sh
+          path: oci.sh
 
   test:
     needs: build
@@ -84,4 +84,4 @@ jobs:
 
       - name: run oci tests
         run: |
-          sudo RUNTIME=./brownie ./test/oci.sh
+          sudo RUNTIME=./brownie ./oci.sh
