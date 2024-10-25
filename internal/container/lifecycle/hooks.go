@@ -20,7 +20,7 @@ func ExecHooks(hooks []specs.Hook) error {
 			)
 			defer cancel()
 		}
-		cmd := exec.CommandContext(ctx, h.Path, h.Args...)
+		cmd := exec.CommandContext(ctx, h.Path, h.Args[1:]...)
 		cmd.Env = h.Env
 
 		if err := cmd.Run(); err != nil {

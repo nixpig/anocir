@@ -361,6 +361,11 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 	c.initIPC.ch <- []byte("ready")
 
 	return ipc.WaitForMsg(listCh, "start", func() error {
+		if err := c.ExecHooks("prestart"); err != nil {
+			log.Error().Err(err).Msg("failed to execute prestart hooks")
+			return fmt.Errorf("execute prestart hooks: %w", err)
+		}
+
 		if err := filesystem.PivotRoot(c.State.Bundle); err != nil {
 			log.Error().Err(err).Msg("failed to pivot root")
 			return err
@@ -437,7 +442,7 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		log.Info().Msg("BEFORE THE  COMMAND RUN")
+		log.Info().Msg("BEFORE THE COMMAND RUN")
 		cmd.Run()
 		log.Info().Msg("AFTER THE COMMAND RUN")
 
@@ -556,6 +561,8 @@ func (c *Container) ExecHooks(hook string) error {
 
 	var specHooks []specs.Hook
 	switch hook {
+	case "prestart":
+		specHooks = c.Spec.Hooks.Prestart
 	case "createRuntime":
 		specHooks = c.Spec.Hooks.CreateRuntime
 	case "createContainer":

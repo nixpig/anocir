@@ -11,6 +11,7 @@ RUNTIME=${RUNTIME:-./brownie}
 ./validation/linux_mount_label/linux_mount_label.t 2>&1 | tee -a results.tap
 ./validation/linux_sysctl/linux_sysctl.t 2>&1 | tee -a results.tap
 # ./validation/pidfile/pidfile.t 2>&1 | tee -a results.tap
+./validation/prestart/prestart.t 2>&1 | tee -a results.tap
 ./validation/process/process.t 2>&1 | tee -a results.tap
 ./validation/process_capabilities/process_capabilities.t 2>&1 | tee -a results.tap
 ./validation/start/start.t 2>&1 | tee -a results.tap
