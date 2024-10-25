@@ -1,6 +1,6 @@
 #!/bin/sh
 echo "" > results.tap
-RUNTIME=${RUNTIME:"./brownie"}
+RUNTIME=${RUNTIME:-./brownie}
 ./validation/default/default.t 2>&1 | tee -a results.tap
 ./validation/config_updates_without_affect/config_updates_without_affect.t 2>&1 | tee -a results.tap
 ./validation/create/create.t 2>&1 | tee -a results.tap
