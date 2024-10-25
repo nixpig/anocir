@@ -27,3 +27,4 @@ go.work.sum
 # temp
 tmp/
 testdata/
+results.tap

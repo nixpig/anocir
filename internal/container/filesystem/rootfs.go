@@ -47,6 +47,10 @@ func SetupRootfs(root string, spec *specs.Spec) error {
 		return fmt.Errorf("create symlinks: %w", err)
 	}
 
+	return nil
+}
+
+func PivotRoot(rootfs string) error {
 	if err := pivotRootfs(rootfs); err != nil {
 		return fmt.Errorf("pivot root: %w", err)
 	}

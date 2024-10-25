@@ -358,39 +358,33 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		return err
 	}
 
-	if slices.ContainsFunc(
-		c.Spec.Linux.Namespaces,
-		func(n specs.LinuxNamespace) bool {
-			return n.Type == specs.UTSNamespace
-		},
-	) {
-		if err := syscall.Sethostname(
-			[]byte(c.Spec.Hostname),
-		); err != nil {
-			c.State.Status = specs.StateStopped
-			if err := c.SaveState(); err != nil {
-				log.Error().Err(err).Msg("failed to write state file")
-				return fmt.Errorf("write state file: %w", err)
-			}
+	c.initIPC.ch <- []byte("ready")
+
+	return ipc.WaitForMsg(listCh, "start", func() error {
+		if err := filesystem.PivotRoot(c.State.Bundle); err != nil {
+			log.Error().Err(err).Msg("failed to pivot root")
 			return err
 		}
 
-		if err := syscall.Setdomainname(
-			[]byte(c.Spec.Domainname),
-		); err != nil {
-			c.State.Status = specs.StateStopped
-			if err := c.SaveState(); err != nil {
-				log.Error().Err(err).Msg("failed to write state file")
-				return fmt.Errorf("write state file: %w", err)
+		if slices.ContainsFunc(
+			c.Spec.Linux.Namespaces,
+			func(n specs.LinuxNamespace) bool {
+				return n.Type == specs.UTSNamespace
+			},
+		) {
+			if err := syscall.Sethostname(
+				[]byte(c.Spec.Hostname),
+			); err != nil {
+				c.State.Status = specs.StateStopped
+				if err := c.SaveState(); err != nil {
+					log.Error().Err(err).Msg("failed to write state file")
+					return fmt.Errorf("write state file: %w", err)
+				}
+				return err
 			}
-			return err
-		}
-	}
 
-	if c.Spec.Process != nil {
-		if c.Spec.Process.Capabilities != nil {
-			if err := capabilities.SetCapabilities(
-				c.Spec.Process.Capabilities,
+			if err := syscall.Setdomainname(
+				[]byte(c.Spec.Domainname),
 			); err != nil {
 				c.State.Status = specs.StateStopped
 				if err := c.SaveState(); err != nil {
@@ -401,21 +395,32 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 			}
 		}
 
-		if c.Spec.Process.Rlimits != nil {
-			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-				c.State.Status = specs.StateStopped
-				if err := c.SaveState(); err != nil {
-					log.Error().Err(err).Msg("failed to write state file")
-					return fmt.Errorf("write state file: %w", err)
+		if c.Spec.Process != nil {
+			if c.Spec.Process.Capabilities != nil {
+				if err := capabilities.SetCapabilities(
+					c.Spec.Process.Capabilities,
+				); err != nil {
+					c.State.Status = specs.StateStopped
+					if err := c.SaveState(); err != nil {
+						log.Error().Err(err).Msg("failed to write state file")
+						return fmt.Errorf("write state file: %w", err)
+					}
+					return err
 				}
-				return err
+			}
+
+			if c.Spec.Process.Rlimits != nil {
+				if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+					c.State.Status = specs.StateStopped
+					if err := c.SaveState(); err != nil {
+						log.Error().Err(err).Msg("failed to write state file")
+						return fmt.Errorf("write state file: %w", err)
+					}
+					return err
+				}
 			}
 		}
-	}
 
-	c.initIPC.ch <- []byte("ready")
-
-	return ipc.WaitForMsg(listCh, "start", func() error {
 		c.State.Status = specs.StateRunning
 		if err := c.SaveState(); err != nil {
 			log.Error().Err(err).Msg("failed to save state")
