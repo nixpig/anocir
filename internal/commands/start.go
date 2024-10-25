@@ -61,6 +61,7 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 
 		log.Info().Msg("execing poststop hooks")
 		if err := cntr.ExecHooks("poststop"); err != nil {
+			fmt.Println("WARNING: failed to execute poststop hooks")
 			log.Warn().Err(err).Msg("failed to execute poststop hooks")
 		}
 
