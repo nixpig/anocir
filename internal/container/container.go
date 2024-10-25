@@ -360,12 +360,7 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 
 	c.initIPC.ch <- []byte("ready")
 
-	return ipc.WaitForMsg(listCh, "start", func() error {
-		if err := c.ExecHooks("prestart"); err != nil {
-			log.Error().Err(err).Msg("failed to execute prestart hooks")
-			return fmt.Errorf("execute prestart hooks: %w", err)
-		}
-
+	startErr := ipc.WaitForMsg(listCh, "start", func() error {
 		if err := filesystem.PivotRoot(c.State.Bundle); err != nil {
 			log.Error().Err(err).Msg("failed to pivot root")
 			return err
@@ -454,8 +449,15 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		}
 		log.Info().Msg("UPDATED STATE FILE")
 
+		// if err := c.ExecHooks("poststart"); err != nil {
+		// 	log.Warn().Err(err).Msg("failed to execute poststart hooks")
+		// 	// TODO: how to handle this (log a warning) from start command??
+		// }
+
 		return nil
 	})
+
+	return startErr
 }
 
 func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
@@ -562,6 +564,7 @@ func (c *Container) ExecHooks(hook string) error {
 	var specHooks []specs.Hook
 	switch hook {
 	case "prestart":
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests
 		specHooks = c.Spec.Hooks.Prestart
 	case "createRuntime":
 		specHooks = c.Spec.Hooks.CreateRuntime

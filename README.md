@@ -162,6 +162,8 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [x] kill_no_effect
 - [x] linux_mount_label
 - [x] linux_sysctl
+- [x] prestart
+- [x] prestart_fail
 - [x] process
 - [x] process_capabilities
 - [x] start
@@ -206,8 +208,6 @@ My goal is for `brownie` to (eventually) pass all test suites in the [opencontai
 - [ ] poststart_fail
 - [ ] poststop
 - [ ] poststop_fail
-- [ ] prestart
-- [ ] prestart_fail
 - [ ] process_capabilities_fail
 - [ ] process_oom_score_adj
 - [ ] process_rlimits

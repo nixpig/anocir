@@ -41,6 +41,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *sql.DB) error {
 		return errors.New("didn't delete container for whatever reason")
 	}
 
+	log.Info().Msg("execing poststop hooks")
 	if err := cntr.ExecHooks("poststop"); err != nil {
 		log.Warn().Err(err).Msg("failed to execute poststop hooks")
 	}

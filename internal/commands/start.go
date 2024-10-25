@@ -51,6 +51,22 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("dial socket: %w", err)
 	}
 
+	if err := cntr.ExecHooks("prestart"); err != nil {
+		log.Error().Err(err).Msg("failed to execute prestart hooks")
+		cntr.State.Status = specs.StateStopped
+		cntr.Save()
+		log.Info().Msg("BEFORE FAIL DELETE")
+
+		// TODO: run DELETE tasks here, then...
+
+		log.Info().Msg("execing poststop hooks")
+		if err := cntr.ExecHooks("poststop"); err != nil {
+			log.Warn().Err(err).Msg("failed to execute poststop hooks")
+		}
+
+		return errors.New("failed to run prestart hooks")
+	}
+
 	if _, err := conn.Write([]byte("start")); err != nil {
 		log.Error().Err(err).Msg("failed to send start message")
 		return fmt.Errorf("send start over ipc: %w", err)
@@ -58,10 +74,6 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 	defer conn.Close()
 
 	// FIXME: ?? when process starts, the PID in state should be updated to the process IN the container??
-
-	if err := cntr.ExecHooks("poststart"); err != nil {
-		log.Warn().Err(err).Msg("failed to execute poststart hooks")
-	}
 
 	// cntr.State.Status = specs.StateStopped
 	// if err := cntr.Save(); err != nil {
