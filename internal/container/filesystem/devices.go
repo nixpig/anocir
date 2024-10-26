@@ -89,8 +89,8 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 }
 
-func mountDefaultDevices(rootfs string) error {
-	return mountDevices(defaultDevices, rootfs)
+func mountDefaultDevices(rootfs string, log *zerolog.Logger) error {
+	return mountDevices(defaultDevices, rootfs, log)
 }
 
 func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.Logger) error {

@@ -16,12 +16,12 @@ func SetupRootfs(root string, spec *specs.Spec, log *zerolog.Logger) error {
 	}
 
 	log.Info().Msg("mount rootfs")
-	if err := mountRootfs(rootfs); err != nil {
+	if err := mountRootfs(rootfs, log); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
 	}
 
 	log.Info().Msg("mount proc")
-	if err := mountProc(rootfs); err != nil {
+	if err := mountProc(rootfs, log); err != nil {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
@@ -29,12 +29,13 @@ func SetupRootfs(root string, spec *specs.Spec, log *zerolog.Logger) error {
 	if err := mountSpecMounts(
 		spec.Mounts,
 		rootfs,
+		log,
 	); err != nil {
 		return fmt.Errorf("mount spec mounts: %w", err)
 	}
 
 	log.Info().Msg("mount default devices")
-	if err := mountDefaultDevices(rootfs); err != nil {
+	if err := mountDefaultDevices(rootfs, log); err != nil {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 

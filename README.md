@@ -160,6 +160,7 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [x] kill_no_effect
 - [x] linux_mount_label
 - [x] linux_sysctl
+- [x] mounts
 - [x] prestart
 - [x] prestart_fail
 - [x] process
@@ -201,7 +202,6 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
 - [ ] misc_props
-- [ ] mounts
 - [ ] pidfile
 - [ ] poststart
 - [ ] poststart_fail
