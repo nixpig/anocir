@@ -15,6 +15,7 @@ RUNTIME=${RUNTIME:-./brownie}
 ./validation/prestart_fail/prestart_fail.t 2>&1 | tee -a results.tap
 ./validation/process/process.t 2>&1 | tee -a results.tap
 ./validation/process_capabilities/process_capabilities.t 2>&1 | tee -a results.tap
+./validation/process_oom_score_adj/process_oom_score_adj.t 2>&1 | tee -a results.tap
 ./validation/start/start.t 2>&1 | tee -a results.tap
 ./validation/state/state.t 2>&1 | tee -a results.tap
 (! grep -F "not ok" results.tap)

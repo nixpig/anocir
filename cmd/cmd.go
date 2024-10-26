@@ -193,12 +193,15 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 				ConsoleSocketFD: consoleSocketFD,
 			}
 
+			log.Info().Msg("loading container")
 			cntr, err := container.Load(opts.ID, log, db)
 			if err != nil {
 				return err
 			}
 
+			log.Info().Msg("forking container")
 			if err := cntr.Fork(opts, log, db); err != nil {
+				log.Error().Err(err).Msg("failed to fork container")
 				cntr.State.Status = specs.StateStopped
 				if err := cntr.Save(); err != nil {
 					log.Error().Err(err).Msg("failed to write state file")

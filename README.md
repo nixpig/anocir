@@ -164,6 +164,7 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [x] prestart_fail
 - [x] process
 - [x] process_capabilities
+- [x] process_oom_score_adj
 - [x] start
 - [x] state
 
@@ -207,7 +208,6 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [ ] poststop
 - [ ] poststop_fail
 - [ ] process_capabilities_fail
-- [ ] process_oom_score_adj
 - [ ] process_rlimits
 - [ ] process_rlimits_fail
 - [ ] process_user

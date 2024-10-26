@@ -203,22 +203,24 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
 
+	var unshareFlags uintptr
 	// TODO: review if this is needed
-	// if c.Spec.Process != nil {
-	// cloneFlags |= syscall.CLONE_NEWUSER
-
-	// uidMappings = append(uidMappings, syscall.SysProcIDMap{
-	// 	ContainerID: int(c.Spec.Process.User.UID),
-	// 	HostID:      os.Geteuid(),
-	// 	Size:        1,
-	// })
-	//
-	// gidMappings = append(gidMappings, syscall.SysProcIDMap{
-	// 	ContainerID: int(c.Spec.Process.User.GID),
-	// 	HostID:      os.Getegid(),
-	// 	Size:        1,
-	// })
-	// }
+	if c.Spec.Process != nil {
+		// cloneFlags |= syscall.CLONE_NEWUSER
+		// unshareFlags |= syscall.CLONE_NEWUSER
+		//
+		// uidMappings = append(uidMappings, syscall.SysProcIDMap{
+		// 	ContainerID: int(c.Spec.Process.User.UID),
+		// 	HostID:      os.Geteuid(),
+		// 	Size:        1,
+		// })
+		//
+		// gidMappings = append(gidMappings, syscall.SysProcIDMap{
+		// 	ContainerID: int(c.Spec.Process.User.GID),
+		// 	HostID:      os.Getegid(),
+		// 	Size:        1,
+		// })
+	}
 
 	if c.Spec.Linux.UIDMappings != nil {
 		for _, uidMapping := range c.Spec.Linux.UIDMappings {
@@ -243,7 +245,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 	c.forkCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
-		Unshareflags:               syscall.CLONE_NEWNS,
+		Unshareflags:               unshareFlags | syscall.CLONE_NEWNS,
 		GidMappingsEnableSetgroups: false,
 		UidMappings:                uidMappings,
 		GidMappings:                gidMappings,
@@ -309,6 +311,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 
 func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error {
 	var err error
+	log.Info().Msg("creating new init sender")
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(opts.InitSockAddr)
 	if err != nil {
 		log.Error().Err(err).Msg("failed creating ipc sender")
@@ -317,16 +320,19 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 	defer c.initIPC.closer()
 
 	if opts.ConsoleSocketFD != 0 {
+		log.Info().Msg("creating new terminal pty")
 		pty, err := terminal.NewPty()
 		if err != nil {
 			return err
 		}
 		defer pty.Close()
 
+		log.Info().Msg("connecting to terminal pty")
 		if err := pty.Connect(); err != nil {
 			return err
 		}
 
+		log.Info().Msg("opening terminal pty socket")
 		consoleSocketPty := terminal.OpenPtySocket(
 			opts.ConsoleSocketFD,
 			opts.ConsoleSocketPath,
@@ -334,18 +340,21 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		defer consoleSocketPty.Close()
 
 		// FIXME: how do we pass ptysocket struct between fork?
+		log.Info().Msg("send message over terminal pty socket")
 		if err := consoleSocketPty.SendMsg(pty); err != nil {
 			return err
 		}
 	}
 
 	// set up the socket _before_ pivot root
+	log.Info().Msg("remove existing container socket")
 	if err := os.RemoveAll(
 		filepath.Join(c.State.Bundle, containerSockFilename),
 	); err != nil {
 		return err
 	}
 
+	log.Info().Msg("create new container socket receiver")
 	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.State.Bundle, containerSockFilename))
 	if err != nil {
 		log.Error().Err(err).Msg("failed to create new ipc receiver")
@@ -353,13 +362,27 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 	}
 	defer listCloser()
 
-	if err := filesystem.SetupRootfs(c.State.Bundle, c.Spec); err != nil {
+	log.Info().Msg("setup root filesystem")
+	if err := filesystem.SetupRootfs(c.State.Bundle, c.Spec, log); err != nil {
 		log.Error().Err(err).Msg("failed to setup rootfs")
 		return err
 	}
 
+	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
+		if err := os.WriteFile(
+			"/proc/self/oom_score_adj",
+			[]byte(strconv.Itoa(*c.Spec.Process.OOMScoreAdj)),
+			0644,
+		); err != nil {
+			log.Error().Err(err).Msg("failed to write oom_score_adj")
+			return err
+		}
+	}
+
+	log.Info().Msg("sending 'ready' msg")
 	c.initIPC.ch <- []byte("ready")
 
+	log.Info().Msg("waiting for 'start' msg")
 	startErr := ipc.WaitForMsg(listCh, "start", func() error {
 		if err := filesystem.PivotRoot(c.State.Bundle); err != nil {
 			log.Error().Err(err).Msg("failed to pivot root")
