@@ -205,22 +205,22 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 
 	var unshareFlags uintptr
 	// TODO: review if this is needed
-	if c.Spec.Process != nil {
-		// cloneFlags |= syscall.CLONE_NEWUSER
-		// unshareFlags |= syscall.CLONE_NEWUSER
-		//
-		// uidMappings = append(uidMappings, syscall.SysProcIDMap{
-		// 	ContainerID: int(c.Spec.Process.User.UID),
-		// 	HostID:      os.Geteuid(),
-		// 	Size:        1,
-		// })
-		//
-		// gidMappings = append(gidMappings, syscall.SysProcIDMap{
-		// 	ContainerID: int(c.Spec.Process.User.GID),
-		// 	HostID:      os.Getegid(),
-		// 	Size:        1,
-		// })
-	}
+	// if c.Spec.Process != nil {
+	// cloneFlags |= syscall.CLONE_NEWUSER
+	// unshareFlags |= syscall.CLONE_NEWUSER
+	//
+	// uidMappings = append(uidMappings, syscall.SysProcIDMap{
+	// 	ContainerID: int(c.Spec.Process.User.UID),
+	// 	HostID:      os.Geteuid(),
+	// 	Size:        1,
+	// })
+	//
+	// gidMappings = append(gidMappings, syscall.SysProcIDMap{
+	// 	ContainerID: int(c.Spec.Process.User.GID),
+	// 	HostID:      os.Getegid(),
+	// 	Size:        1,
+	// })
+	// }
 
 	if c.Spec.Linux.UIDMappings != nil {
 		for _, uidMapping := range c.Spec.Linux.UIDMappings {
