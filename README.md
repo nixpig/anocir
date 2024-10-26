@@ -158,6 +158,7 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [x] hostname
 - [x] kill
 - [x] kill_no_effect
+- [x] linux_devices
 - [x] linux_mount_label
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
@@ -191,7 +192,6 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [ ] linux_cgroups_relative_memory
 - [ ] linux_cgroups_relative_network
 - [ ] linux_cgroups_relative_pids
-- [ ] linux_devices
 - [ ] linux_masked_paths
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath

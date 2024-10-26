@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -34,8 +35,8 @@ var (
 
 var defaultDevices = []specs.LinuxDevice{
 	{
-		Path:     "/dev/null",
 		Type:     CharDevice,
+		Path:     "/dev/null",
 		Major:    1,
 		Minor:    3,
 		FileMode: &defaultFileMode,
@@ -105,6 +106,13 @@ func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.L
 			absPath = filepath.Join(rootfs, dev.Path)
 		}
 
+		dt := map[string]uint32{
+			"b": unix.S_IFBLK,
+			"c": unix.S_IFCHR,
+			"s": unix.S_IFSOCK,
+			"p": unix.S_IFIFO,
+		}
+
 		log.Info().
 			Str("path", absPath).
 			Uint32("filemode", uint32(*dev.FileMode)).
@@ -112,23 +120,32 @@ func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.L
 			Msg("make node")
 		if err := unix.Mknod(
 			absPath,
-			uint32(*dev.FileMode),
+			dt[dev.Type],
 			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
 		); err != nil {
+			log.Error().Err(err).Msg("failed to make node")
 			return err
 		}
 
-		log.Info().
-			Str("path", absPath).
-			Int("uid", int(*dev.UID)).
-			Int("gid", int(*dev.GID)).
-			Msg("chown")
-		if err := os.Chown(
-			absPath,
-			int(*dev.UID),
-			int(*dev.GID),
-		); err != nil {
+		if err := syscall.Chmod(absPath, uint32(*dev.FileMode)); err != nil {
 			return err
+		}
+
+		if dev.UID != nil && dev.GID != nil {
+			log.Info().
+				Str("path", absPath).
+				Int("uid", int(*dev.UID)).
+				Int("gid", int(*dev.GID)).
+				Msg("chown")
+
+			if err := os.Chown(
+				absPath,
+				int(*dev.UID),
+				int(*dev.GID),
+			); err != nil {
+				log.Error().Err(err).Msg("failed to chown node")
+				return err
+			}
 		}
 	}
 
