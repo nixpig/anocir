@@ -204,23 +204,6 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 	var gidMappings []syscall.SysProcIDMap
 
 	var unshareFlags uintptr
-	// TODO: review if this is needed
-	// if c.Spec.Process != nil {
-	// cloneFlags |= syscall.CLONE_NEWUSER
-	// unshareFlags |= syscall.CLONE_NEWUSER
-	//
-	// uidMappings = append(uidMappings, syscall.SysProcIDMap{
-	// 	ContainerID: int(c.Spec.Process.User.UID),
-	// 	HostID:      os.Geteuid(),
-	// 	Size:        1,
-	// })
-	//
-	// gidMappings = append(gidMappings, syscall.SysProcIDMap{
-	// 	ContainerID: int(c.Spec.Process.User.GID),
-	// 	HostID:      os.Getegid(),
-	// 	Size:        1,
-	// })
-	// }
 
 	if c.Spec.Linux.UIDMappings != nil {
 		for _, uidMapping := range c.Spec.Linux.UIDMappings {
@@ -462,6 +445,12 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		)
 
 		cmd.Dir = c.Spec.Process.Cwd
+
+		// cmd.SysProcAttr.Credential = &syscall.Credential{
+		// 	Uid:    c.Spec.Process.User.UID,
+		// 	Gid:    c.Spec.Process.User.GID,
+		// 	Groups: c.Spec.Process.User.AdditionalGids,
+		// }
 
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout

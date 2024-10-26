@@ -150,6 +150,8 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 
 ### ✅ Passing
 
+Tests are run on every build in [this Github Action](https://github.com/nixpig/brownie/actions/workflows/build.yml).
+
 - [x] default
 - [x] \_\_\_
 - [x] config_updates_without_affect
