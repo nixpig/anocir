@@ -4,7 +4,7 @@ import (
 	"syscall"
 )
 
-var mountOptions = map[string]struct {
+var MountOptions = map[string]struct {
 	No   bool
 	Flag uintptr
 }{

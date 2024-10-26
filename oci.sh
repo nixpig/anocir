@@ -9,6 +9,7 @@ RUNTIME=${RUNTIME:-./brownie}
 ./validation/kill/kill.t 2>&1 | tee -a results.tap
 ./validation/kill_no_effect/kill_no_effect.t 2>&1 | tee -a results.tap
 ./validation/linux_mount_label/linux_mount_label.t 2>&1 | tee -a results.tap
+./validation/linux_rootfs_propagation/linux_rootfs_propagation.t 2>&1 | tee -a results.tap
 ./validation/linux_sysctl/linux_sysctl.t 2>&1 | tee -a results.tap
 ./validation/mounts/mounts.t 2>&1 | tee -a results.tap
 # ./validation/pidfile/pidfile.t 2>&1 | tee -a results.tap

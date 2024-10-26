@@ -389,6 +389,13 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 			return err
 		}
 
+		if c.Spec.Linux.RootfsPropagation != "" {
+			if err := syscall.Mount("", "/", "", filesystem.MountOptions[c.Spec.Linux.RootfsPropagation].Flag, ""); err != nil {
+				log.Error().Err(err).Msg("failed to apply rootfs propagation")
+				return err
+			}
+		}
+
 		if slices.ContainsFunc(
 			c.Spec.Linux.Namespaces,
 			func(n specs.LinuxNamespace) bool {

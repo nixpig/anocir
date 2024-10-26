@@ -159,6 +159,7 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [x] kill
 - [x] kill_no_effect
 - [x] linux_mount_label
+- [x] linux_rootfs_propagation
 - [x] linux_sysctl
 - [x] mounts
 - [x] prestart
@@ -198,7 +199,6 @@ My goal is for `brownie` to (eventually) pass all tests in the [opencontainers O
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
 - [ ] linux_readonly_paths
-- [ ] linux_rootfs_propagation
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
 - [ ] misc_props
