@@ -468,11 +468,6 @@ func (c *Container) Fork(opts *ForkOpts, log *zerolog.Logger, db *sql.DB) error 
 		}
 		log.Info().Msg("UPDATED STATE FILE")
 
-		// if err := c.ExecHooks("poststart"); err != nil {
-		// 	log.Warn().Err(err).Msg("failed to execute poststart hooks")
-		// 	// TODO: how to handle this (log a warning) from start command??
-		// }
-
 		return nil
 	})
 
@@ -575,13 +570,13 @@ func (c *Container) Clean() error {
 	return os.RemoveAll(c.State.Bundle)
 }
 
-func (c *Container) ExecHooks(hook string) error {
+func (c *Container) ExecHooks(lifecycleHook string) error {
 	if c.Spec.Hooks == nil {
 		return nil
 	}
 
 	var specHooks []specs.Hook
-	switch hook {
+	switch lifecycleHook {
 	case "prestart":
 		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests
 		specHooks = c.Spec.Hooks.Prestart

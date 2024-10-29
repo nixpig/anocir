@@ -1,24 +1,51 @@
 #!/bin/sh
-echo "" > results.tap
+
 RUNTIME=${RUNTIME:-./brownie}
-./validation/default/default.t 2>&1 | tee -a results.tap
-./validation/config_updates_without_affect/config_updates_without_affect.t 2>&1 | tee -a results.tap
-./validation/create/create.t 2>&1 | tee -a results.tap
-./validation/delete/delete.t 2>&1 | tee -a results.tap
-./validation/hostname/hostname.t 2>&1 | tee -a results.tap
-./validation/kill/kill.t 2>&1 | tee -a results.tap
-./validation/kill_no_effect/kill_no_effect.t 2>&1 | tee -a results.tap
-./validation/linux_devices/linux_devices.t 2>&1 | tee -a results.tap
-./validation/linux_mount_label/linux_mount_label.t 2>&1 | tee -a results.tap
-./validation/linux_rootfs_propagation/linux_rootfs_propagation.t 2>&1 | tee -a results.tap
-./validation/linux_sysctl/linux_sysctl.t 2>&1 | tee -a results.tap
-./validation/mounts/mounts.t 2>&1 | tee -a results.tap
-# ./validation/pidfile/pidfile.t 2>&1 | tee -a results.tap
-./validation/prestart/prestart.t 2>&1 | tee -a results.tap
-./validation/prestart_fail/prestart_fail.t 2>&1 | tee -a results.tap
-./validation/process/process.t 2>&1 | tee -a results.tap
-./validation/process_capabilities/process_capabilities.t 2>&1 | tee -a results.tap
-./validation/process_oom_score_adj/process_oom_score_adj.t 2>&1 | tee -a results.tap
-./validation/start/start.t 2>&1 | tee -a results.tap
-./validation/state/state.t 2>&1 | tee -a results.tap
-(! grep -F "not ok" results.tap)
+
+logdir=./logs
+
+tests=(
+  "default"
+  "config_updates_without_affect"
+  "create"
+  "delete"
+  "hostname"
+  "kill"
+  "kill_no_effect"
+  "linux_devices"
+  "linux_mount_label"
+  "linux_rootfs_propagation"
+  "linux_sysctl"
+  "mounts"
+  "prestart"
+  "prestart_fail"
+  "process"
+  "process_capabilities"
+  "process_oom_score_adj"
+  "start"
+  "state"
+)
+
+mkdir -p $logdir
+
+# run tests
+for test in "${tests[@]}"; do
+  ./validation/${test}/${test}.t 2>&1 | tee ${logdir}/${test}.log
+done
+
+# check for failures
+total_failures=0
+for test in "${tests[@]}"; do
+  failures=$(grep -F "not ok" ${logdir}/${test}.log | wc -l)
+
+  if [ 0 -ne $failures ]; then 
+    total_failures=$(($total_failures + $failures))
+    echo "${test} - $failures"
+  fi
+done
+
+if [ 0 -ne $total_failures ]; then
+  echo "Total failures: $total_failures"
+  exit 1
+fi
+

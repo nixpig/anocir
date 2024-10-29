@@ -27,7 +27,10 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("container cannot be deleted in current state: %s", cntr.State.Status)
 	}
 
-	process, _ := os.FindProcess(cntr.State.PID)
+	process, err := os.FindProcess(cntr.State.PID)
+	if err != nil {
+		return fmt.Errorf("find container process: %w", err)
+	}
 	if process != nil {
 		process.Signal(syscall.Signal(9))
 	}
@@ -41,7 +44,6 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *sql.DB) error {
 		return errors.New("didn't delete container for whatever reason")
 	}
 
-	log.Info().Msg("execing poststop hooks")
 	if err := cntr.ExecHooks("poststop"); err != nil {
 		fmt.Println("failed to execute poststop hooks")
 		log.Warn().Err(err).Msg("failed to execute poststop hooks")

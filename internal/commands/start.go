@@ -59,7 +59,6 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 
 		// TODO: run DELETE tasks here, then...
 
-		log.Info().Msg("execing poststop hooks")
 		if err := cntr.ExecHooks("poststop"); err != nil {
 			fmt.Println("WARNING: failed to execute poststop hooks")
 			log.Warn().Err(err).Msg("failed to execute poststop hooks")
@@ -73,6 +72,11 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()
+
+	if err := cntr.ExecHooks("poststart"); err != nil {
+		log.Warn().Err(err).Msg("failed to execute poststart hooks")
+		// TODO: how to handle this (log a warning) from start command??
+	}
 
 	// FIXME: ?? when process starts, the PID in state should be updated to the process IN the container??
 
