@@ -17,14 +17,14 @@ tests=(
   "kill"
   "kill_no_effect"
 # "killsig"
-# "linux_cgroups_blkio"
+# "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
 # "linux_cgroups_cpus"
 # "linux_cgroups_devices"
 # "linux_cgroups_hugetlb"
 # "linux_cgroups_memory"
 # "linux_cgroups_network"
 # "linux_cgroups_pids"
-# "linux_cgroups_relative_blkio"
+# "linux_cgroups_relative_blkio" # use of features deprecated in Linux kernel 5.0
 # "linux_cgroups_relative_cpus"
 # "linux_cgroups_relative_devices"
 # "linux_cgroups_relative_hugetlb"
@@ -34,19 +34,19 @@ tests=(
   "linux_devices"
 # "linux_masked_paths"
   "linux_mount_label"
-# "linux_ns_itype"
+# "linux_ns_itype" # ???
 # "linux_ns_nopath"
 # "linux_ns_path"
 # "linux_ns_path_type"
-# "linux_process_apparmor_profile"
+# "linux_process_apparmor_profile" # ???
 # "linux_readonly_paths"
   "linux_rootfs_propagation"
 # "linux_seccomp"
   "linux_sysctl"
 # "linux_uid_mappings"
-# "misc_props"
+# "misc_props" # ???
   "mounts"
-# "pidfile"
+# "pidfile" # ???
 # "poststart"
 # "poststart_fail"
 # "poststop"

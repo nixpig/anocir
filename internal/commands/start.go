@@ -54,7 +54,10 @@ func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
 	if err := cntr.ExecHooks("prestart"); err != nil {
 		log.Error().Err(err).Msg("failed to execute prestart hooks")
 		cntr.State.Status = specs.StateStopped
-		cntr.Save()
+		if err := cntr.Save(); err != nil {
+			log.Error().Err(err).Msg("failed to write state file")
+			return fmt.Errorf("write state file: %w", err)
+		}
 		log.Info().Msg("BEFORE FAIL DELETE")
 
 		// TODO: run DELETE tasks here, then...

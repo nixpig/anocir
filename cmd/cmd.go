@@ -203,7 +203,7 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 			if err := cntr.Fork(opts, log, db); err != nil {
 				log.Error().Err(err).Msg("failed to fork container")
 				cntr.State.Status = specs.StateStopped
-				if err := cntr.Save(); err != nil {
+				if err := cntr.SaveState(); err != nil {
 					log.Error().Err(err).Msg("failed to write state file")
 					return fmt.Errorf("write state file: %w", err)
 				}
