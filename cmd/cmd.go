@@ -9,8 +9,8 @@ import (
 	"path/filepath"
 	"strconv"
 
+	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/internal/commands"
-	"github.com/nixpig/brownie/internal/container"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -104,7 +104,7 @@ func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		log.Info().Msg(" >> START << ")
 		containerID := args[0]
 
-		opts := &commands.StartOpts{
+		opts := &container.StartOpts{
 			ID: containerID,
 		}
 
@@ -129,7 +129,7 @@ func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 			containerID := args[0]
 			signal := args[1]
 
-			opts := &commands.KillOpts{
+			opts := &container.KillOpts{
 				ID:     containerID,
 				Signal: signal,
 			}
@@ -156,7 +156,7 @@ func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 				return err
 			}
 
-			opts := &commands.DeleteOpts{
+			opts := &container.DeleteOpts{
 				ID:    containerID,
 				Force: force,
 			}

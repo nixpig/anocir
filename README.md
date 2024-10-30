@@ -63,7 +63,7 @@ docker run -it --runtime brownie busybox sh
 
 ### CLI
 
-The `brownie` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
+The `brownie` CLI is a wrapper around the [core library](#library) and implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
 
 #### `brownie create`
 
@@ -142,6 +142,24 @@ Examples:
 
 Flags:
   -h, --help   help for state
+```
+
+### Library
+
+The implementation of `brownie` can be used directly as a library (in the same way that the CLI does).
+
+The consumer will be responsible for all of the 'bookkeeping', e.g. tracking the location of container bundles, reexec process.
+
+#### Example
+
+```go
+package main
+
+import "github.com/nixpig/brownie/container"
+
+func main() {
+  // TODO: example usage
+}
 ```
 
 ## Progress

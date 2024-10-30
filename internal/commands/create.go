@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nixpig/brownie/internal/container"
+	"github.com/nixpig/brownie/container"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )

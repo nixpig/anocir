@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nixpig/brownie/internal/container"
+	"github.com/nixpig/brownie/container"
 	"github.com/rs/zerolog"
 )
 
