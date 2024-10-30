@@ -1,4 +1,4 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/opencontainers/runc)](https://goreportcard.com/report/github.com/opencontainers/runc)
+[![Go Report Card](https://goreportcard.com/badge/github.com/nixpig.brownie)](https://goreportcard.com/report/github.com/nixpig/brownie)
 [![build](https://github.com/nixpig/brownie/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/nixpig/brownie/actions/workflows/build.yml)
 
 # 🍪 brownie
@@ -63,7 +63,7 @@ docker run -it --runtime brownie busybox sh
 
 ### CLI
 
-The `brownie` CLI is a wrapper around the [core library](#library) and implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
+The `brownie` CLI is a wrapper around the [brownie core library](#library) and implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
 
 #### `brownie create`
 
@@ -146,11 +146,15 @@ Flags:
 
 ### Library
 
-The implementation of `brownie` can be used directly as a library (in the same way that the CLI does).
+The `container` package of `brownie` can be used directly as a library (in the same way that the CLI does).
 
 The consumer will be responsible for all of the 'bookkeeping', e.g. tracking the location of container bundles, reexec process.
 
 #### Example
+
+```shell
+go get github.com/nixpig/brownie/container
+```
 
 ```go
 package main
