@@ -54,6 +54,7 @@ func (c *Container) Start() error {
 	if err := c.ExecHooks("poststart"); err != nil {
 		// TODO: how to handle this (log a warning) from start command??
 		// FIXME: needs to 'log a warning'
+		fmt.Println("WARNING: ", err)
 	}
 
 	// FIXME: ?? when process starts, should the process 'replace' the parent container process?

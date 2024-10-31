@@ -38,7 +38,10 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *sql.DB) error {
 		return err
 	}
 
-	res, err := db.Exec(`delete from containers_ where id_ = $id`, sql.Named("id", opts.ID))
+	res, err := db.Exec(
+		`delete from containers_ where id_ = $id`,
+		sql.Named("id", opts.ID),
+	)
 	if err != nil {
 		return fmt.Errorf("delete container db: %w", err)
 	}
