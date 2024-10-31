@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"os"
 	"syscall"
-
-	_ "github.com/mattn/go-sqlite3"
 )
 
 func (c *Container) Delete() error {

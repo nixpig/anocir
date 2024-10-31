@@ -59,11 +59,5 @@ func (c *Container) Start() error {
 
 	// FIXME: ?? when process starts, should the process 'replace' the parent container process?
 
-	// c.State.Status = specs.StateStopped
-	// if err := c.Save(); err != nil {
-	// 	log.Error().Err(err).Msg("save state after stopped")
-	// 	return fmt.Errorf("failed to save stopped state: %w", err)
-	// }
-
 	return nil
 }

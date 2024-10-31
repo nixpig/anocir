@@ -8,7 +8,6 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
