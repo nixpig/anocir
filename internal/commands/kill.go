@@ -6,10 +6,16 @@ import (
 
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/nixpig/brownie/container"
+	"github.com/nixpig/brownie/container/signal"
 	"github.com/rs/zerolog"
 )
 
-func Kill(opts *container.KillOpts, log *zerolog.Logger, db *sql.DB) error {
+type KillOpts struct {
+	ID     string
+	Signal string
+}
+
+func Kill(opts *KillOpts, log *zerolog.Logger, db *sql.DB) error {
 	log.Info().Str("container id", opts.ID).Msg("killing container...")
 	cntr, err := container.Load(opts.ID, log, db)
 	if err != nil {
@@ -17,5 +23,10 @@ func Kill(opts *container.KillOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	return cntr.Kill(opts, log)
+	s, err := signal.FromString(opts.Signal)
+	if err != nil {
+		return fmt.Errorf("failed to convert to signal: %w", err)
+	}
+
+	return cntr.Kill(s)
 }

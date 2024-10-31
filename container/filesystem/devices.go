@@ -7,7 +7,6 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
 )
 
@@ -90,13 +89,12 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 }
 
-func mountDefaultDevices(rootfs string, log *zerolog.Logger) error {
-	return mountDevices(defaultDevices, rootfs, log)
+func mountDefaultDevices(rootfs string) error {
+	return mountDevices(defaultDevices, rootfs)
 }
 
-func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.Logger) error {
+func mountSpecDevices(devices []specs.LinuxDevice, rootfs string) error {
 	for _, dev := range devices {
-		log.Info().Any("dev", dev).Msg("setup device")
 
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -113,17 +111,11 @@ func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.L
 			"p": unix.S_IFIFO,
 		}
 
-		log.Info().
-			Str("path", absPath).
-			Uint32("filemode", uint32(*dev.FileMode)).
-			Int("dev", int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor)))).
-			Msg("make node")
 		if err := unix.Mknod(
 			absPath,
 			dt[dev.Type],
 			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
 		); err != nil {
-			log.Error().Err(err).Msg("failed to make node")
 			return err
 		}
 
@@ -132,18 +124,11 @@ func mountSpecDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.L
 		}
 
 		if dev.UID != nil && dev.GID != nil {
-			log.Info().
-				Str("path", absPath).
-				Int("uid", int(*dev.UID)).
-				Int("gid", int(*dev.GID)).
-				Msg("chown")
-
 			if err := os.Chown(
 				absPath,
 				int(*dev.UID),
 				int(*dev.GID),
 			); err != nil {
-				log.Error().Err(err).Msg("failed to chown node")
 				return err
 			}
 		}

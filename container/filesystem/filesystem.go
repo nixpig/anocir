@@ -8,12 +8,10 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 )
 
-func mountDevice(device Device, log *zerolog.Logger) error {
+func mountDevice(device Device) error {
 	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
-		log.Info().Str("target", device.Target).Msg("create target")
 		f, err := os.Create(device.Target)
 		if err != nil && !os.IsExist(err) {
 			return fmt.Errorf("create device target if not exists: %w", err)
@@ -36,14 +34,14 @@ func mountDevice(device Device, log *zerolog.Logger) error {
 	return nil
 }
 
-func mountRootfs(containerRootfs string, log *zerolog.Logger) error {
+func mountRootfs(containerRootfs string) error {
 	if err := mountDevice(Device{
 		Source: "",
 		Target: "/",
 		Fstype: "",
 		Flags:  syscall.MS_PRIVATE | syscall.MS_REC,
 		Data:   "",
-	}, log); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -53,14 +51,14 @@ func mountRootfs(containerRootfs string, log *zerolog.Logger) error {
 		Fstype: "",
 		Flags:  syscall.MS_BIND | syscall.MS_REC,
 		Data:   "",
-	}, log); err != nil {
+	}); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func mountProc(containerRootfs string, log *zerolog.Logger) error {
+func mountProc(containerRootfs string) error {
 	containerProc := filepath.Join(containerRootfs, "proc")
 	if err := os.MkdirAll(containerProc, 0666); err != nil {
 		return fmt.Errorf("create proc dir: %w", err)
@@ -72,7 +70,7 @@ func mountProc(containerRootfs string, log *zerolog.Logger) error {
 		Fstype: "proc",
 		Flags:  uintptr(0),
 		Data:   "",
-	}, log); err != nil {
+	}); err != nil {
 		return err
 	}
 
@@ -89,7 +87,7 @@ func devIsInSpec(mounts []specs.Mount, dev string) bool {
 	return false
 }
 
-func mountDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.Logger) error {
+func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
 	for _, dev := range devices {
 		var absPath string
 		if strings.Index(dev.Path, "/") == 0 {
@@ -115,7 +113,7 @@ func mountDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.Logge
 			Fstype: "bind",
 			Flags:  syscall.MS_BIND,
 			Data:   "",
-		}, log); err != nil {
+		}); err != nil {
 			return fmt.Errorf("mount device: %w", err)
 		}
 	}
@@ -123,7 +121,7 @@ func mountDevices(devices []specs.LinuxDevice, rootfs string, log *zerolog.Logge
 	return nil
 }
 
-func mountSpecMounts(mounts []specs.Mount, rootfs string, log *zerolog.Logger) error {
+func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, mount := range mounts {
 		dest := filepath.Join(rootfs, mount.Destination)
 
@@ -178,8 +176,7 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string, log *zerolog.Logger) e
 			Fstype: mount.Type,
 			Flags:  uintptr(flags),
 			Data:   data,
-		}, log); err != nil {
-			log.Error().Str("source", mount.Source).Str("target", dest).Msg("NO SUCH DEVICE???")
+		}); err != nil {
 			return fmt.Errorf("mount device: %w", err)
 		}
 	}

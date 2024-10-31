@@ -7,12 +7,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"strconv"
 
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/nixpig/brownie/pkg"
-	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
@@ -104,7 +102,7 @@ func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 		log.Info().Msg(" >> START << ")
 		containerID := args[0]
 
-		opts := &container.StartOpts{
+		opts := &commands.StartOpts{
 			ID: containerID,
 		}
 
@@ -129,7 +127,7 @@ func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 			containerID := args[0]
 			signal := args[1]
 
-			opts := &container.KillOpts{
+			opts := &commands.KillOpts{
 				ID:     containerID,
 				Signal: signal,
 			}
@@ -156,7 +154,7 @@ func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 				return err
 			}
 
-			opts := &container.DeleteOpts{
+			opts := &commands.DeleteOpts{
 				ID:    containerID,
 				Force: force,
 			}
@@ -174,39 +172,21 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
-		Args:    cobra.ExactArgs(3),
+		Args:    cobra.ExactArgs(1),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			log.Info().Msg(" >> FORK << ")
 			containerID := args[0]
-			initSockAddr := args[1]
-
-			consoleSocketFD, err := strconv.Atoi(args[2])
-			if err != nil {
-				return fmt.Errorf("convert console socket fd to int: %w", err)
-			}
-
-			opts := &container.ForkOpts{
-				ID:              containerID,
-				InitSockAddr:    initSockAddr,
-				ConsoleSocketFD: consoleSocketFD,
-			}
 
 			log.Info().Msg("loading container")
-			cntr, err := container.Load(opts.ID, log, db)
+			cntr, err := container.Load(containerID, log, db)
 			if err != nil {
 				return err
 			}
 
-			log.Info().Msg("forking container")
-			if err := cntr.Fork(opts, log, db); err != nil {
-				log.Error().Err(err).Msg("failed to fork container")
-				cntr.State.Status = specs.StateStopped
-				if err := cntr.SaveState(); err != nil {
-					log.Error().Err(err).Msg("failed to write state file")
-					return fmt.Errorf("write state file: %w", err)
-				}
+			if err := cntr.Fork(); err != nil {
+				return fmt.Errorf("fork container: %w", err)
 			}
 
 			return nil

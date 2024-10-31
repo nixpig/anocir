@@ -13,18 +13,17 @@ import (
 	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 )
 
-type InitOpts struct {
-	PIDFile       string
-	ConsoleSocket string
-	Stdin         *os.File
-	Stdout        *os.File
-	Stderr        *os.File
-}
+func (c *Container) Init() error {
+	if err := c.ExecHooks("createRuntime"); err != nil {
+		return fmt.Errorf("execute createruntime hooks: %w", err)
+	}
 
-func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
+	if err := c.ExecHooks("createContainer"); err != nil {
+		return fmt.Errorf("execute createcontainer hooks: %w", err)
+	}
+
 	initSockAddr := filepath.Join(c.State.Bundle, initSockFilename)
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return fmt.Errorf("remove existing init socket: %w", err)
@@ -39,15 +38,14 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
-		opts.ConsoleSocket != ""
+		c.Opts.ConsoleSocket != ""
 
-	var termFD int
 	if useTerminal {
-		termSock, err := terminal.New(opts.ConsoleSocket)
+		termSock, err := terminal.New(c.Opts.ConsoleSocket)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}
-		termFD = termSock.FD
+		c.termFD = &termSock.FD
 	}
 
 	c.forkCmd = exec.Command(
@@ -55,8 +53,6 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 		[]string{
 			"fork",
 			c.State.ID,
-			initSockAddr,
-			strconv.Itoa(termFD),
 		}...)
 
 	var ambientCapsFlags []uintptr
@@ -121,9 +117,9 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 		c.forkCmd.Env = c.Spec.Process.Env
 	}
 
-	c.forkCmd.Stdin = opts.Stdin
-	c.forkCmd.Stdout = opts.Stdout
-	c.forkCmd.Stderr = opts.Stderr
+	c.forkCmd.Stdin = c.Opts.Stdin
+	c.forkCmd.Stdout = c.Opts.Stdout
+	c.forkCmd.Stderr = c.Opts.Stderr
 
 	if err := c.forkCmd.Start(); err != nil {
 		return fmt.Errorf("start fork container: %w", err)
@@ -131,7 +127,7 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 
 	pid := c.forkCmd.Process.Pid
 	c.State.PID = pid
-	if err := c.Save(); err != nil {
+	if err := c.hSave(); err != nil {
 		return fmt.Errorf("save pid for fork: %w", err)
 	}
 
@@ -139,38 +135,21 @@ func (c *Container) Init(opts *InitOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("detach fork container: %w", err)
 	}
 
-	if opts.PIDFile != "" {
-		log.Info().Str("pidfile", opts.PIDFile).Int("pid", pid).Msg("writing pidfile")
+	if c.Opts.PIDFile != "" {
 		if err := os.WriteFile(
-			opts.PIDFile,
+			c.Opts.PIDFile,
 			[]byte(strconv.Itoa(pid)),
 			0666,
 		); err != nil {
-			return fmt.Errorf("write pid to file (%s): %w", opts.PIDFile, err)
+			return fmt.Errorf("write pid to file (%s): %w", c.Opts.PIDFile, err)
 		}
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
 		c.State.Status = specs.StateCreated
-		if err := c.Save(); err != nil {
+		if err := c.hSave(); err != nil {
 			return fmt.Errorf("save created state: %w", err)
 		}
 		return nil
 	})
-
-	// p, err := os.FindProcess(pid)
-	// if err != nil {
-	// 	log.Error().Err(err).Int("pid", pid).Msg("failed to find process")
-	// 	return -1, err
-	// }
-
-	// fmt.Println("waiting for process to exit", p.Pid)
-	// o, err := p.Wait()
-	// if err != nil {
-	// 	log.Error().Err(err).Int("pid", pid).Msg("waiting for process to exit")
-	// 	return -1, err
-	// }
-	//
-	// fmt.Println(o)
-
 }

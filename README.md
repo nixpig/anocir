@@ -1,4 +1,3 @@
-[![Go Report Card](https://goreportcard.com/badge/github.com/nixpig.brownie)](https://goreportcard.com/report/github.com/nixpig/brownie)
 [![build](https://github.com/nixpig/brownie/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/nixpig/brownie/actions/workflows/build.yml)
 
 # 🍪 brownie
@@ -45,7 +44,7 @@ mv tmp/bin/brownie ~/.local/bin
 >
 > Until I get around to investigating and fixing this, you may get issues, should you choose to try it.
 
-By default, the Docker daemon uses the runc container runtime. `brownie` can be used as a drop-in replacement for runc.
+By default, the Docker daemon uses the `runc` container runtime. `brownie` can be used as a drop-in replacement for `runc`.
 
 You can find detailed instructions on how to configure alternative runtimes in the [Docker docs](https://docs.docker.com/reference/cli/dockerd/#configure-container-runtimes). If you just want to quickly experiment, the following should suffice:
 

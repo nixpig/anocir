@@ -20,15 +20,16 @@ const initSockFilename = "init.sock"
 const containerSockFilename = "container.sock"
 
 type Container struct {
-	State *State
+	State *ContainerState
 	Spec  *specs.Spec
+	Opts  *ContainerOpts
 
+	termFD  *int
 	forkCmd *exec.Cmd
 	initIPC ipcCtrl
-	db      *sql.DB
 }
 
-type State struct {
+type ContainerState struct {
 	Version     string
 	ID          string
 	Bundle      string
@@ -42,29 +43,26 @@ type ipcCtrl struct {
 	closer func() error
 }
 
+type ContainerOpts struct {
+	PIDFile       string
+	ConsoleSocket string
+	Stdin         *os.File
+	Stdout        *os.File
+	Stderr        *os.File
+}
+
 func New(
 	id string,
 	bundle string,
-	status specs.ContainerState,
-	log *zerolog.Logger,
-	db *sql.DB,
+	opts *ContainerOpts,
 ) (*Container, error) {
-	_, err := db.Query(`select id_ from containers_ where id_ = $id`, sql.Named("id", id))
-	if err != nil && err != sql.ErrNoRows {
-		return nil, fmt.Errorf(
-			"container already exists (%s): %w",
-			id, err,
-		)
-	}
-
 	b, err := os.ReadFile(filepath.Join(bundle, "config.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read container config: %w", err)
 	}
 
-	var spec specs.Spec
+	var spec *specs.Spec
 	if err := json.Unmarshal(b, &spec); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal spec")
 		return nil, fmt.Errorf("parse container config: %w", err)
 	}
 
@@ -77,40 +75,21 @@ func New(
 		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
 	}
 
-	state := &State{
+	state := &ContainerState{
 		Version:     pkg.OCIVersion,
 		ID:          id,
 		Bundle:      absBundlePath,
 		Annotations: map[string]string{},
-		Status:      status,
-	}
-
-	// TODO: save to database
-	query := `insert into containers_ (
-		id_, version_, bundle_, pid_, status_, config_
-	) values (
-		$id, $version, $bundle, $pid, $status, $config
-	)`
-
-	if _, err := db.Exec(
-		query,
-		sql.Named("id", id),
-		sql.Named("version", state.Version),
-		sql.Named("bundle", state.Bundle),
-		sql.Named("pid", state.PID),
-		sql.Named("status", state.Status),
-		sql.Named("config", string(b)),
-	); err != nil {
-		return nil, fmt.Errorf("insert into db: %w", err)
+		Status:      specs.StateCreating,
 	}
 
 	cntr := Container{
 		State: state,
-		Spec:  &spec,
-		db:    db,
+		Spec:  spec,
+		Opts:  opts,
 	}
 
-	if err := cntr.Save(); err != nil {
+	if err := cntr.hSave(); err != nil {
 		return nil, fmt.Errorf("save newly created container: %w", err)
 	}
 
@@ -118,7 +97,7 @@ func New(
 }
 
 func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
-	state := State{}
+	state := ContainerState{}
 	var c string
 
 	row := db.QueryRow(`select id_, version_, bundle_, pid_, status_, config_ from containers_ where id_ = $id`, sql.Named("id", id))
@@ -143,7 +122,6 @@ func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
 	cntr := &Container{
 		State: &state,
 		Spec:  &conf,
-		db:    db,
 	}
 
 	if err := cntr.RefreshState(); err != nil {
@@ -168,7 +146,7 @@ func (c *Container) RefreshState() error {
 	return nil
 }
 
-func (c *Container) SaveState() error {
+func (c *Container) cSave() error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
@@ -180,37 +158,17 @@ func (c *Container) SaveState() error {
 	return nil
 }
 
-func (c *Container) Save() error {
-	_, err := c.db.Exec(
-		`update containers_ set 
-		status_ = $status,
-		pid_ = $pid,
-		bundle_ = $bundle,
-		version_ = $version
-		where id_ = $id`,
-		sql.Named("status", c.State.Status),
-		sql.Named("id", c.State.ID),
-		sql.Named("pid", c.State.PID),
-		sql.Named("bundle", c.State.Bundle),
-		sql.Named("version", c.State.Version),
-	)
-	if err != nil {
-		return fmt.Errorf("save state: %w", err)
-	}
-
+func (c *Container) hSave() error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
 	}
+
 	if err := os.WriteFile(filepath.Join(c.State.Bundle, "state.json"), b, 0644); err != nil {
 		return fmt.Errorf("write state file: %w", err)
 	}
 
 	return nil
-}
-
-func (c *Container) Clean() error {
-	return os.RemoveAll(c.State.Bundle)
 }
 
 func (c *Container) ExecHooks(lifecycleHook string) error {
@@ -238,15 +196,15 @@ func (c *Container) ExecHooks(lifecycleHook string) error {
 	return lifecycle.ExecHooks(specHooks)
 }
 
-func (c *Container) CanBeStarted() bool {
+func (c *Container) canBeStarted() bool {
 	return c.State.Status == specs.StateCreated
 }
 
-func (c *Container) CanBeKilled() bool {
+func (c *Container) canBeKilled() bool {
 	return c.State.Status == specs.StateRunning ||
 		c.State.Status == specs.StateCreated
 }
 
-func (c *Container) CanBeDeleted() bool {
+func (c *Container) canBeDeleted() bool {
 	return c.State.Status == specs.StateStopped
 }
