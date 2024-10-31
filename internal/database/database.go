@@ -48,9 +48,7 @@ func (d *DB) GetBundleFromID(id string) (string, error) {
 	)
 
 	var bundle string
-	if err := row.Scan(
-		&bundle,
-	); err != nil {
+	if err := row.Scan(&bundle); err != nil {
 		return "", err
 	}
 

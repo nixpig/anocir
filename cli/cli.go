@@ -1,13 +1,11 @@
-package cmd
+package cli
 
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
 	"os"
 	"path/filepath"
 
-	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/nixpig/brownie/internal/database"
 	"github.com/nixpig/brownie/pkg"
@@ -53,7 +51,6 @@ func createCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie create busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Msg(" >> CREATE << ")
 			containerID := args[0]
 
 			bundle, err := cmd.Flags().GetString("bundle")
@@ -71,14 +68,12 @@ func createCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 				return err
 			}
 
-			opts := &commands.CreateOpts{
+			return commands.Create(&commands.CreateOpts{
 				ID:            containerID,
 				Bundle:        bundle,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
-			}
-
-			return commands.Create(opts, log, db)
+			}, log, db)
 		},
 	}
 
@@ -99,18 +94,11 @@ func startCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	}
 
 	start.RunE = func(cmd *cobra.Command, args []string) error {
-		log.Info().Msg(" >> START << ")
 		containerID := args[0]
 
-		opts := &commands.StartOpts{
+		return commands.Start(&commands.StartOpts{
 			ID: containerID,
-		}
-
-		if err := commands.Start(opts, log, db); err != nil {
-			return fmt.Errorf("fucked trying to start: %w", err)
-		}
-
-		return nil
+		}, log, db)
 	}
 
 	return start
@@ -123,16 +111,13 @@ func killCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(2),
 		Example: "  brownie kill busybox 9",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Msg(" >> KILL << ")
 			containerID := args[0]
 			signal := args[1]
 
-			opts := &commands.KillOpts{
+			return commands.Kill(&commands.KillOpts{
 				ID:     containerID,
 				Signal: signal,
-			}
-
-			return commands.Kill(opts, log, db)
+			}, log, db)
 		},
 	}
 
@@ -146,7 +131,6 @@ func deleteCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie delete busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Msg(" >> DELETE << ")
 			containerID := args[0]
 
 			force, err := cmd.Flags().GetBool("force")
@@ -154,12 +138,10 @@ func deleteCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 				return err
 			}
 
-			opts := &commands.DeleteOpts{
+			return commands.Delete(&commands.DeleteOpts{
 				ID:    containerID,
 				Force: force,
-			}
-
-			return commands.Delete(opts, log, db)
+			}, log, db)
 		},
 	}
 
@@ -176,25 +158,11 @@ func forkCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Msg(" >> FORK << ")
 			containerID := args[0]
 
-			bundle, err := db.GetBundleFromID(containerID)
-			if err != nil {
-				return err
-			}
-
-			log.Info().Msg("loading container")
-			cntr, err := container.Load(bundle)
-			if err != nil {
-				return err
-			}
-
-			if err := cntr.Fork(); err != nil {
-				return fmt.Errorf("fork container: %w", err)
-			}
-
-			return nil
+			return commands.Fork(&commands.ForkOpts{
+				ID: containerID,
+			}, log, db)
 		},
 	}
 
@@ -208,21 +176,17 @@ func stateCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		Example: "  brownie state busybox",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			log.Info().Msg(" >> STATE << ")
 			containerID := args[0]
 
-			opts := &commands.StateOpts{
+			state, err := commands.State(&commands.StateOpts{
 				ID: containerID,
-			}
-
-			state, err := commands.State(opts, log, db)
+			}, log, db)
 			if err != nil {
 				return err
 			}
 
 			var formattedState bytes.Buffer
 			if err := json.Indent(&formattedState, []byte(state), "", "  "); err != nil {
-				log.Error().Err(err).Msg("failed to format state as json")
 				return err
 			}
 
