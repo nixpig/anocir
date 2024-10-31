@@ -179,8 +179,20 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 			log.Info().Msg(" >> FORK << ")
 			containerID := args[0]
 
+			row := db.QueryRow(
+				`select bundle_ from containers_ where id_ = $id`,
+				sql.Named("id", containerID),
+			)
+
+			var bundle string
+			if err := row.Scan(
+				&bundle,
+			); err != nil {
+				return fmt.Errorf("scan container to struct: %w", err)
+			}
+
 			log.Info().Msg("loading container")
-			cntr, err := container.Load(containerID, log, db)
+			cntr, err := container.Load(bundle)
 			if err != nil {
 				return err
 			}

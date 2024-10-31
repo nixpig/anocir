@@ -1,7 +1,6 @@
 package container
 
 import (
-	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -13,7 +12,6 @@ import (
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 )
 
 const initSockFilename = "init.sock"
@@ -96,26 +94,24 @@ func New(
 	return &cntr, nil
 }
 
-func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
+func Load(bundle string) (*Container, error) {
+	s, err := os.ReadFile(filepath.Join(bundle, "state.json"))
+	if err != nil {
+		return nil, err
+	}
+
 	state := ContainerState{}
-	var c string
+	if err := json.Unmarshal([]byte(s), &state); err != nil {
+		return nil, err
+	}
 
-	row := db.QueryRow(`select id_, version_, bundle_, pid_, status_, config_ from containers_ where id_ = $id`, sql.Named("id", id))
-
-	if err := row.Scan(
-		&state.ID,
-		&state.Version,
-		&state.Bundle,
-		&state.PID,
-		&state.Status,
-		&c,
-	); err != nil {
-		return nil, fmt.Errorf("scan container to struct: %w", err)
+	c, err := os.ReadFile(filepath.Join(bundle, "config.json"))
+	if err != nil {
+		return nil, err
 	}
 
 	conf := specs.Spec{}
 	if err := json.Unmarshal([]byte(c), &conf); err != nil {
-		log.Error().Err(err).Msg("failed to unmarshal state in loader")
 		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
 	}
 
@@ -125,7 +121,6 @@ func Load(id string, log *zerolog.Logger, db *sql.DB) (*Container, error) {
 	}
 
 	if err := cntr.RefreshState(); err != nil {
-		log.Error().Err(err).Msg("failed to refresh state")
 		return nil, fmt.Errorf("refresh state: %w", err)
 	}
 

@@ -16,12 +16,24 @@ type KillOpts struct {
 }
 
 func Kill(opts *KillOpts, log *zerolog.Logger, db *sql.DB) error {
-	log.Info().Str("container id", opts.ID).Msg("killing container...")
-	cntr, err := container.Load(opts.ID, log, db)
-	if err != nil {
-		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
-		return fmt.Errorf("load container: %w", err)
+	row := db.QueryRow(
+		`select bundle_ from containers_ where id_ = $id`,
+		sql.Named("id", opts.ID),
+	)
+
+	var bundle string
+	if err := row.Scan(
+		&bundle,
+	); err != nil {
+		return fmt.Errorf("scan container to struct: %w", err)
 	}
+
+	log.Info().Msg("loading container")
+	cntr, err := container.Load(bundle)
+	if err != nil {
+		return err
+	}
+	log.Info().Str("container id", opts.ID).Msg("killing container...")
 
 	s, err := signal.FromString(opts.Signal)
 	if err != nil {

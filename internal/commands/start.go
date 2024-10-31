@@ -15,10 +15,22 @@ type StartOpts struct {
 }
 
 func Start(opts *StartOpts, log *zerolog.Logger, db *sql.DB) error {
-	cntr, err := container.Load(opts.ID, log, db)
+	row := db.QueryRow(
+		`select bundle_ from containers_ where id_ = $id`,
+		sql.Named("id", opts.ID),
+	)
+
+	var bundle string
+	if err := row.Scan(
+		&bundle,
+	); err != nil {
+		return fmt.Errorf("scan container to struct: %w", err)
+	}
+
+	log.Info().Msg("loading container")
+	cntr, err := container.Load(bundle)
 	if err != nil {
-		log.Error().Err(err).Str("id", opts.ID).Msg("failed to load container")
-		return fmt.Errorf("load container: %w", err)
+		return err
 	}
 
 	return cntr.Start()
