@@ -63,5 +63,5 @@ func Create(opts *CreateOpts, log *zerolog.Logger, db *sql.DB) error {
 		return fmt.Errorf("insert into db: %w", err)
 	}
 
-	return cntr.Init()
+	return cntr.Init("/proc/self/exe", "fork")
 }
