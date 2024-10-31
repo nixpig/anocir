@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"bytes"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,12 +9,13 @@ import (
 
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/internal/commands"
+	"github.com/nixpig/brownie/internal/database"
 	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func RootCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func RootCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	root := &cobra.Command{
 		Use:          "brownie",
 		Short:        "An experimental Linux container runtime.",
@@ -46,7 +46,7 @@ func RootCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return root
 }
 
-func createCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func createCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -90,7 +90,7 @@ func createCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func startCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -116,7 +116,7 @@ func startCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return start
 }
 
-func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func killCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	kill := &cobra.Command{
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Kill a container",
@@ -139,7 +139,7 @@ func killCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return kill
 }
 
-func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func deleteCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	del := &cobra.Command{
 		Use:     "delete [flags] CONTAINER_ID",
 		Short:   "Delete a container",
@@ -168,7 +168,7 @@ func deleteCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return del
 }
 
-func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func forkCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	fork := &cobra.Command{
 		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
@@ -179,16 +179,9 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 			log.Info().Msg(" >> FORK << ")
 			containerID := args[0]
 
-			row := db.QueryRow(
-				`select bundle_ from containers_ where id_ = $id`,
-				sql.Named("id", containerID),
-			)
-
-			var bundle string
-			if err := row.Scan(
-				&bundle,
-			); err != nil {
-				return fmt.Errorf("scan container to struct: %w", err)
+			bundle, err := db.GetBundleFromID(containerID)
+			if err != nil {
+				return err
 			}
 
 			log.Info().Msg("loading container")
@@ -208,7 +201,7 @@ func forkCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
 	return fork
 }
 
-func stateCmd(log *zerolog.Logger, db *sql.DB) *cobra.Command {
+func stateCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	state := &cobra.Command{
 		Use:     "state [flags] CONTAINER_ID",
 		Short:   "Query a container state",

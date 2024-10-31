@@ -9,7 +9,6 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	_ "github.com/mattn/go-sqlite3"
 	"github.com/nixpig/brownie/cmd"
 	"github.com/nixpig/brownie/internal/database"
 	"github.com/nixpig/brownie/internal/logging"
@@ -62,7 +61,7 @@ func main() {
 	}
 
 	// exec root
-	if err := cmd.RootCmd(log, db.Conn).Execute(); err != nil {
+	if err := cmd.RootCmd(log, db).Execute(); err != nil {
 		log.Error().Err(err).Msg("failed to exec cmd")
 		fmt.Println(err)
 		os.Exit(1)
