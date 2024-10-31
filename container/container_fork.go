@@ -18,7 +18,7 @@ import (
 
 func (c *Container) Fork() error {
 	var err error
-	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.State.Bundle, initSockFilename))
+	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
 	if err != nil {
 		return err
 	}
@@ -53,18 +53,18 @@ func (c *Container) Fork() error {
 
 	// set up the socket _before_ pivot root
 	if err := os.RemoveAll(
-		filepath.Join(c.State.Bundle, containerSockFilename),
+		filepath.Join(c.Bundle(), containerSockFilename),
 	); err != nil {
 		return err
 	}
 
-	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.State.Bundle, containerSockFilename))
+	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Bundle(), containerSockFilename))
 	if err != nil {
 		return err
 	}
 	defer listCloser()
 
-	if err := filesystem.SetupRootfs(c.State.Bundle, c.Spec); err != nil {
+	if err := filesystem.SetupRootfs(c.Bundle(), c.Spec); err != nil {
 		return err
 	}
 
@@ -81,7 +81,7 @@ func (c *Container) Fork() error {
 	c.initIPC.ch <- []byte("ready")
 
 	startErr := ipc.WaitForMsg(listCh, "start", func() error {
-		if err := filesystem.PivotRoot(c.State.Bundle); err != nil {
+		if err := filesystem.PivotRoot(c.Bundle()); err != nil {
 			return err
 		}
 
@@ -109,8 +109,8 @@ func (c *Container) Fork() error {
 			if err := syscall.Sethostname(
 				[]byte(c.Spec.Hostname),
 			); err != nil {
-				c.State.Status = specs.StateStopped
-				if err := c.cSave(); err != nil {
+				c.SetStatus(specs.StateStopped)
+				if err := c.CSave(); err != nil {
 					return fmt.Errorf("write state file: %w", err)
 				}
 				return err
@@ -119,8 +119,8 @@ func (c *Container) Fork() error {
 			if err := syscall.Setdomainname(
 				[]byte(c.Spec.Domainname),
 			); err != nil {
-				c.State.Status = specs.StateStopped
-				if err := c.cSave(); err != nil {
+				c.SetStatus(specs.StateStopped)
+				if err := c.CSave(); err != nil {
 					return fmt.Errorf("write state file: %w", err)
 				}
 				return err
@@ -132,8 +132,8 @@ func (c *Container) Fork() error {
 				if err := capabilities.SetCapabilities(
 					c.Spec.Process.Capabilities,
 				); err != nil {
-					c.State.Status = specs.StateStopped
-					if err := c.cSave(); err != nil {
+					c.SetStatus(specs.StateStopped)
+					if err := c.CSave(); err != nil {
 						return fmt.Errorf("write state file: %w", err)
 					}
 					return err
@@ -142,8 +142,8 @@ func (c *Container) Fork() error {
 
 			if c.Spec.Process.Rlimits != nil {
 				if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-					c.State.Status = specs.StateStopped
-					if err := c.cSave(); err != nil {
+					c.SetStatus(specs.StateStopped)
+					if err := c.CSave(); err != nil {
 						return fmt.Errorf("write state file: %w", err)
 					}
 					return err
@@ -151,8 +151,8 @@ func (c *Container) Fork() error {
 			}
 		}
 
-		c.State.Status = specs.StateRunning
-		if err := c.cSave(); err != nil {
+		c.SetStatus(specs.StateRunning)
+		if err := c.CSave(); err != nil {
 			// do something with err??
 			fmt.Println(err)
 		}
@@ -176,8 +176,8 @@ func (c *Container) Fork() error {
 
 		cmd.Run()
 
-		c.State.Status = specs.StateStopped
-		if err := c.cSave(); err != nil {
+		c.SetStatus(specs.StateStopped)
+		if err := c.CSave(); err != nil {
 			return fmt.Errorf("write state file: %w", err)
 		}
 

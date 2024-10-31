@@ -15,7 +15,7 @@ func (c *Container) ForceDelete() error {
 }
 
 func deleteContainer(cntr *Container, force bool) error {
-	if !force && !cntr.canBeDeleted() {
+	if !force && !cntr.CanBeDeleted() {
 		return fmt.Errorf("container cannot be deleted in current state: %s", cntr.State.Status)
 	}
 

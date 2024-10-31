@@ -24,7 +24,7 @@ func (c *Container) Init(exe string, arg string) error {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	initSockAddr := filepath.Join(c.State.Bundle, initSockFilename)
+	initSockAddr := filepath.Join(c.Bundle(), initSockFilename)
 	if err := os.RemoveAll(initSockAddr); err != nil {
 		return fmt.Errorf("remove existing init socket: %w", err)
 	}
@@ -48,11 +48,11 @@ func (c *Container) Init(exe string, arg string) error {
 		c.termFD = &termSock.FD
 	}
 
-	c.forkCmd = exec.Command(
+	forkCmd := exec.Command(
 		exe,
 		[]string{
 			arg,
-			c.State.ID,
+			c.ID(),
 		}...)
 
 	var ambientCapsFlags []uintptr
@@ -104,7 +104,7 @@ func (c *Container) Init(exe string, arg string) error {
 		}
 	}
 
-	c.forkCmd.SysProcAttr = &syscall.SysProcAttr{
+	forkCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
 		Unshareflags:               unshareFlags | syscall.CLONE_NEWNS,
@@ -114,24 +114,24 @@ func (c *Container) Init(exe string, arg string) error {
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
-		c.forkCmd.Env = c.Spec.Process.Env
+		forkCmd.Env = c.Spec.Process.Env
 	}
 
-	c.forkCmd.Stdin = c.Opts.Stdin
-	c.forkCmd.Stdout = c.Opts.Stdout
-	c.forkCmd.Stderr = c.Opts.Stderr
+	forkCmd.Stdin = c.Opts.Stdin
+	forkCmd.Stdout = c.Opts.Stdout
+	forkCmd.Stderr = c.Opts.Stderr
 
-	if err := c.forkCmd.Start(); err != nil {
+	if err := forkCmd.Start(); err != nil {
 		return fmt.Errorf("start fork container: %w", err)
 	}
 
-	pid := c.forkCmd.Process.Pid
-	c.State.PID = pid
-	if err := c.hSave(); err != nil {
+	pid := forkCmd.Process.Pid
+	c.SetPID(pid)
+	if err := c.HSave(); err != nil {
 		return fmt.Errorf("save pid for fork: %w", err)
 	}
 
-	if err := c.forkCmd.Process.Release(); err != nil {
+	if err := forkCmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach fork container: %w", err)
 	}
 
@@ -146,8 +146,8 @@ func (c *Container) Init(exe string, arg string) error {
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
-		c.State.Status = specs.StateCreated
-		if err := c.hSave(); err != nil {
+		c.SetStatus(specs.StateCreated)
+		if err := c.HSave(); err != nil {
 			return fmt.Errorf("save created state: %w", err)
 		}
 		return nil

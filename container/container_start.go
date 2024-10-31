@@ -11,14 +11,14 @@ import (
 
 func (c *Container) Start() error {
 	if c.Spec.Process == nil {
-		c.State.Status = specs.StateStopped
-		if err := c.hSave(); err != nil {
+		c.SetStatus(specs.StateStopped)
+		if err := c.HSave(); err != nil {
 			return fmt.Errorf("write state file: %w", err)
 		}
 		return nil
 	}
 
-	if !c.canBeStarted() {
+	if !c.CanBeStarted() {
 		return errors.New("container cannot be started in current state")
 	}
 
@@ -26,14 +26,14 @@ func (c *Container) Start() error {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
-	conn, err := net.Dial("unix", filepath.Join(c.State.Bundle, containerSockFilename))
+	conn, err := net.Dial("unix", filepath.Join(c.Bundle(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
 	}
 
 	if err := c.ExecHooks("prestart"); err != nil {
-		c.State.Status = specs.StateStopped
-		if err := c.hSave(); err != nil {
+		c.SetStatus(specs.StateStopped)
+		if err := c.HSave(); err != nil {
 			return fmt.Errorf("write state file: %w", err)
 		}
 

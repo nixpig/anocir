@@ -8,8 +8,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const containerSockFilename = "container.sock"
-
 type StartOpts struct {
 	ID string
 }

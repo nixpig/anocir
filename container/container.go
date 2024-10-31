@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"os/exec"
 	"path/filepath"
 
 	"github.com/nixpig/brownie/container/lifecycle"
@@ -22,7 +21,6 @@ type Container struct {
 	Opts  *ContainerOpts
 
 	termFD  *int
-	forkCmd *exec.Cmd
 	initIPC ipcCtrl
 }
 
@@ -86,7 +84,7 @@ func New(
 		Opts:  opts,
 	}
 
-	if err := cntr.hSave(); err != nil {
+	if err := cntr.HSave(); err != nil {
 		return nil, fmt.Errorf("save newly created container: %w", err)
 	}
 
@@ -127,10 +125,9 @@ func Load(bundle string) (*Container, error) {
 }
 
 func (c *Container) RefreshState() error {
-	b, err := os.ReadFile(filepath.Join(c.State.Bundle, "state.json"))
+	b, err := os.ReadFile(filepath.Join(c.Bundle(), "state.json"))
 	if err != nil {
-		fmt.Println("WARNING: unable to refresh from state file")
-		return nil
+		return fmt.Errorf("refresh from state file: %w", err)
 	}
 
 	if err := json.Unmarshal(b, c.State); err != nil {
@@ -140,29 +137,25 @@ func (c *Container) RefreshState() error {
 	return nil
 }
 
-func (c *Container) cSave() error {
+func (c *Container) Save(configPath string) error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
 	}
-	if err := os.WriteFile("/state.json", b, 0644); err != nil {
+
+	if err := os.WriteFile(configPath, b, 0644); err != nil {
 		return fmt.Errorf("write state file: %w", err)
 	}
 
 	return nil
 }
 
-func (c *Container) hSave() error {
-	b, err := json.Marshal(c.State)
-	if err != nil {
-		return err
-	}
+func (c *Container) CSave() error {
+	return c.Save("/state.json")
+}
 
-	if err := os.WriteFile(filepath.Join(c.State.Bundle, "state.json"), b, 0644); err != nil {
-		return fmt.Errorf("write state file: %w", err)
-	}
-
-	return nil
+func (c *Container) HSave() error {
+	return c.Save(filepath.Join(c.Bundle(), "state.json"))
 }
 
 func (c *Container) ExecHooks(lifecycleHook string) error {
@@ -190,15 +183,47 @@ func (c *Container) ExecHooks(lifecycleHook string) error {
 	return lifecycle.ExecHooks(specHooks)
 }
 
-func (c *Container) canBeStarted() bool {
-	return c.State.Status == specs.StateCreated
+func (c *Container) CanBeStarted() bool {
+	return c.Status() == specs.StateCreated
 }
 
-func (c *Container) canBeKilled() bool {
-	return c.State.Status == specs.StateRunning ||
-		c.State.Status == specs.StateCreated
+func (c *Container) CanBeKilled() bool {
+	return c.Status() == specs.StateRunning ||
+		c.Status() == specs.StateCreated
 }
 
-func (c *Container) canBeDeleted() bool {
-	return c.State.Status == specs.StateStopped
+func (c *Container) CanBeDeleted() bool {
+	return c.Status() == specs.StateStopped
+}
+
+func (c *Container) SetStatus(status specs.ContainerState) {
+	c.State.Status = status
+}
+
+func (c *Container) Status() specs.ContainerState {
+	return c.State.Status
+}
+
+func (c *Container) SetPID(pid int) {
+	c.State.PID = pid
+}
+
+func (c *Container) PID() int {
+	return c.State.PID
+}
+
+func (c *Container) SetBundle(bundle string) {
+	c.State.Bundle = bundle
+}
+
+func (c *Container) Bundle() string {
+	return c.State.Bundle
+}
+
+func (c *Container) SetID(id string) {
+	c.State.ID = id
+}
+
+func (c *Container) ID() string {
+	return c.State.ID
 }

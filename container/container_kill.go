@@ -9,16 +9,16 @@ import (
 )
 
 func (c *Container) Kill(sig syscall.Signal) error {
-	if !c.canBeKilled() {
+	if !c.CanBeKilled() {
 		return errors.New("container cannot be killed in current state")
 	}
 
-	if err := syscall.Kill(c.State.PID, sig); err != nil {
+	if err := syscall.Kill(c.PID(), sig); err != nil {
 		return fmt.Errorf("failed to execute kill syscall: %w", err)
 	}
 
-	c.State.Status = specs.StateStopped
-	if err := c.hSave(); err != nil {
+	c.SetStatus(specs.StateStopped)
+	if err := c.HSave(); err != nil {
 		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
 
