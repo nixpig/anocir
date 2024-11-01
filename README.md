@@ -182,6 +182,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] kill
 - [x] kill_no_effect
 - [x] linux_devices
+- [x] linux_masked_paths
 - [x] linux_mount_label
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
@@ -215,7 +216,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] linux_cgroups_relative_memory
 - [ ] linux_cgroups_relative_network
 - [ ] linux_cgroups_relative_pids
-- [ ] linux_masked_paths
 - [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path

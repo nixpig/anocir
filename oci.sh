@@ -32,7 +32,7 @@ tests=(
 # "linux_cgroups_relative_network"
 # "linux_cgroups_relative_pids"
   "linux_devices"
-# "linux_masked_paths"
+  "linux_masked_paths"
   "linux_mount_label"
 # "linux_ns_itype" # ???
 # "linux_ns_nopath"

@@ -85,6 +85,10 @@ func (c *Container) Fork() error {
 			return err
 		}
 
+		if err := filesystem.MountMaskedPaths(c.Spec.Linux.MaskedPaths); err != nil {
+			return err
+		}
+
 		if c.Spec.Linux.RootfsPropagation != "" {
 			if err := syscall.Mount("", "/", "", filesystem.MountOptions[c.Spec.Linux.RootfsPropagation].Flag, ""); err != nil {
 				return err
