@@ -9,7 +9,7 @@ import (
 
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/golang-migrate/migrate/v4/source/iofs"
-	"github.com/nixpig/brownie/cli"
+	"github.com/nixpig/brownie/internal/cli"
 	"github.com/nixpig/brownie/internal/database"
 	"github.com/nixpig/brownie/internal/logging"
 	"github.com/rs/zerolog"
