@@ -85,7 +85,15 @@ func (c *Container) Fork() error {
 			return err
 		}
 
-		if err := filesystem.MountMaskedPaths(c.Spec.Linux.MaskedPaths); err != nil {
+		if err := filesystem.MountMaskedPaths(
+			c.Spec.Linux.MaskedPaths,
+		); err != nil {
+			return err
+		}
+
+		if err := filesystem.MountReadonlyPaths(
+			c.Spec.Linux.ReadonlyPaths,
+		); err != nil {
 			return err
 		}
 

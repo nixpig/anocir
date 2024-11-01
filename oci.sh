@@ -39,7 +39,7 @@ tests=(
 # "linux_ns_path"
 # "linux_ns_path_type"
 # "linux_process_apparmor_profile" # ???
-# "linux_readonly_paths"
+  "linux_readonly_paths"
   "linux_rootfs_propagation"
 # "linux_seccomp"
   "linux_sysctl"

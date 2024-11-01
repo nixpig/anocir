@@ -184,6 +184,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_devices
 - [x] linux_masked_paths
 - [x] linux_mount_label
+- [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
 - [x] mounts
@@ -221,7 +222,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
-- [ ] linux_readonly_paths
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
 - [ ] misc_props
