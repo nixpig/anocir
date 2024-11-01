@@ -20,12 +20,10 @@ func Kill(opts *KillOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	log.Info().Msg("loading container")
 	cntr, err := container.Load(bundle)
 	if err != nil {
 		return err
 	}
-	log.Info().Str("container id", opts.ID).Msg("killing container...")
 
 	s, err := signal.FromString(opts.Signal)
 	if err != nil {

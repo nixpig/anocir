@@ -2,18 +2,11 @@ package filesystem
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func SetupRootfs(root string, spec *specs.Spec) error {
-	rootfs := root
-
-	if spec.Root != nil {
-		rootfs = filepath.Join(root, spec.Root.Path)
-	}
-
+func SetupRootfs(rootfs string, spec *specs.Spec) error {
 	if err := mountRootfs(rootfs); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
 	}

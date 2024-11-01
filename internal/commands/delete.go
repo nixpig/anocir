@@ -17,7 +17,6 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	log.Info().Msg("loading container")
 	cntr, err := container.Load(bundle)
 	if err != nil {
 		return err

@@ -15,7 +15,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func (c *Container) Init(exe string, arg string) error {
+func (c *Container) Init(reexec string, arg string) error {
 	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
@@ -49,7 +49,7 @@ func (c *Container) Init(exe string, arg string) error {
 	}
 
 	forkCmd := exec.Command(
-		exe,
+		reexec,
 		[]string{
 			arg,
 			c.ID(),

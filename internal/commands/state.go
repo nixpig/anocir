@@ -14,14 +14,11 @@ type StateOpts struct {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger, db *database.DB) (string, error) {
-	log.Info().Msg("get state...")
-
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
 		return "", err
 	}
 
-	log.Info().Msg("loading container")
 	cntr, err := container.Load(bundle)
 	if err != nil {
 		return "", err

@@ -64,7 +64,7 @@ func (c *Container) Fork() error {
 	}
 	defer listCloser()
 
-	if err := filesystem.SetupRootfs(c.Bundle(), c.Spec); err != nil {
+	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
 		return err
 	}
 
@@ -81,7 +81,7 @@ func (c *Container) Fork() error {
 	c.initIPC.ch <- []byte("ready")
 
 	startErr := ipc.WaitForMsg(listCh, "start", func() error {
-		if err := filesystem.PivotRoot(c.Bundle()); err != nil {
+		if err := filesystem.PivotRoot(c.Rootfs()); err != nil {
 			return err
 		}
 

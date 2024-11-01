@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/nixpig/brownie/pkg"
@@ -63,6 +64,10 @@ func New(
 
 	if spec.Linux == nil {
 		return nil, errors.New("only linux containers are supported")
+	}
+
+	if spec.Root == nil {
+		return nil, errors.New("root is required")
 	}
 
 	absBundlePath, err := filepath.Abs(bundle)
@@ -226,4 +231,12 @@ func (c *Container) SetID(id string) {
 
 func (c *Container) ID() string {
 	return c.State.ID
+}
+
+func (c *Container) Rootfs() string {
+	if strings.Index(c.Spec.Root.Path, "/") == 0 {
+		return c.Spec.Root.Path
+	}
+
+	return filepath.Join(c.Bundle(), c.Spec.Root.Path)
 }
