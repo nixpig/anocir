@@ -9,12 +9,14 @@ import (
 	"strings"
 
 	"github.com/nixpig/brownie/container/lifecycle"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-const initSockFilename = "init.sock"
-const containerSockFilename = "container.sock"
+const (
+	initSockFilename      = "init.sock"
+	containerSockFilename = "container.sock"
+	OCIVersion            = "1.0.1-dev"
+)
 
 type Container struct {
 	State *ContainerState
@@ -76,7 +78,7 @@ func New(
 	}
 
 	state := &ContainerState{
-		Version:     pkg.OCIVersion,
+		Version:     OCIVersion,
 		ID:          id,
 		Bundle:      absBundlePath,
 		Annotations: map[string]string{},

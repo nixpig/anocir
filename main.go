@@ -12,8 +12,11 @@ import (
 	"github.com/nixpig/brownie/cli"
 	"github.com/nixpig/brownie/internal/database"
 	"github.com/nixpig/brownie/internal/logging"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
+)
+
+const (
+	brownieRootDir = "/var/lib/brownie"
 )
 
 //go:embed migrations/*.sql
@@ -21,7 +24,7 @@ var mig embed.FS
 
 func main() {
 	// create logger
-	logPath := filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log")
+	logPath := filepath.Join(brownieRootDir, "logs", "brownie.log")
 	log, err := logging.CreateLogger(logPath, zerolog.InfoLevel)
 	if err != nil {
 		fmt.Println(err)
@@ -30,7 +33,13 @@ func main() {
 
 	// create database
 	db := database.New()
-	if err := db.Connect(); err != nil {
+	if err := db.Connect(fmt.Sprintf(
+		"file:%s?_auth&_auth_user=%s&_auth_pass=%s&_auth_crypt=sha1",
+		filepath.Join(brownieRootDir, "containers.db"),
+		// FIXME: pull user/password from env variables
+		"user",
+		"password",
+	)); err != nil {
 		log.Error().Err(err).Msg("failed to connect to database")
 		fmt.Println(err)
 		os.Exit(1)
@@ -61,7 +70,7 @@ func main() {
 	}
 
 	// exec root
-	if err := cli.RootCmd(log, db).Execute(); err != nil {
+	if err := cli.RootCmd(log, db, logPath).Execute(); err != nil {
 		log.Error().Err(err).Msg("failed to exec cmd")
 		fmt.Println(err)
 		os.Exit(1)

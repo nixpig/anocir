@@ -4,16 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"os"
-	"path/filepath"
 
 	"github.com/nixpig/brownie/internal/commands"
 	"github.com/nixpig/brownie/internal/database"
-	"github.com/nixpig/brownie/pkg"
 	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func RootCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
+func RootCmd(log *zerolog.Logger, db *database.DB, logfile string) *cobra.Command {
 	root := &cobra.Command{
 		Use:          "brownie",
 		Short:        "An experimental Linux container runtime.",
@@ -37,7 +35,7 @@ func RootCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	root.PersistentFlags().StringP(
 		"log",
 		"l",
-		filepath.Join(pkg.BrownieRootDir, "logs", "brownie.log"),
+		logfile,
 		"Location of log file",
 	)
 
