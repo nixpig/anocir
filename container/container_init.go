@@ -48,12 +48,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		c.termFD = &termSock.FD
 	}
 
-	forkCmd := exec.Command(
-		reexec,
-		[]string{
-			arg,
-			c.ID(),
-		}...)
+	reexecCmd := exec.Command(reexec, []string{arg, c.ID()}...)
 
 	var ambientCapsFlags []uintptr
 	if c.Spec.Process != nil &&
@@ -67,16 +62,14 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	var cloneFlags uintptr
-	if c.Spec.Linux.Namespaces != nil {
-		for _, ns := range c.Spec.Linux.Namespaces {
-			ns := namespace.LinuxNamespace(ns)
-			flag, err := ns.ToFlag()
-			if err != nil {
-				return fmt.Errorf("convert namespace to flag: %w", err)
-			}
-
-			cloneFlags |= flag
+	for _, ns := range c.Spec.Linux.Namespaces {
+		ns := namespace.LinuxNamespace(ns)
+		flag, err := ns.ToFlag()
+		if err != nil {
+			return fmt.Errorf("convert namespace to flag: %w", err)
 		}
+
+		cloneFlags |= flag
 	}
 
 	var uidMappings []syscall.SysProcIDMap
@@ -104,7 +97,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		}
 	}
 
-	forkCmd.SysProcAttr = &syscall.SysProcAttr{
+	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
 		Unshareflags:               unshareFlags | syscall.CLONE_NEWNS,
@@ -114,25 +107,25 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
-		forkCmd.Env = c.Spec.Process.Env
+		reexecCmd.Env = c.Spec.Process.Env
 	}
 
-	forkCmd.Stdin = c.Opts.Stdin
-	forkCmd.Stdout = c.Opts.Stdout
-	forkCmd.Stderr = c.Opts.Stderr
+	reexecCmd.Stdin = c.Opts.Stdin
+	reexecCmd.Stdout = c.Opts.Stdout
+	reexecCmd.Stderr = c.Opts.Stderr
 
-	if err := forkCmd.Start(); err != nil {
-		return fmt.Errorf("start fork container: %w", err)
+	if err := reexecCmd.Start(); err != nil {
+		return fmt.Errorf("start reexec container: %w", err)
 	}
 
-	pid := forkCmd.Process.Pid
+	pid := reexecCmd.Process.Pid
 	c.SetPID(pid)
 	if err := c.HSave(); err != nil {
-		return fmt.Errorf("save pid for fork: %w", err)
+		return fmt.Errorf("save pid for reexec: %w", err)
 	}
 
-	if err := forkCmd.Process.Release(); err != nil {
-		return fmt.Errorf("detach fork container: %w", err)
+	if err := reexecCmd.Process.Release(); err != nil {
+		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
 	if c.Opts.PIDFile != "" {

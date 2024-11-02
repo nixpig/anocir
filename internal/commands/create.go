@@ -45,5 +45,5 @@ func Create(opts *CreateOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	return cntr.Init("/proc/self/exe", "fork")
+	return cntr.Init("/proc/self/exe", "reexec")
 }

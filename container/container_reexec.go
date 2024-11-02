@@ -16,7 +16,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func (c *Container) Fork() error {
+func (c *Container) Reexec() error {
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
 	if err != nil {

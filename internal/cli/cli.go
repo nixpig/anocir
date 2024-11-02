@@ -27,7 +27,7 @@ func RootCmd(log *zerolog.Logger, db *database.DB, logfile string) *cobra.Comman
 		stateCmd(log, db),
 		deleteCmd(log, db),
 		killCmd(log, db),
-		forkCmd(log, db),
+		reexecCmd(log, db),
 	)
 
 	root.CompletionOptions.HiddenDefaultCmd = true
@@ -148,23 +148,23 @@ func deleteCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 	return del
 }
 
-func forkCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
-	fork := &cobra.Command{
-		Use:     "fork [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
-		Short:   "Fork container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
+func reexecCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
+	reexec := &cobra.Command{
+		Use:     "reexec [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
+		Short:   "Reexec container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
 		Args:    cobra.ExactArgs(1),
 		Example: "\n -- FOR INTERNAL USE ONLY --",
 		Hidden:  true,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			return commands.Fork(&commands.ForkOpts{
+			return commands.Reexec(&commands.ReexecOpts{
 				ID: containerID,
 			}, log, db)
 		},
 	}
 
-	return fork
+	return reexec
 }
 
 func stateCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {

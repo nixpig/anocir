@@ -8,11 +8,11 @@ import (
 	"github.com/rs/zerolog"
 )
 
-type ForkOpts struct {
+type ReexecOpts struct {
 	ID string
 }
 
-func Fork(opts *ForkOpts, log *zerolog.Logger, db *database.DB) error {
+func Reexec(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
 		return err
@@ -23,8 +23,8 @@ func Fork(opts *ForkOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	if err := cntr.Fork(); err != nil {
-		return fmt.Errorf("fork container: %w", err)
+	if err := cntr.Reexec(); err != nil {
+		return fmt.Errorf("reexec container: %w", err)
 	}
 
 	return nil
