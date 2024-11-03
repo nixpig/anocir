@@ -224,22 +224,27 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 ### Unsupported tests
 
-The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus the following tests 'fail'.
+The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests 'fail'. See the full list below.
 
-- [ ] linux_cgroups_blkio
-- [ ] linux_cgroups_cpus
-- [ ] linux_cgroups_devices
-- [ ] linux_cgroups_hugetlb
-- [ ] linux_cgroups_memory
-- [ ] linux_cgroups_network
-- [ ] linux_cgroups_pids
-- [ ] linux_cgroups_relative_blkio
-- [ ] linux_cgroups_relative_cpus
-- [ ] linux_cgroups_relative_devices
-- [ ] linux_cgroups_relative_hugetlb
-- [ ] linux_cgroups_relative_memory
-- [ ] linux_cgroups_relative_network
-- [ ] linux_cgroups_relative_pids
+<details>
+  <summary>Full list of cgroups tests</summary>
+
+- linux_cgroups_blkio
+- linux_cgroups_cpus
+- linux_cgroups_devices
+- linux_cgroups_hugetlb
+- linux_cgroups_memory
+- linux_cgroups_network
+- linux_cgroups_pids
+- linux_cgroups_relative_blkio
+- linux_cgroups_relative_cpus
+- linux_cgroups_relative_devices
+- linux_cgroups_relative_hugetlb
+- linux_cgroups_relative_memory
+- linux_cgroups_relative_network
+- linux_cgroups_relative_pids
+
+</details>
 
 ## Contributing
 
