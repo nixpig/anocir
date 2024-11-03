@@ -1,6 +1,7 @@
 package ipc
 
 import (
+	"fmt"
 	"net"
 	"runtime"
 )
@@ -30,7 +31,7 @@ func NewReceiver(sockAddr string) (chan []byte, closer, error) {
 
 	listener, err := net.Listen("unix", sockAddr)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, fmt.Errorf("listen (%s): %w", sockAddr, err)
 	}
 
 	go func() {

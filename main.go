@@ -72,7 +72,7 @@ func main() {
 	// exec root
 	if err := cli.RootCmd(log, db, logPath).Execute(); err != nil {
 		log.Error().Err(err).Msg("failed to exec cmd")
-		fmt.Println(err)
+		fmt.Println(fmt.Errorf("ERROR: %s, %w", os.Args, err))
 		os.Exit(1)
 	}
 

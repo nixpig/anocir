@@ -34,7 +34,7 @@ tests=(
   "linux_devices"
   "linux_masked_paths"
   "linux_mount_label"
-# "linux_ns_itype" # ???
+  "linux_ns_itype"
 # "linux_ns_nopath"
 # "linux_ns_path"
 # "linux_ns_path_type"

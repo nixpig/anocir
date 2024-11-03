@@ -184,6 +184,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_devices
 - [x] linux_masked_paths
 - [x] linux_mount_label
+- [x] linux_ns_itype
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
@@ -203,21 +204,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] hooks
 - [ ] hooks_stdin
 - [ ] killsig
-- [ ] linux_cgroups_blkio
-- [ ] linux_cgroups_cpus
-- [ ] linux_cgroups_devices
-- [ ] linux_cgroups_hugetlb
-- [ ] linux_cgroups_memory
-- [ ] linux_cgroups_network
-- [ ] linux_cgroups_pids
-- [ ] linux_cgroups_relative_blkio
-- [ ] linux_cgroups_relative_cpus
-- [ ] linux_cgroups_relative_devices
-- [ ] linux_cgroups_relative_hugetlb
-- [ ] linux_cgroups_relative_memory
-- [ ] linux_cgroups_relative_network
-- [ ] linux_cgroups_relative_pids
-- [ ] linux_ns_itype
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type
@@ -235,6 +221,25 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] process_rlimits_fail
 - [ ] process_user
 - [ ] root_readonly_true
+
+### Unsupported tests
+
+The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus the following tests 'fail'.
+
+- [ ] linux_cgroups_blkio
+- [ ] linux_cgroups_cpus
+- [ ] linux_cgroups_devices
+- [ ] linux_cgroups_hugetlb
+- [ ] linux_cgroups_memory
+- [ ] linux_cgroups_network
+- [ ] linux_cgroups_pids
+- [ ] linux_cgroups_relative_blkio
+- [ ] linux_cgroups_relative_cpus
+- [ ] linux_cgroups_relative_devices
+- [ ] linux_cgroups_relative_hugetlb
+- [ ] linux_cgroups_relative_memory
+- [ ] linux_cgroups_relative_network
+- [ ] linux_cgroups_relative_pids
 
 ## Contributing
 

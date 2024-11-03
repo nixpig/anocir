@@ -25,9 +25,6 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	initSockAddr := filepath.Join(c.Bundle(), initSockFilename)
-	if err := os.RemoveAll(initSockAddr); err != nil {
-		return fmt.Errorf("remove existing init socket: %w", err)
-	}
 
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewReceiver(initSockAddr)
@@ -100,7 +97,7 @@ func (c *Container) Init(reexec string, arg string) error {
 	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
 		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
-		Unshareflags:               unshareFlags | syscall.CLONE_NEWNS,
+		Unshareflags:               unshareFlags,
 		GidMappingsEnableSetgroups: false,
 		UidMappings:                uidMappings,
 		GidMappings:                gidMappings,

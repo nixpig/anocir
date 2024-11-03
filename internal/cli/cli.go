@@ -30,6 +30,11 @@ func RootCmd(log *zerolog.Logger, db *database.DB, logfile string) *cobra.Comman
 		reexecCmd(log, db),
 	)
 
+	// TODO: implement these flags for Docker
+	root.PersistentFlags().BoolP("systemd-cgroup", "", false, "placeholder")
+	root.PersistentFlags().StringP("root", "", "", "placeholder")
+	root.PersistentFlags().StringP("log-format", "", "", "placeholder")
+
 	root.CompletionOptions.HiddenDefaultCmd = true
 
 	root.PersistentFlags().StringP(
