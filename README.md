@@ -224,7 +224,15 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 ### Unsupported tests
 
-The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests 'fail'. See the full list below.
+The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests 'fail', for example:
+
+```
+TAP version 13
+not ok 1 - find devices
+# cgroupv2 is not supported yet
+Clean: Delete:  exit status 1
+1..1
+```
 
 <details>
   <summary>Full list of cgroups tests</summary>
