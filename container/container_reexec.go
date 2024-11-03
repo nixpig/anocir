@@ -14,9 +14,10 @@ import (
 	"github.com/nixpig/brownie/container/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func (c *Container) Reexec() error {
+func (c *Container) Reexec(log *zerolog.Logger) error {
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
 	if err != nil {
@@ -176,17 +177,28 @@ func (c *Container) Reexec() error {
 
 		cmd.Dir = c.Spec.Process.Cwd
 
-		// cmd.SysProcAttr.Credential = &syscall.Credential{
-		// 	Uid:    c.Spec.Process.User.UID,
-		// 	Gid:    c.Spec.Process.User.GID,
-		// 	Groups: c.Spec.Process.User.AdditionalGids,
-		// }
+		log.Info().Msg("✅ before credential set")
+
+		cmd.SysProcAttr = &syscall.SysProcAttr{
+			Credential: &syscall.Credential{
+				// FIXME: setting the uid wipes out any set capabilities
+				// Uid: c.Spec.Process.User.UID,
+				Gid:    c.Spec.Process.User.GID,
+				Groups: c.Spec.Process.User.AdditionalGids,
+			},
+		}
+
+		log.Info().Msg("✅ after credential set")
 
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
+		log.Info().Msg("✅ before cmd run")
+
 		cmd.Run()
+
+		log.Info().Msg("✅ after cmd run")
 
 		c.SetStatus(specs.StateStopped)
 		if err := c.CSave(); err != nil {
