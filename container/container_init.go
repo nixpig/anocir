@@ -8,7 +8,6 @@ import (
 	"strconv"
 	"syscall"
 
-	"github.com/nixpig/brownie/container/capabilities"
 	"github.com/nixpig/brownie/container/namespace"
 	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
@@ -47,17 +46,6 @@ func (c *Container) Init(reexec string, arg string) error {
 
 	reexecCmd := exec.Command(reexec, []string{arg, c.ID()}...)
 
-	var ambientCapsFlags []uintptr
-	if c.Spec.Process != nil &&
-		c.Spec.Process.Capabilities != nil {
-		for _, cap := range c.Spec.Process.Capabilities.Ambient {
-			ambientCapsFlags = append(
-				ambientCapsFlags,
-				uintptr(capabilities.Capabilities[cap]),
-			)
-		}
-	}
-
 	var cloneFlags uintptr
 	for _, ns := range c.Spec.Linux.Namespaces {
 		ns := namespace.LinuxNamespace(ns)
@@ -95,10 +83,9 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
-		AmbientCaps:                ambientCapsFlags,
 		Cloneflags:                 cloneFlags,
 		Unshareflags:               unshareFlags,
-		GidMappingsEnableSetgroups: false,
+		GidMappingsEnableSetgroups: true,
 		UidMappings:                uidMappings,
 		GidMappings:                gidMappings,
 	}

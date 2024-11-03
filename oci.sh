@@ -59,7 +59,7 @@ tests=(
   "process_oom_score_adj"
 # "process_rlimits"
 # "process_rlimits_fail"
-# "process_user"
+  "process_user"
 # "root_readonly_true"
   "start"
   "state"

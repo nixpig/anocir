@@ -194,6 +194,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] process
 - [x] process_capabilities
 - [x] process_oom_score_adj
+- [x] process_user
 - [x] start
 - [x] state
 
@@ -219,7 +220,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] process_capabilities_fail
 - [ ] process_rlimits
 - [ ] process_rlimits_fail
-- [ ] process_user
 - [ ] root_readonly_true
 
 ### Unsupported tests

@@ -179,10 +179,21 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 
 		log.Info().Msg("✅ before credential set")
 
+		var ambientCapsFlags []uintptr
+		if c.Spec.Process != nil &&
+			c.Spec.Process.Capabilities != nil {
+			for _, cap := range c.Spec.Process.Capabilities.Ambient {
+				ambientCapsFlags = append(
+					ambientCapsFlags,
+					uintptr(capabilities.Capabilities[cap]),
+				)
+			}
+		}
+
 		cmd.SysProcAttr = &syscall.SysProcAttr{
+			AmbientCaps: ambientCapsFlags,
 			Credential: &syscall.Credential{
-				// FIXME: setting the uid wipes out any set capabilities
-				// Uid: c.Spec.Process.User.UID,
+				Uid:    c.Spec.Process.User.UID,
 				Gid:    c.Spec.Process.User.GID,
 				Groups: c.Spec.Process.User.AdditionalGids,
 			},
