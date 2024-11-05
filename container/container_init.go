@@ -23,7 +23,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	initSockAddr := filepath.Join(c.Rootfs(), initSockFilename)
+	initSockAddr := filepath.Join(c.Bundle(), initSockFilename)
 
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewReceiver(initSockAddr)

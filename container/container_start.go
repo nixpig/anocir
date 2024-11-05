@@ -26,7 +26,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
-	conn, err := net.Dial("unix", filepath.Join(c.Rootfs(), containerSockFilename))
+	conn, err := net.Dial("unix", filepath.Join(c.Bundle(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
 	}
@@ -58,17 +58,6 @@ func (c *Container) Start() error {
 	}
 
 	// FIXME: ?? when process starts, should the process 'replace' the parent container process?
-
-	// ch, closer, err := ipc.NewReceiver(filepath.Join(c.Rootfs(), containerSockFilename))
-	// if err != nil {
-	// 	return err
-	// }
-	// defer closer()
-
-	// ipc.WaitForMsg(ch, "stopped", func() error {
-	// 	fmt.Println("STOPPED!")
-	// 	return nil
-	// })
 
 	return nil
 }
