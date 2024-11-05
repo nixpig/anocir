@@ -22,7 +22,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	if err := cntr.Delete(); err != nil {
+	if err := cntr.Delete(opts.Force); err != nil {
 		return err
 	}
 

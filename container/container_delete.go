@@ -6,20 +6,12 @@ import (
 	"syscall"
 )
 
-func (c *Container) Delete() error {
-	return deleteContainer(c, false)
-}
-
-func (c *Container) ForceDelete() error {
-	return deleteContainer(c, true)
-}
-
-func deleteContainer(cntr *Container, force bool) error {
-	if !force && !cntr.CanBeDeleted() {
-		return fmt.Errorf("container cannot be deleted in current state: %s", cntr.State.Status)
+func (c *Container) Delete(force bool) error {
+	if !force && !c.CanBeDeleted() {
+		return fmt.Errorf("container cannot be deleted in current state: %s", c.Status())
 	}
 
-	process, err := os.FindProcess(cntr.State.PID)
+	process, err := os.FindProcess(c.PID())
 	if err != nil {
 		return fmt.Errorf("find container process: %w", err)
 	}
@@ -29,7 +21,7 @@ func deleteContainer(cntr *Container, force bool) error {
 
 	// TODO: actually do the 'deleting'; rewind all the creation steps
 
-	if err := cntr.ExecHooks("poststop"); err != nil {
+	if err := c.ExecHooks("poststop"); err != nil {
 		fmt.Println("failed to execute poststop hooks")
 		// TODO: log a warning???
 	}

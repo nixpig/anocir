@@ -158,6 +158,7 @@ func (c *Container) Save(configPath string) error {
 }
 
 func (c *Container) CSave() error {
+	// FIXME: the state file is actually the next level up
 	return c.Save("/state.json")
 }
 
