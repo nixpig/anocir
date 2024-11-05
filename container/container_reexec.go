@@ -19,7 +19,7 @@ import (
 
 func (c *Container) Reexec(log *zerolog.Logger) error {
 	var err error
-	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
+	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Rootfs(), initSockFilename))
 	if err != nil {
 		return err
 	}
@@ -54,12 +54,12 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 
 	// set up the socket _before_ pivot root
 	if err := os.RemoveAll(
-		filepath.Join(c.Bundle(), containerSockFilename),
+		filepath.Join(c.Rootfs(), containerSockFilename),
 	); err != nil {
 		return err
 	}
 
-	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Bundle(), containerSockFilename))
+	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Rootfs(), containerSockFilename))
 	if err != nil {
 		return err
 	}
@@ -82,6 +82,12 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 	c.initIPC.ch <- []byte("ready")
 
 	startErr := ipc.WaitForMsg(listCh, "start", func() error {
+		// ch, closer, err := ipc.NewSender(filepath.Join(c.Rootfs(), containerSockFilename))
+		// if err != nil {
+		// 	return err
+		// }
+		// defer closer()
+
 		if err := filesystem.PivotRoot(c.Rootfs()); err != nil {
 			return err
 		}
@@ -105,6 +111,8 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 		}
 
 		if c.Spec.Root.Readonly {
+			// remount over existing root mount as readonly
+
 			// FIXME: subsequent attempts to update container state fail, either by
 			// write to state.json (readonly filesystem) or write to db (readonly db)
 			// probably we need to send message to a socket that handles it?
@@ -177,8 +185,6 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 
 		cmd.Dir = c.Spec.Process.Cwd
 
-		log.Info().Msg("✅ before credential set")
-
 		var ambientCapsFlags []uintptr
 		if c.Spec.Process != nil &&
 			c.Spec.Process.Capabilities != nil {
@@ -199,21 +205,18 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 			},
 		}
 
-		log.Info().Msg("✅ after credential set")
-
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
 		cmd.Stderr = os.Stderr
 
-		log.Info().Msg("✅ before cmd run")
-
 		cmd.Run()
 
-		log.Info().Msg("✅ after cmd run")
+		// ch <- []byte("stopped")
 
 		c.SetStatus(specs.StateStopped)
 		if err := c.CSave(); err != nil {
-			return fmt.Errorf("write state file: %w", err)
+			log.Error().Err(err).Msg("failed to save stopped container state")
+			return fmt.Errorf("save container stopped state: %w", err)
 		}
 
 		return nil

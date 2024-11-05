@@ -99,16 +99,6 @@ func New(
 }
 
 func Load(bundle string) (*Container, error) {
-	s, err := os.ReadFile(filepath.Join(bundle, "state.json"))
-	if err != nil {
-		return nil, err
-	}
-
-	state := ContainerState{}
-	if err := json.Unmarshal([]byte(s), &state); err != nil {
-		return nil, err
-	}
-
 	c, err := os.ReadFile(filepath.Join(bundle, "config.json"))
 	if err != nil {
 		return nil, err
@@ -117,6 +107,16 @@ func Load(bundle string) (*Container, error) {
 	conf := specs.Spec{}
 	if err := json.Unmarshal([]byte(c), &conf); err != nil {
 		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
+	}
+
+	s, err := os.ReadFile(filepath.Join(bundle, conf.Root.Path, "state.json"))
+	if err != nil {
+		return nil, err
+	}
+
+	state := ContainerState{}
+	if err := json.Unmarshal([]byte(s), &state); err != nil {
+		return nil, err
 	}
 
 	cntr := &Container{
@@ -132,7 +132,7 @@ func Load(bundle string) (*Container, error) {
 }
 
 func (c *Container) RefreshState() error {
-	b, err := os.ReadFile(filepath.Join(c.Bundle(), "state.json"))
+	b, err := os.ReadFile(filepath.Join(c.Rootfs(), "state.json"))
 	if err != nil {
 		return fmt.Errorf("refresh from state file: %w", err)
 	}
@@ -158,11 +158,12 @@ func (c *Container) Save(configPath string) error {
 }
 
 func (c *Container) CSave() error {
+	fmt.Println("state: ", c.State.Status)
 	return c.Save("/state.json")
 }
 
 func (c *Container) HSave() error {
-	return c.Save(filepath.Join(c.Bundle(), "state.json"))
+	return c.Save(filepath.Join(c.Rootfs(), "state.json"))
 }
 
 func (c *Container) ExecHooks(lifecycleHook string) error {
@@ -227,6 +228,15 @@ func (c *Container) Bundle() string {
 	return c.State.Bundle
 }
 
+func (c *Container) AbsBundle() string {
+	p, err := filepath.Abs(c.State.Bundle)
+	if err != nil {
+		return ""
+	}
+
+	return p
+}
+
 func (c *Container) SetID(id string) {
 	c.State.ID = id
 }
@@ -240,5 +250,5 @@ func (c *Container) Rootfs() string {
 		return c.Spec.Root.Path
 	}
 
-	return filepath.Join(c.Bundle(), c.Spec.Root.Path)
+	return filepath.Join(c.AbsBundle(), c.Spec.Root.Path)
 }
