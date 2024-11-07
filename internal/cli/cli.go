@@ -3,6 +3,7 @@ package cli
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"os"
 
 	"github.com/nixpig/brownie/internal/commands"
@@ -163,11 +164,28 @@ func reexecCmd(log *zerolog.Logger, db *database.DB) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			return commands.Reexec(&commands.ReexecOpts{
+			stage, err := cmd.Flags().GetInt("stage")
+			if err != nil {
+				return err
+			}
+
+			opts := commands.ReexecOpts{
 				ID: containerID,
-			}, log, db)
+			}
+
+			if stage == 1 {
+				return commands.Reexec1(&opts, log, db)
+			}
+
+			if stage == 2 {
+				return commands.Reexec2(&opts, log, db)
+			}
+
+			return errors.New("invalid stage provided")
 		},
 	}
+
+	reexec.Flags().IntP("stage", "s", 0, "stage of reexec (1-2)")
 
 	return reexec
 }

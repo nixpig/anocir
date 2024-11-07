@@ -12,7 +12,7 @@ type ReexecOpts struct {
 	ID string
 }
 
-func Reexec(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
+func Reexec1(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
 		return err
@@ -23,9 +23,9 @@ func Reexec(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
 		return err
 	}
 
-	if err := cntr.Reexec(log); err != nil {
-		log.Error().Err(err).Msg("reexec failed...")
-		return fmt.Errorf("reexec container: %w", err)
+	if err := cntr.Reexec1(log); err != nil {
+		log.Error().Err(err).Msg("reexec 1 failed...")
+		return fmt.Errorf("reexec 1 container: %w", err)
 	}
 
 	return nil

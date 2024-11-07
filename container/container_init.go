@@ -44,7 +44,10 @@ func (c *Container) Init(reexec string, arg string) error {
 		c.termFD = &termSock.FD
 	}
 
-	reexecCmd := exec.Command(reexec, []string{arg, c.ID()}...)
+	reexecCmd := exec.Command(
+		reexec,
+		[]string{arg, "--stage", "1", c.ID()}...,
+	)
 
 	var cloneFlags uintptr
 	for _, ns := range c.Spec.Linux.Namespaces {

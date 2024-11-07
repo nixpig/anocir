@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"syscall"
 
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -124,10 +125,10 @@ func Load(bundle string) (*Container, error) {
 		Spec:  &conf,
 	}
 
-	if err := cntr.RefreshState(); err != nil {
-		return nil, fmt.Errorf("refresh state: %w", err)
-	}
-
+	// if err := cntr.RefreshState(); err != nil {
+	// 	return nil, fmt.Errorf("refresh state: %w", err)
+	// }
+	//
 	return cntr, nil
 }
 
@@ -139,6 +140,18 @@ func (c *Container) RefreshState() error {
 
 	if err := json.Unmarshal(b, c.State); err != nil {
 		return fmt.Errorf("unmarshall refreshed state: %w", err)
+	}
+
+	process, err := os.FindProcess(c.State.PID)
+	if err != nil {
+		return err
+	}
+
+	if err := process.Signal(syscall.Signal(0)); err != nil {
+		c.SetStatus(specs.StateStopped)
+		if err := c.HSave(); err != nil {
+			return fmt.Errorf("write state file: %w", err)
+		}
 	}
 
 	return nil
@@ -155,11 +168,6 @@ func (c *Container) Save(configPath string) error {
 	}
 
 	return nil
-}
-
-func (c *Container) CSave() error {
-	// FIXME: the state file is actually the next level up
-	return c.Save("/state.json")
 }
 
 func (c *Container) HSave() error {
