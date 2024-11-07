@@ -188,6 +188,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
+- [x] misc_props
 - [x] mounts
 - [x] prestart
 - [x] prestart_fail
@@ -211,7 +212,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] linux_process_apparmor_profile
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
-- [ ] misc_props
 - [ ] pidfile
 - [ ] poststart
 - [ ] poststart_fail

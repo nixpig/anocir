@@ -11,6 +11,7 @@ import (
 
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/mod/semver"
 )
 
 const (
@@ -76,6 +77,10 @@ func New(
 	absBundlePath, err := filepath.Abs(bundle)
 	if err != nil {
 		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
+	}
+
+	if !semver.IsValid("v" + spec.Version) {
+		return nil, fmt.Errorf("invalid version: %s", spec.Version)
 	}
 
 	state := &ContainerState{

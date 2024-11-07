@@ -29,7 +29,7 @@ tests=(
 # "linux_seccomp"
   "linux_sysctl"
 # "linux_uid_mappings"
-# "misc_props" # ???
+ "misc_props"
   "mounts"
 # "pidfile" # ???
 # "poststart"
