@@ -14,7 +14,7 @@ func (c *Container) Kill(sig syscall.Signal) error {
 	}
 
 	if err := syscall.Kill(c.PID(), sig); err != nil {
-		return fmt.Errorf("failed to execute kill syscall: %w", err)
+		return fmt.Errorf("failed to execute kill syscall (process: %d): %w", c.PID(), err)
 	}
 
 	c.SetStatus(specs.StateStopped)

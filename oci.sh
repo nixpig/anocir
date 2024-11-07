@@ -10,27 +10,12 @@ tests=(
   "create"
   "delete"
 # "delete_only_create_resources"
-# "delete_resources"
 # "hooks"
 # "hooks_stdin"
   "hostname"
   "kill"
   "kill_no_effect"
 # "killsig"
-# "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
-# "linux_cgroups_cpus"
-# "linux_cgroups_devices"
-# "linux_cgroups_hugetlb"
-# "linux_cgroups_memory"
-# "linux_cgroups_network"
-# "linux_cgroups_pids"
-# "linux_cgroups_relative_blkio" # use of features deprecated in Linux kernel 5.0
-# "linux_cgroups_relative_cpus"
-# "linux_cgroups_relative_devices"
-# "linux_cgroups_relative_hugetlb"
-# "linux_cgroups_relative_memory"
-# "linux_cgroups_relative_network"
-# "linux_cgroups_relative_pids"
   "linux_devices"
   "linux_masked_paths"
   "linux_mount_label"
@@ -60,9 +45,27 @@ tests=(
 # "process_rlimits"
 # "process_rlimits_fail"
   "process_user"
-# "root_readonly_true"
+  "root_readonly_true"
   "start"
   "state"
+
+  # UNSUPPORTED DUE TO CGROUPV2
+  # ---------------------------
+  # "delete_resources"
+  # "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
+  # "linux_cgroups_cpus"
+  # "linux_cgroups_devices"
+  # "linux_cgroups_hugetlb"
+  # "linux_cgroups_memory"
+  # "linux_cgroups_network"
+  # "linux_cgroups_pids"
+  # "linux_cgroups_relative_blkio" # use of features deprecated in Linux kernel 5.0
+  # "linux_cgroups_relative_cpus"
+  # "linux_cgroups_relative_devices"
+  # "linux_cgroups_relative_hugetlb"
+  # "linux_cgroups_relative_memory"
+  # "linux_cgroups_relative_network"
+  # "linux_cgroups_relative_pids"
 )
 
 mkdir -p $logdir

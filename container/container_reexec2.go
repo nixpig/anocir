@@ -37,9 +37,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	}
 
 	if c.Spec.Root.Readonly {
-		// FIXME: subsequent attempts to update container state fail, either by
-		// write to state.json (readonly filesystem) or write to db (readonly db)
-		// probably we need to send message to a socket that handles it?
 		if err := syscall.Mount("", "/", "", syscall.MS_BIND|syscall.MS_REMOUNT|syscall.MS_RDONLY, ""); err != nil {
 			return err
 		}

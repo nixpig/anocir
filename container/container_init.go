@@ -111,10 +111,6 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("save pid for reexec: %w", err)
 	}
 
-	if err := reexecCmd.Process.Release(); err != nil {
-		return fmt.Errorf("detach reexec container: %w", err)
-	}
-
 	if c.Opts.PIDFile != "" {
 		if err := os.WriteFile(
 			c.Opts.PIDFile,
@@ -123,6 +119,10 @@ func (c *Container) Init(reexec string, arg string) error {
 		); err != nil {
 			return fmt.Errorf("write pid to file (%s): %w", c.Opts.PIDFile, err)
 		}
+	}
+
+	if err := reexecCmd.Process.Release(); err != nil {
+		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {

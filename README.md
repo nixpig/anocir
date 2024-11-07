@@ -195,13 +195,13 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] process_capabilities
 - [x] process_oom_score_adj
 - [x] process_user
+- [x] root_readonly_true
 - [x] start
 - [x] state
 
 ### ⚠️ To do
 
 - [ ] delete_only_create_resources
-- [ ] delete_resources
 - [ ] hooks
 - [ ] hooks_stdin
 - [ ] killsig
@@ -220,11 +220,10 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] process_capabilities_fail
 - [ ] process_rlimits
 - [ ] process_rlimits_fail
-- [ ] root_readonly_true
 
 ### Unsupported tests
 
-The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests 'fail', for example:
+The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests and a few others are unable to run. For example:
 
 ```
 TAP version 13
@@ -237,6 +236,7 @@ Clean: Delete:  exit status 1
 <details>
   <summary>Full list of cgroups tests</summary>
 
+- delete_resources
 - linux_cgroups_blkio
 - linux_cgroups_cpus
 - linux_cgroups_devices
