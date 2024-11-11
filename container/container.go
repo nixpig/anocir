@@ -80,6 +80,7 @@ func New(
 	}
 
 	if !semver.IsValid("v" + spec.Version) {
+		// TODO: rollback state?
 		return nil, fmt.Errorf("invalid version: %s", spec.Version)
 	}
 
@@ -155,7 +156,7 @@ func (c *Container) RefreshState() error {
 	if err := process.Signal(syscall.Signal(0)); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.HSave(); err != nil {
-			return fmt.Errorf("write state file: %w", err)
+			return fmt.Errorf("(refresh) write state file: %w", err)
 		}
 	}
 
@@ -169,7 +170,7 @@ func (c *Container) Save(configPath string) error {
 	}
 
 	if err := os.WriteFile(configPath, b, 0644); err != nil {
-		return fmt.Errorf("write state file: %w", err)
+		return fmt.Errorf("(save: %s) write state file: %w", c.State.Status, err)
 	}
 
 	return nil
@@ -177,6 +178,10 @@ func (c *Container) Save(configPath string) error {
 
 func (c *Container) HSave() error {
 	return c.Save(filepath.Join(c.Bundle(), "state.json"))
+}
+
+func (c *Container) CSave() error {
+	return c.Save(filepath.Join("/", "state.json"))
 }
 
 func (c *Container) ExecHooks(lifecycleHook string) error {
@@ -187,7 +192,7 @@ func (c *Container) ExecHooks(lifecycleHook string) error {
 	var specHooks []specs.Hook
 	switch lifecycleHook {
 	case "prestart":
-		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
 		specHooks = c.Spec.Hooks.Prestart
 	case "createRuntime":
 		specHooks = c.Spec.Hooks.CreateRuntime

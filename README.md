@@ -2,7 +2,7 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime, attempting to implement the OCI Runtime Spec. See the [Progress](#progress) section below for progress against that goal.
+An experimental Linux container runtime, attempting to implement the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md). See the [Progress](#progress) section below for progress against that goal.
 
 > [!NOTE]
 >
@@ -10,7 +10,7 @@ An experimental Linux container runtime, attempting to implement the OCI Runtime
 >
 > ✅ `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
 
-This is a personal project for me to explore and better understand the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki); it does things a bit differently and is pretty cool.
+This is a personal project for me to explore and better understand the OCI Runtime Spec to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
 ## Installation
 

@@ -1,7 +1,6 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 	"syscall"
 
@@ -10,7 +9,7 @@ import (
 
 func (c *Container) Kill(sig syscall.Signal) error {
 	if !c.CanBeKilled() {
-		return errors.New("container cannot be killed in current state")
+		return fmt.Errorf("container cannot be killed in current state: %s", c.Status())
 	}
 
 	if err := syscall.Kill(c.PID(), sig); err != nil {

@@ -32,9 +32,9 @@ tests=(
  "misc_props"
   "mounts"
 # "pidfile" # ???
-# "poststart"
+  "poststart"
 # "poststart_fail"
-# "poststop"
+  "poststop"
 # "poststop_fail"
   "prestart"
   "prestart_fail"

@@ -13,7 +13,7 @@ func (c *Container) Start() error {
 	if c.Spec.Process == nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.HSave(); err != nil {
-			return fmt.Errorf("write state file: %w", err)
+			return fmt.Errorf("(start 1) write state file: %w", err)
 		}
 		return nil
 	}
@@ -34,7 +34,7 @@ func (c *Container) Start() error {
 	if err := c.ExecHooks("prestart"); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.HSave(); err != nil {
-			return fmt.Errorf("write state file: %w", err)
+			return fmt.Errorf("(start 2) write state file: %w", err)
 		}
 
 		// TODO: run DELETE tasks here, then...
@@ -47,17 +47,13 @@ func (c *Container) Start() error {
 	}
 
 	if _, err := conn.Write([]byte("start")); err != nil {
+		c.SetStatus(specs.StateStopped)
+		if err := c.HSave(); err != nil {
+			return fmt.Errorf("(start 1) write state file: %w", err)
+		}
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()
-
-	if err := c.ExecHooks("poststart"); err != nil {
-		// TODO: how to handle this (log a warning) from start command??
-		// FIXME: needs to 'log a warning'
-		fmt.Println("WARNING: ", err)
-	}
-
-	// FIXME: ?? when process starts, should the process 'replace' the parent container process?
 
 	return nil
 }
