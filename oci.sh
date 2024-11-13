@@ -40,7 +40,7 @@ tests=(
   "prestart_fail"
   "process"
   "process_capabilities"
-# "process_capabilities_fail"
+  "process_capabilities_fail"
   "process_oom_score_adj"
 # "process_rlimits"
 # "process_rlimits_fail"

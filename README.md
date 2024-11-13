@@ -190,10 +190,13 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_sysctl
 - [x] misc_props
 - [x] mounts
+- [x] poststart
+- [x] poststop
 - [x] prestart
 - [x] prestart_fail
 - [x] process
 - [x] process_capabilities
+- [x] process_capabilities_fail
 - [x] process_oom_score_adj
 - [x] process_user
 - [x] root_readonly_true
@@ -213,11 +216,8 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] linux_seccomp
 - [ ] linux_uid_mappings
 - [ ] pidfile
-- [ ] poststart
 - [ ] poststart_fail
-- [ ] poststop
 - [ ] poststop_fail
-- [ ] process_capabilities_fail
 - [ ] process_rlimits
 - [ ] process_rlimits_fail
 
