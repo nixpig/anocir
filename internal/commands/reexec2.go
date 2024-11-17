@@ -11,11 +11,13 @@ import (
 func Reexec2(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to get bundle from ID")
 		return err
 	}
 
 	cntr, err := container.Load(bundle)
 	if err != nil {
+		log.Error().Err(err).Msg("failed to load bundle")
 		return err
 	}
 

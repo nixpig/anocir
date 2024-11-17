@@ -15,6 +15,7 @@ type KillOpts struct {
 }
 
 func Kill(opts *KillOpts, log *zerolog.Logger, db *database.DB) error {
+
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
 		return err

@@ -1,6 +1,7 @@
 package container
 
 import (
+	"fmt"
 	"os"
 	"os/exec"
 	"slices"
@@ -15,29 +16,34 @@ import (
 
 func (c *Container) Reexec2(log *zerolog.Logger) error {
 	if err := filesystem.PivotRoot(c.Rootfs()); err != nil {
+		log.Error().Err(err).Msg("pivot root")
 		return err
 	}
 
 	if err := filesystem.MountMaskedPaths(
 		c.Spec.Linux.MaskedPaths,
 	); err != nil {
+		log.Error().Err(err).Msg("mount masked paths")
 		return err
 	}
 
 	if err := filesystem.MountReadonlyPaths(
 		c.Spec.Linux.ReadonlyPaths,
 	); err != nil {
+		log.Error().Err(err).Msg("mount readonly paths")
 		return err
 	}
 
 	if c.Spec.Linux.RootfsPropagation != "" {
 		if err := syscall.Mount("", "/", "", filesystem.MountOptions[c.Spec.Linux.RootfsPropagation].Flag, ""); err != nil {
+			log.Error().Err(err).Msg("mount rootfs RootfsPropagation paths")
 			return err
 		}
 	}
 
 	if c.Spec.Root.Readonly {
 		if err := syscall.Mount("", "/", "", syscall.MS_BIND|syscall.MS_REMOUNT|syscall.MS_RDONLY, ""); err != nil {
+			log.Error().Err(err).Msg("mount rootfs readonly paths")
 			return err
 		}
 	}
@@ -51,12 +57,14 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 		if err := syscall.Sethostname(
 			[]byte(c.Spec.Hostname),
 		); err != nil {
+			log.Error().Err(err).Msg("set hostname")
 			return err
 		}
 
 		if err := syscall.Setdomainname(
 			[]byte(c.Spec.Domainname),
 		); err != nil {
+			log.Error().Err(err).Msg("set domainname")
 			return err
 		}
 	}
@@ -66,12 +74,14 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 			if err := capabilities.SetCapabilities(
 				c.Spec.Process.Capabilities,
 			); err != nil {
+				log.Error().Err(err).Msg("set caps")
 				return err
 			}
 		}
 
 		if c.Spec.Process.Rlimits != nil {
 			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+				log.Error().Err(err).Msg("set rlimits")
 				return err
 			}
 		}
@@ -83,8 +93,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	)
 
 	cmd.Dir = c.Spec.Process.Cwd
-
-	log.Info().Msg("✅ before credential set")
 
 	var ambientCapsFlags []uintptr
 	if c.Spec.Process != nil &&
@@ -110,9 +118,10 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := cmd.Run(); err != nil {
-		return err
+	if err := c.ExecHooks("startContainer"); err != nil {
+		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
-	return nil
 
+	// we can't get logs or anything past this point
+	return cmd.Run()
 }

@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/internal/database"
 	"github.com/rs/zerolog"
@@ -14,7 +16,7 @@ type DeleteOpts struct {
 func Delete(opts *DeleteOpts, log *zerolog.Logger, db *database.DB) error {
 	bundle, err := db.GetBundleFromID(opts.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("delete container (%s): %w", opts.ID, err)
 	}
 
 	cntr, err := container.Load(bundle)

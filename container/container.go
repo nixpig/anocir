@@ -31,12 +31,12 @@ type Container struct {
 }
 
 type ContainerState struct {
-	Version     string
-	ID          string
-	Bundle      string
-	Annotations map[string]string
-	Status      specs.ContainerState
-	PID         int
+	Version     string               `json:"ociVersion"`
+	ID          string               `json:"id"`
+	Bundle      string               `json:"bundle"`
+	Annotations map[string]string    `json:"annotations"`
+	Status      specs.ContainerState `json:"status"`
+	PID         int                  `json:"pid"`
 }
 
 type ipcCtrl struct {
@@ -131,7 +131,7 @@ func New(
 		Version:     OCIVersion,
 		ID:          id,
 		Bundle:      absBundlePath,
-		Annotations: map[string]string{},
+		Annotations: spec.Annotations,
 		Status:      specs.StateCreating,
 	}
 
@@ -249,7 +249,12 @@ func (c *Container) ExecHooks(lifecycleHook string) error {
 		specHooks = c.Spec.Hooks.Poststop
 	}
 
-	return lifecycle.ExecHooks(specHooks)
+	s, err := json.Marshal(c.State)
+	if err != nil {
+		return fmt.Errorf("marshal state: %w", err)
+	}
+
+	return lifecycle.ExecHooks(specHooks, string(s))
 }
 
 func (c *Container) CanBeStarted() bool {

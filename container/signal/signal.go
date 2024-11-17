@@ -17,6 +17,10 @@ func FromInt(s int) (syscall.Signal, error) {
 		return syscall.SIGABRT, nil
 	case 9:
 		return syscall.SIGKILL, nil
+	case 10:
+		return syscall.SIGUSR1, nil
+	case 12:
+		return syscall.SIGUSR2, nil
 	case 15:
 		return syscall.SIGTERM, nil
 	case 17:
@@ -40,6 +44,10 @@ func FromString(s string) (syscall.Signal, error) {
 		return syscall.SIGABRT, nil
 	case "9", "KILL", "SIGKILL":
 		return syscall.SIGKILL, nil
+	case "10", "USR1", "SIGUSR1":
+		return syscall.SIGUSR1, nil
+	case "12", "USR2", "SIGUSR2":
+		return syscall.SIGUSR2, nil
 	case "15", "TERM", "SIGTERM":
 		return syscall.SIGTERM, nil
 	case "17", "CHLD", "SIGCHLD":

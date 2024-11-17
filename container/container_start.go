@@ -22,10 +22,6 @@ func (c *Container) Start() error {
 		return errors.New("container cannot be started in current state")
 	}
 
-	if err := c.ExecHooks("startContainer"); err != nil {
-		return fmt.Errorf("execute startContainer hooks: %w", err)
-	}
-
 	conn, err := net.Dial("unix", filepath.Join(c.Bundle(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
@@ -38,12 +34,11 @@ func (c *Container) Start() error {
 		}
 
 		// TODO: run DELETE tasks here, then...
-
 		if err := c.ExecHooks("poststop"); err != nil {
 			fmt.Println("WARNING: failed to execute poststop hooks")
 		}
 
-		return errors.New("failed to run prestart hooks")
+		return fmt.Errorf("failed to run prestart hooks: %w", err)
 	}
 
 	if _, err := conn.Write([]byte("start")); err != nil {

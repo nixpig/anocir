@@ -11,7 +11,7 @@ tests=(
   "delete"
 # "delete_only_create_resources"
 # "hooks"
-# "hooks_stdin"
+  "hooks_stdin"
   "hostname"
   "kill"
   "kill_no_effect"

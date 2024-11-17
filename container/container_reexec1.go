@@ -82,31 +82,38 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	c.initIPC.ch <- []byte("ready")
 
 	if err := ipc.WaitForMsg(listCh, "start", func() error {
-		if err := cmd.Run(); err != nil {
+		if err := cmd.Start(); err != nil {
 			c.SetStatus(specs.StateStopped)
-			if err := c.CSave(); err != nil {
+			if err := c.HSave(); err != nil {
 				return fmt.Errorf("(start 1) write state file: %w", err)
 			}
 
 			return err
 		}
+
+		c.SetStatus(specs.StateRunning)
+		if err := c.HSave(); err != nil {
+			// do something with err??
+			log.Error().Err(err).Msg("⁉️ host save state running")
+			fmt.Println(err)
+			return err
+		}
+
+		// FIXME: do these need to move up before the cmd.Wait call??
+		if err := c.ExecHooks("poststart"); err != nil {
+			// TODO: how to handle this (log a warning) from start command??
+			// FIXME: needs to 'log a warning'
+			fmt.Println("WARNING: ", err)
+		}
+
+		if err := cmd.Wait(); err != nil {
+			log.Error().Err(err).Msg("ERROR IN WAITING IN REEXEC1")
+			return err
+		}
+
 		return nil
 	}); err != nil {
 		return err
-	}
-
-	c.SetStatus(specs.StateRunning)
-	if err := c.CSave(); err != nil {
-		// do something with err??
-		log.Error().Err(err).Msg("⁉️ host save state running")
-		fmt.Println(err)
-		return err
-	}
-
-	if err := c.ExecHooks("poststart"); err != nil {
-		// TODO: how to handle this (log a warning) from start command??
-		// FIXME: needs to 'log a warning'
-		fmt.Println("WARNING: ", err)
 	}
 
 	return nil

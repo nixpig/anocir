@@ -20,7 +20,6 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	// TODO: actually do the 'deleting'; rewind all the creation steps
-
 	if err := c.ExecHooks("poststop"); err != nil {
 		fmt.Println("failed to execute poststop hooks")
 		// TODO: log a warning???

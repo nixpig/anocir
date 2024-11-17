@@ -178,6 +178,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] config_updates_without_affect
 - [x] create
 - [x] delete
+- [x] hooks_stdin
 - [x] hostname
 - [x] kill
 - [x] kill_no_effect
@@ -206,7 +207,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 - [ ] delete_only_create_resources
 - [ ] hooks
-- [ ] hooks_stdin
 - [ ] killsig
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path

@@ -21,6 +21,7 @@ func (c *Container) Kill(sig syscall.Signal) error {
 		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
 
+	// TODO: delete everything then
 	if err := c.ExecHooks("poststop"); err != nil {
 		fmt.Println("failed to execute poststop hooks")
 		// TODO: log a warning???
