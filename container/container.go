@@ -75,7 +75,7 @@ func New(
 		return nil, errors.New("root is required")
 	}
 
-	if spec.Process.Capabilities != nil {
+	if spec.Process != nil && spec.Process.Capabilities != nil {
 		if spec.Process.Capabilities.Ambient != nil {
 			for _, e := range spec.Process.Capabilities.Ambient {
 				if _, ok := capabilities.Capabilities[e]; !ok {

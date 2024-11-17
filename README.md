@@ -179,7 +179,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] create
 - [x] delete
 - [x] hostname
-- [x] kill
+- [x] kill \_(flaky)\_
 - [x] kill_no_effect
 - [x] linux_devices
 - [x] linux_masked_paths
@@ -188,7 +188,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
-- [x] misc_props
+- [x] misc_props \_(flaky)\_
 - [x] mounts
 - [x] poststart
 - [x] poststop
