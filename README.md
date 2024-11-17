@@ -179,7 +179,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] create
 - [x] delete
 - [x] hostname
-- [x] kill \_(flaky)\_
+- [x] kill
 - [x] kill_no_effect
 - [x] linux_devices
 - [x] linux_masked_paths
@@ -188,7 +188,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
-- [x] misc_props \_(flaky)\_
 - [x] mounts
 - [x] poststart
 - [x] poststop
@@ -223,6 +222,8 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 ### Unsupported tests
 
+#### linux_cgroups\_\*
+
 The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests and a few others are unable to run. For example:
 
 ```
@@ -236,7 +237,6 @@ Clean: Delete:  exit status 1
 <details>
   <summary>Full list of cgroups tests</summary>
 
-- delete_resources
 - linux_cgroups_blkio
 - linux_cgroups_cpus
 - linux_cgroups_devices
@@ -253,6 +253,11 @@ Clean: Delete:  exit status 1
 - linux_cgroups_relative_pids
 
 </details>
+
+#### Other unsupported tests
+
+- misc_props (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
+- delete_resources (depends on cgroupv2, same as linux_cgroups\_\* tests)
 
 ## Contributing
 

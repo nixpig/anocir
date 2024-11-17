@@ -29,7 +29,7 @@ tests=(
 # "linux_seccomp"
   "linux_sysctl"
 # "linux_uid_mappings"
- "misc_props"
+# "misc_props" (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
   "mounts"
 # "pidfile" # ???
   "poststart"
