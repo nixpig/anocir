@@ -181,6 +181,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] hooks_stdin
 - [x] hostname
 - [x] kill
+- [x] killsig
 - [x] kill_no_effect
 - [x] linux_devices
 - [x] linux_masked_paths
@@ -207,7 +208,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 - [ ] delete_only_create_resources
 - [ ] hooks
-- [ ] killsig
 - [ ] linux_ns_nopath
 - [ ] linux_ns_path
 - [ ] linux_ns_path_type

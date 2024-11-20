@@ -31,5 +31,5 @@ func Kill(opts *KillOpts, log *zerolog.Logger, db *database.DB) error {
 		return fmt.Errorf("failed to convert to signal: %w", err)
 	}
 
-	return cntr.Kill(s)
+	return cntr.Kill(s, log)
 }

@@ -123,5 +123,11 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	}
 
 	// we can't get logs or anything past this point
-	return cmd.Run()
+	log.Info().Any("args", c.Spec.Process.Args).Msg("💚  --- reexec2 ---")
+	if err := cmd.Run(); err != nil {
+		log.Error().Err(err).Msg("(run) error executing in reexec2")
+		return err
+	}
+
+	return nil
 }

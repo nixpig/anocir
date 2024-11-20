@@ -15,7 +15,7 @@ tests=(
   "hostname"
   "kill"
   "kill_no_effect"
-# "killsig"
+  "killsig"
   "linux_devices"
   "linux_masked_paths"
   "linux_mount_label"
