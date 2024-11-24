@@ -6,11 +6,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"github.com/nixpig/brownie/container/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
+	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Reexec1(log *zerolog.Logger) error {
@@ -20,6 +22,27 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		return fmt.Errorf("create init sock sender: %w", err)
 	}
 	defer c.initIPC.closer()
+
+	for _, ns := range c.Spec.Linux.Namespaces {
+		if ns.Path == "" {
+			continue
+		}
+
+		// FIXME: setns on "mount" and "pid" namespaces fails with EINVAL
+		// See issue in go - https://github.com/golang/go/issues/8676
+		// Solution to this used by runc - https://github.com/opencontainers/runc/tree/main/libcontainer/nsenter
+		if ns.Type == specs.PIDNamespace || ns.Type == specs.MountNamespace {
+			continue
+		}
+
+		fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
+		if err != nil {
+			return fmt.Errorf("open ns path: %w", err)
+		}
+		defer syscall.Close(fd)
+
+		syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+	}
 
 	// if opts.ConsoleSocketFD != 0 {
 	// 	log.Info().Msg("creating new terminal pty")
@@ -74,6 +97,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 			return fmt.Errorf("create oom score adj file: %w", err)
 		}
 	}
+
 	cmd := exec.Command(
 		"/proc/self/exe",
 		[]string{"reexec", "--stage", "2", c.ID()}...,

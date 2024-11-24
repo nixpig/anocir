@@ -71,6 +71,7 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 
 	if c.Spec.Process != nil {
 		if c.Spec.Process.Rlimits != nil {
+			log.Info().Any("rlimits", c.Spec.Process.Rlimits).Msg("SET RLIMITS")
 			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
 				log.Error().Err(err).Msg("set rlimits")
 				return err

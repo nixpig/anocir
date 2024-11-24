@@ -19,6 +19,13 @@ var Rlimits = map[string]uint{
 
 func SetRlimits(rlimits []specs.POSIXRlimit) error {
 	for _, rl := range rlimits {
+		if err := syscall.Getrlimit(int(Rlimits[rl.Type]), &syscall.Rlimit{
+			Cur: rl.Soft,
+			Max: rl.Hard,
+		}); err != nil {
+			return fmt.Errorf("map rlimit to kernel interface: %w", err)
+		}
+
 		if err := syscall.Setrlimit(int(Rlimits[rl.Type]), &syscall.Rlimit{
 			Cur: rl.Soft,
 			Max: rl.Hard,

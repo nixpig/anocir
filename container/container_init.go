@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/nixpig/brownie/container/cgroups"
 	"github.com/nixpig/brownie/container/namespace"
 	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
@@ -50,6 +51,7 @@ func (c *Container) Init(reexec string, arg string) error {
 	)
 
 	var cloneFlags uintptr
+	cloneFlags |= 0
 	for _, ns := range c.Spec.Linux.Namespaces {
 		ns := namespace.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
@@ -57,7 +59,10 @@ func (c *Container) Init(reexec string, arg string) error {
 			return fmt.Errorf("convert namespace to flag: %w", err)
 		}
 
-		cloneFlags |= flag
+		// if it's path-based, we need to do it in the reexec
+		if ns.Path == "" {
+			cloneFlags |= flag
+		}
 	}
 
 	var uidMappings []syscall.SysProcIDMap
@@ -95,6 +100,17 @@ func (c *Container) Init(reexec string, arg string) error {
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
 		reexecCmd.Env = c.Spec.Process.Env
+	}
+
+	if c.Spec.Process != nil && c.Spec.Process.Rlimits != nil {
+		for _, rl := range c.Spec.Process.Rlimits {
+			if err := syscall.Getrlimit(int(cgroups.Rlimits[rl.Type]), &syscall.Rlimit{
+				Cur: rl.Soft,
+				Max: rl.Hard,
+			}); err != nil {
+				return fmt.Errorf("map rlimit to kernel interface: %w", err)
+			}
+		}
 	}
 
 	reexecCmd.Stdin = c.Opts.Stdin
