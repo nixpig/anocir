@@ -224,7 +224,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 #### linux_cgroups\_\*
 
-The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests and a few others are unable to run. For example:
+The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests and a few others are unable to run and implicitly pass. For example:
 
 ```
 TAP version 13

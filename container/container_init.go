@@ -14,9 +14,11 @@ import (
 	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func (c *Container) Init(reexec string, arg string) error {
+func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
+	log.Info().Msg("init")
 	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
@@ -46,13 +48,13 @@ func (c *Container) Init(reexec string, arg string) error {
 		c.termFD = &termSock.FD
 	}
 
+	log.Info().Msg("create command")
 	reexecCmd := exec.Command(
 		reexec,
 		[]string{arg, "--stage", "1", c.ID()}...,
 	)
 
-	var cloneFlags uintptr
-	cloneFlags |= 0
+	cloneFlags := uintptr(0)
 	for _, ns := range c.Spec.Linux.Namespaces {
 		ns := namespace.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
@@ -66,37 +68,9 @@ func (c *Container) Init(reexec string, arg string) error {
 		}
 	}
 
-	var uidMappings []syscall.SysProcIDMap
-	var gidMappings []syscall.SysProcIDMap
-
-	var unshareFlags uintptr
-
-	if c.Spec.Linux.UIDMappings != nil {
-		for _, uidMapping := range c.Spec.Linux.UIDMappings {
-			uidMappings = append(uidMappings, syscall.SysProcIDMap{
-				ContainerID: int(uidMapping.ContainerID),
-				HostID:      int(uidMapping.HostID),
-				Size:        int(uidMapping.Size),
-			})
-		}
-	}
-
-	if c.Spec.Linux.GIDMappings != nil {
-		for _, gidMapping := range c.Spec.Linux.GIDMappings {
-			gidMappings = append(gidMappings, syscall.SysProcIDMap{
-				ContainerID: int(gidMapping.ContainerID),
-				HostID:      int(gidMapping.HostID),
-				Size:        int(gidMapping.Size),
-			})
-		}
-	}
-
 	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:                 cloneFlags,
-		Unshareflags:               unshareFlags,
-		GidMappingsEnableSetgroups: true,
-		UidMappings:                uidMappings,
-		GidMappings:                gidMappings,
+		Cloneflags:   cloneFlags,
+		Unshareflags: uintptr(0),
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
@@ -115,6 +89,7 @@ func (c *Container) Init(reexec string, arg string) error {
 	reexecCmd.Stdout = c.Opts.Stdout
 	reexecCmd.Stderr = c.Opts.Stderr
 
+	log.Info().Msg("start")
 	if err := reexecCmd.Start(); err != nil {
 		return fmt.Errorf("start reexec container: %w", err)
 	}
@@ -135,11 +110,13 @@ func (c *Container) Init(reexec string, arg string) error {
 		}
 	}
 
+	log.Info().Msg("release")
 	if err := reexecCmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
+		log.Info().Msg("ready!!")
 		c.SetStatus(specs.StateCreated)
 		if err := c.HSave(); err != nil {
 			return fmt.Errorf("save created state: %w", err)
