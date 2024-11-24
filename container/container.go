@@ -303,7 +303,7 @@ func (c *Container) ID() string {
 }
 
 func (c *Container) Rootfs() string {
-	if strings.Index(c.Spec.Root.Path, "/") == 0 {
+	if strings.HasPrefix(c.Spec.Root.Path, "/") {
 		return c.Spec.Root.Path
 	}
 

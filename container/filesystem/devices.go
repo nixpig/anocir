@@ -96,13 +96,7 @@ func mountDefaultDevices(rootfs string) error {
 func mountSpecDevices(devices []specs.LinuxDevice, rootfs string) error {
 	for _, dev := range devices {
 
-		var absPath string
-		if strings.Index(dev.Path, "/") == 0 {
-			relPath := strings.TrimPrefix(dev.Path, "/")
-			absPath = filepath.Join(rootfs, relPath)
-		} else {
-			absPath = filepath.Join(rootfs, dev.Path)
-		}
+		absPath := filepath.Join(rootfs, strings.TrimPrefix(dev.Path, "/"))
 
 		dt := map[string]uint32{
 			"b": unix.S_IFBLK,
