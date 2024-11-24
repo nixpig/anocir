@@ -17,7 +17,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
 	if err != nil {
-		return err
+		return fmt.Errorf("create init sock sender: %w", err)
 	}
 	defer c.initIPC.closer()
 
@@ -52,17 +52,17 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	if err := os.RemoveAll(
 		filepath.Join(c.Bundle(), containerSockFilename),
 	); err != nil {
-		return err
+		return fmt.Errorf("remove socket before creating: %w", err)
 	}
 
 	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(c.Bundle(), containerSockFilename))
 	if err != nil {
-		return err
+		return fmt.Errorf("create new socket receiver channel: %w", err)
 	}
 	defer listCloser()
 
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
-		return err
+		return fmt.Errorf("setup rootfs: %w", err)
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
@@ -71,7 +71,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 			[]byte(strconv.Itoa(*c.Spec.Process.OOMScoreAdj)),
 			0644,
 		); err != nil {
-			return err
+			return fmt.Errorf("create oom score adj file: %w", err)
 		}
 	}
 	cmd := exec.Command(
@@ -97,7 +97,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 			// do something with err??
 			log.Error().Err(err).Msg("⁉️ host save state running")
 			fmt.Println(err)
-			return err
+			return fmt.Errorf("save host container state: %w", err)
 		}
 
 		// FIXME: do these need to move up before the cmd.Wait call??
@@ -109,7 +109,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 
 		if err := cmd.Wait(); err != nil {
 			log.Error().Err(err).Msg("ERROR IN WAITING IN REEXEC1")
-			return err
+			return fmt.Errorf("waiting for cmd wait in reexec: %w", err)
 		}
 
 		return nil

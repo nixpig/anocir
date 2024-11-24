@@ -42,7 +42,7 @@ tests=(
   "process_capabilities"
   "process_capabilities_fail"
   "process_oom_score_adj"
-# "process_rlimits"
+  "process_rlimits"
 # "process_rlimits_fail"
   "process_user"
   "root_readonly_true"

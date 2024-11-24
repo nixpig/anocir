@@ -70,6 +70,13 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	}
 
 	if c.Spec.Process != nil {
+		if c.Spec.Process.Rlimits != nil {
+			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+				log.Error().Err(err).Msg("set rlimits")
+				return err
+			}
+		}
+
 		if c.Spec.Process.Capabilities != nil {
 			if err := capabilities.SetCapabilities(
 				c.Spec.Process.Capabilities,
@@ -78,15 +85,9 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 				return err
 			}
 		}
-
-		if c.Spec.Process.Rlimits != nil {
-			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-				log.Error().Err(err).Msg("set rlimits")
-				return err
-			}
-		}
 	}
 
+	log.Info().Any("args", c.Spec.Process.Args).Msg("setting up command")
 	cmd := exec.Command(
 		c.Spec.Process.Args[0],
 		c.Spec.Process.Args[1:]...,
