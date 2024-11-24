@@ -1,6 +1,7 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -104,11 +105,8 @@ func (c *Container) Init(reexec string, arg string) error {
 
 	if c.Spec.Process != nil && c.Spec.Process.Rlimits != nil {
 		for _, rl := range c.Spec.Process.Rlimits {
-			if err := syscall.Getrlimit(int(cgroups.Rlimits[rl.Type]), &syscall.Rlimit{
-				Cur: rl.Soft,
-				Max: rl.Hard,
-			}); err != nil {
-				return fmt.Errorf("map rlimit to kernel interface: %w", err)
+			if _, ok := cgroups.Rlimits[rl.Type]; !ok {
+				return errors.New("unable to map rlimit to kernel interface")
 			}
 		}
 	}

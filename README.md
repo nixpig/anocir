@@ -200,6 +200,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] process_capabilities_fail
 - [x] process_oom_score_adj
 - [x] process_rlimits
+- [x] process_rlimits_fail
 - [x] process_user
 - [x] root_readonly_true
 - [x] start
@@ -218,7 +219,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] pidfile
 - [ ] poststart_fail
 - [ ] poststop_fail
-- [ ] process_rlimits_fail
 
 ### Unsupported tests
 
