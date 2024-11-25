@@ -18,7 +18,6 @@ import (
 )
 
 func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
-	log.Info().Msg("init")
 	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
@@ -48,7 +47,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		c.termFD = &termSock.FD
 	}
 
-	log.Info().Msg("create command")
 	reexecCmd := exec.Command(
 		reexec,
 		[]string{arg, "--stage", "1", c.ID()}...,
@@ -56,6 +54,9 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 	cloneFlags := uintptr(0)
 	for _, ns := range c.Spec.Linux.Namespaces {
+		if ns.Type == "user" {
+			continue
+		}
 		ns := namespace.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
 		if err != nil {
@@ -110,11 +111,11 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().Msg("release")
 	if err := reexecCmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
+	log.Info().Msg("wait for ready")
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
 		log.Info().Msg("ready!!")
 		c.SetStatus(specs.StateCreated)

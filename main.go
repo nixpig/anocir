@@ -70,7 +70,7 @@ func main() {
 	}
 
 	// exec root
-	log.Info().Any("cmd", os.Args[1:]).Msg("executing cmd...")
+	log.Info().Any("args", os.Args[1:]).Msg("COMMAND")
 	if err := cli.RootCmd(log, db, logPath).Execute(); err != nil {
 		log.Error().Err(err).Str("cmd", os.Args[1]).Msg("failed to exec cmd")
 		fmt.Println(fmt.Errorf("ERROR: %s, %w", os.Args, err))

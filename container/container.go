@@ -12,6 +12,7 @@ import (
 	"github.com/nixpig/brownie/container/capabilities"
 	"github.com/nixpig/brownie/container/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 )
 
@@ -181,27 +182,34 @@ func Load(bundle string) (*Container, error) {
 	return cntr, nil
 }
 
-func (c *Container) RefreshState() error {
+func (c *Container) RefreshState(log *zerolog.Logger) error {
 	b, err := os.ReadFile(filepath.Join(c.Bundle(), "state.json"))
 	if err != nil {
+		log.Error().Err(err).Msg("❌ read state file")
 		return fmt.Errorf("refresh from state file: %w", err)
 	}
 
 	if err := json.Unmarshal(b, c.State); err != nil {
+		log.Error().Err(err).Msg("❌ unmarshal state")
 		return fmt.Errorf("unmarshall refreshed state: %w", err)
 	}
 
 	process, err := os.FindProcess(c.State.PID)
 	if err != nil {
+		log.Error().Err(err).Msg("❌ find process")
 		return err
 	}
 
 	if err := process.Signal(syscall.Signal(0)); err != nil {
+		log.Error().Err(err).Msg("❌ signal process")
 		c.SetStatus(specs.StateStopped)
 		if err := c.HSave(); err != nil {
+			log.Error().Err(err).Msg("❌ save container state")
 			return fmt.Errorf("(refresh) write state file: %w", err)
 		}
 	}
+
+	log.Info().Msg("⚡️ REFRESH STATE")
 
 	return nil
 }

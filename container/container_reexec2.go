@@ -10,6 +10,7 @@ import (
 	"github.com/nixpig/brownie/container/capabilities"
 	"github.com/nixpig/brownie/container/cgroups"
 	"github.com/nixpig/brownie/container/filesystem"
+	"github.com/nixpig/brownie/container/namespace"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -71,7 +72,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 
 	if c.Spec.Process != nil {
 		if c.Spec.Process.Rlimits != nil {
-			log.Info().Any("rlimits", c.Spec.Process.Rlimits).Msg("SET RLIMITS")
 			if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
 				log.Error().Err(err).Msg("set rlimits")
 				return err
@@ -88,7 +88,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 		}
 	}
 
-	log.Info().Any("args", c.Spec.Process.Args).Msg("setting up command")
 	cmd := exec.Command(
 		c.Spec.Process.Args[0],
 		c.Spec.Process.Args[1:]...,
@@ -107,13 +106,56 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 		}
 	}
 
+	cloneFlags := uintptr(0)
+	if c.Spec.Linux.Namespaces != nil {
+		for _, ns := range c.Spec.Linux.Namespaces {
+			if ns.Type == "user" {
+				ns := namespace.LinuxNamespace(ns)
+				flag, err := ns.ToFlag()
+				if err != nil {
+					return fmt.Errorf("namespace to flag: %w", err)
+				}
+				cloneFlags |= flag
+			}
+		}
+	}
+
 	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Cloneflags:  cloneFlags,
 		AmbientCaps: ambientCapsFlags,
 		Credential: &syscall.Credential{
 			Uid:    c.Spec.Process.User.UID,
 			Gid:    c.Spec.Process.User.GID,
 			Groups: c.Spec.Process.User.AdditionalGids,
 		},
+	}
+
+	if c.Spec.Linux.UIDMappings != nil {
+		var uidMappings []syscall.SysProcIDMap
+
+		for _, uidMapping := range c.Spec.Linux.UIDMappings {
+			uidMappings = append(uidMappings, syscall.SysProcIDMap{
+				ContainerID: int(uidMapping.ContainerID),
+				HostID:      int(uidMapping.HostID),
+				Size:        int(uidMapping.Size),
+			})
+		}
+
+		cmd.SysProcAttr.UidMappings = append(cmd.SysProcAttr.UidMappings, uidMappings...)
+	}
+
+	if c.Spec.Linux.GIDMappings != nil {
+		var gidMappings []syscall.SysProcIDMap
+
+		for _, gidMapping := range c.Spec.Linux.GIDMappings {
+			gidMappings = append(gidMappings, syscall.SysProcIDMap{
+				ContainerID: int(gidMapping.ContainerID),
+				HostID:      int(gidMapping.HostID),
+				Size:        int(gidMapping.Size),
+			})
+		}
+
+		cmd.SysProcAttr.GidMappings = append(cmd.SysProcAttr.GidMappings, gidMappings...)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -125,7 +167,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	}
 
 	// we can't get logs or anything past this point
-	log.Info().Any("args", c.Spec.Process.Args).Msg("💚  --- reexec2 ---")
 	// syscall.Seteuid(int(c.Spec.Process.User.UID))
 	// syscall.Setegid(int(c.Spec.Process.User.GID))
 	if err := cmd.Run(); err != nil {

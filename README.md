@@ -205,6 +205,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] root_readonly_true
 - [x] start
 - [x] state
+- [x] linux_uid_mappings
 
 ### ⚠️ To do
 
@@ -215,7 +216,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
 - [ ] linux_seccomp
-- [ ] linux_uid_mappings
 - [ ] pidfile
 - [ ] poststart_fail
 - [ ] poststop_fail

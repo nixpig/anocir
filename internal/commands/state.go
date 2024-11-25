@@ -24,7 +24,7 @@ func State(opts *StateOpts, log *zerolog.Logger, db *database.DB) (string, error
 		return "", err
 	}
 
-	if err := cntr.RefreshState(); err != nil {
+	if err := cntr.RefreshState(log); err != nil {
 		return "", err
 	}
 

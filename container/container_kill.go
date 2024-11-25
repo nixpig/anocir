@@ -48,8 +48,6 @@ func (c *Container) Kill(sig syscall.Signal, log *zerolog.Logger) error {
 		// TODO: log a warning???
 	}
 
-	log.Info().Msg("💛 sent the killsig and exiting with nil")
-
 	return nil
 }
 

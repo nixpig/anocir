@@ -16,7 +16,6 @@ import (
 )
 
 func (c *Container) Reexec1(log *zerolog.Logger) error {
-	log.Info().Msg("sending ready message!!!")
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(c.Bundle(), initSockFilename))
 	if err != nil {
@@ -103,32 +102,6 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		"/proc/self/exe",
 		[]string{"reexec", "--stage", "2", c.ID()}...,
 	)
-	var uidMappings []syscall.SysProcIDMap
-	var gidMappings []syscall.SysProcIDMap
-
-	if c.Spec.Linux.UIDMappings != nil {
-		for _, uidMapping := range c.Spec.Linux.UIDMappings {
-			uidMappings = append(uidMappings, syscall.SysProcIDMap{
-				ContainerID: int(uidMapping.ContainerID),
-				HostID:      int(uidMapping.HostID),
-				Size:        int(uidMapping.Size),
-			})
-		}
-
-		cmd.SysProcAttr.UidMappings = append(cmd.SysProcAttr.UidMappings, uidMappings...)
-	}
-
-	if c.Spec.Linux.GIDMappings != nil {
-		for _, gidMapping := range c.Spec.Linux.GIDMappings {
-			gidMappings = append(gidMappings, syscall.SysProcIDMap{
-				ContainerID: int(gidMapping.ContainerID),
-				HostID:      int(gidMapping.HostID),
-				Size:        int(gidMapping.Size),
-			})
-		}
-
-		cmd.SysProcAttr.GidMappings = append(cmd.SysProcAttr.GidMappings, gidMappings...)
-	}
 
 	c.initIPC.ch <- []byte("ready")
 
