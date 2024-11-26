@@ -97,7 +97,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 	pid := reexecCmd.Process.Pid
 	c.SetPID(pid)
-	if err := c.HSave(); err != nil {
+	if err := c.Save(); err != nil {
 		return fmt.Errorf("save pid for reexec: %w", err)
 	}
 
@@ -119,7 +119,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
 		log.Info().Msg("ready!!")
 		c.SetStatus(specs.StateCreated)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			return fmt.Errorf("save created state: %w", err)
 		}
 		return nil

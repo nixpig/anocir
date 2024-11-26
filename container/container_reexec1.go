@@ -109,7 +109,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		if err := cmd.Start(); err != nil {
 			log.Error().Err(err).Msg("🔷 failed to start container")
 			c.SetStatus(specs.StateStopped)
-			if err := c.HSave(); err != nil {
+			if err := c.Save(); err != nil {
 				return fmt.Errorf("(start 1) write state file: %w", err)
 			}
 
@@ -117,7 +117,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		}
 
 		c.SetStatus(specs.StateRunning)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			// do something with err??
 			log.Error().Err(err).Msg("⁉️ host save state running")
 			fmt.Println(err)

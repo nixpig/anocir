@@ -11,12 +11,7 @@ type StartOpts struct {
 }
 
 func Start(opts *StartOpts, log *zerolog.Logger, db *database.DB) error {
-	bundle, err := db.GetBundleFromID(opts.ID)
-	if err != nil {
-		return err
-	}
-
-	cntr, err := container.Load(bundle)
+	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return err
 	}

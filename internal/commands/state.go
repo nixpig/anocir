@@ -14,12 +14,7 @@ type StateOpts struct {
 }
 
 func State(opts *StateOpts, log *zerolog.Logger, db *database.DB) (string, error) {
-	bundle, err := db.GetBundleFromID(opts.ID)
-	if err != nil {
-		return "", err
-	}
-
-	cntr, err := container.Load(bundle)
+	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return "", err
 	}

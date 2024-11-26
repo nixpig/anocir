@@ -20,6 +20,7 @@ const (
 	initSockFilename      = "init.sock"
 	containerSockFilename = "container.sock"
 	OCIVersion            = "1.0.1-dev"
+	containerRootDir      = "/var/lib/brownie/containers"
 )
 
 type Container struct {
@@ -142,15 +143,22 @@ func New(
 		Opts:  opts,
 	}
 
-	if err := cntr.HSave(); err != nil {
+	if err := os.MkdirAll(
+		filepath.Join(containerRootDir, cntr.ID()),
+		0644,
+	); err != nil {
+		return nil, fmt.Errorf("create container directory: %w", err)
+	}
+
+	if err := cntr.Save(); err != nil {
 		return nil, fmt.Errorf("save newly created container: %w", err)
 	}
 
 	return &cntr, nil
 }
 
-func Load(bundle string) (*Container, error) {
-	s, err := os.ReadFile(filepath.Join(bundle, "state.json"))
+func Load(id string) (*Container, error) {
+	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
 	if err != nil {
 		return nil, err
 	}
@@ -160,6 +168,7 @@ func Load(bundle string) (*Container, error) {
 		return nil, err
 	}
 
+	bundle := state.Bundle
 	c, err := os.ReadFile(filepath.Join(bundle, "config.json"))
 	if err != nil {
 		return nil, err
@@ -183,7 +192,7 @@ func Load(bundle string) (*Container, error) {
 }
 
 func (c *Container) RefreshState(log *zerolog.Logger) error {
-	b, err := os.ReadFile(filepath.Join(c.Bundle(), "state.json"))
+	b, err := os.ReadFile(filepath.Join(containerRootDir, c.ID(), "state.json"))
 	if err != nil {
 		log.Error().Err(err).Msg("❌ read state file")
 		return fmt.Errorf("refresh from state file: %w", err)
@@ -203,7 +212,7 @@ func (c *Container) RefreshState(log *zerolog.Logger) error {
 	if err := process.Signal(syscall.Signal(0)); err != nil {
 		log.Error().Err(err).Msg("❌ signal process")
 		c.SetStatus(specs.StateStopped)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			log.Error().Err(err).Msg("❌ save container state")
 			return fmt.Errorf("(refresh) write state file: %w", err)
 		}
@@ -214,7 +223,7 @@ func (c *Container) RefreshState(log *zerolog.Logger) error {
 	return nil
 }
 
-func (c *Container) Save(configPath string) error {
+func (c *Container) save(configPath string) error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
@@ -227,13 +236,17 @@ func (c *Container) Save(configPath string) error {
 	return nil
 }
 
-func (c *Container) HSave() error {
-	return c.Save(filepath.Join(c.Bundle(), "state.json"))
+func (c *Container) Save() error {
+	return c.save(filepath.Join(
+		containerRootDir,
+		c.ID(),
+		"state.json"),
+	)
 }
 
-func (c *Container) CSave() error {
-	return c.Save(filepath.Join("/", "state.json"))
-}
+// func (c *Container) CSave() error {
+// 	return c.Save(filepath.Join("/", "state.json"))
+// }
 
 func (c *Container) ExecHooks(lifecycleHook string) error {
 	if c.Spec.Hooks == nil {

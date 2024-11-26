@@ -12,7 +12,7 @@ import (
 func (c *Container) Start() error {
 	if c.Spec.Process == nil {
 		c.SetStatus(specs.StateStopped)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			return fmt.Errorf("(start 1) write state file: %w", err)
 		}
 		return nil
@@ -29,7 +29,7 @@ func (c *Container) Start() error {
 
 	if err := c.ExecHooks("prestart"); err != nil {
 		c.SetStatus(specs.StateStopped)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			return fmt.Errorf("(start 2) write state file: %w", err)
 		}
 
@@ -43,7 +43,7 @@ func (c *Container) Start() error {
 
 	if _, err := conn.Write([]byte("start")); err != nil {
 		c.SetStatus(specs.StateStopped)
-		if err := c.HSave(); err != nil {
+		if err := c.Save(); err != nil {
 			return fmt.Errorf("(start 1) write state file: %w", err)
 		}
 		return fmt.Errorf("send start over ipc: %w", err)

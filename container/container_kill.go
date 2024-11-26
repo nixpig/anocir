@@ -36,7 +36,7 @@ func (c *Container) Kill(sig syscall.Signal, log *zerolog.Logger) error {
 	}
 
 	c.SetStatus(specs.StateStopped)
-	if err := c.HSave(); err != nil {
+	if err := c.Save(); err != nil {
 		log.Error().Err(err).Msg("failed to save stopped state")
 		return fmt.Errorf("failed to save stopped state: %w", err)
 	}
