@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/brownie/container"
-	"github.com/nixpig/brownie/internal/database"
 	"github.com/rs/zerolog"
 )
 
@@ -13,7 +12,7 @@ type StateOpts struct {
 	ID string
 }
 
-func State(opts *StateOpts, log *zerolog.Logger, db *database.DB) (string, error) {
+func State(opts *StateOpts, log *zerolog.Logger) (string, error) {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return "", err

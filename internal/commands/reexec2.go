@@ -4,11 +4,10 @@ import (
 	"fmt"
 
 	"github.com/nixpig/brownie/container"
-	"github.com/nixpig/brownie/internal/database"
 	"github.com/rs/zerolog"
 )
 
-func Reexec2(opts *ReexecOpts, log *zerolog.Logger, db *database.DB) error {
+func Reexec2(opts *ReexecOpts, log *zerolog.Logger) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		log.Error().Err(err).Msg("failed to load bundle")

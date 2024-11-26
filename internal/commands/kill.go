@@ -5,7 +5,6 @@ import (
 
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/container/signal"
-	"github.com/nixpig/brownie/internal/database"
 	"github.com/rs/zerolog"
 )
 
@@ -14,7 +13,7 @@ type KillOpts struct {
 	Signal string
 }
 
-func Kill(opts *KillOpts, log *zerolog.Logger, db *database.DB) error {
+func Kill(opts *KillOpts, log *zerolog.Logger) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return err

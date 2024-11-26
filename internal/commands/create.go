@@ -1,12 +1,11 @@
 package commands
 
 import (
-	"database/sql"
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/nixpig/brownie/container"
-	"github.com/nixpig/brownie/internal/database"
 	"github.com/rs/zerolog"
 )
 
@@ -17,9 +16,10 @@ type CreateOpts struct {
 	PIDFile       string
 }
 
-func Create(opts *CreateOpts, log *zerolog.Logger, db *database.DB) error {
-	_, err := db.GetBundleFromID(opts.ID)
-	if err != nil && err != sql.ErrNoRows {
+func Create(opts *CreateOpts, log *zerolog.Logger) error {
+	if _, err := os.Stat(filepath.Join(
+		"/var/lib/brownie/containers", opts.ID,
+	)); err == nil {
 		return fmt.Errorf(
 			"container already exists (%s): %w",
 			opts.ID, err,
@@ -39,10 +39,6 @@ func Create(opts *CreateOpts, log *zerolog.Logger, db *database.DB) error {
 	)
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)
-	}
-
-	if err := db.CreateContainer(opts.ID, opts.Bundle); err != nil {
-		return err
 	}
 
 	return cntr.Init("/proc/self/exe", "reexec", log)
