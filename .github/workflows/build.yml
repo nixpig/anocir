@@ -54,7 +54,7 @@ jobs:
       - name: checkout runtime-tools repo
         uses: actions/checkout@v4
         with:
-          repository: opencontainers/runtime-tools
+          repository: nixpig/runtime-tools
 
       - name: install nodejs
         uses: actions/setup-node@v4
