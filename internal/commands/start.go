@@ -15,5 +15,5 @@ func Start(opts *StartOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	return cntr.Start()
+	return cntr.Start(log)
 }

@@ -10,7 +10,7 @@ tests=(
   "create"
   "delete"
 # "delete_only_create_resources"
-# "hooks"
+  "hooks"
   "hooks_stdin"
   "hostname"
   "kill"

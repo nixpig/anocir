@@ -16,7 +16,7 @@ func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if err := cntr.Delete(opts.Force); err != nil {
+	if err := cntr.Delete(opts.Force, log); err != nil {
 		return err
 	}
 

@@ -18,11 +18,11 @@ import (
 )
 
 func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
-	if err := c.ExecHooks("createRuntime"); err != nil {
+	if err := c.ExecHooks("createRuntime", log); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
 
-	if err := c.ExecHooks("createContainer"); err != nil {
+	if err := c.ExecHooks("createContainer", log); err != nil {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
@@ -90,7 +90,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	reexecCmd.Stdout = c.Opts.Stdout
 	reexecCmd.Stderr = c.Opts.Stderr
 
-	log.Info().Msg("start")
 	if err := reexecCmd.Start(); err != nil {
 		return fmt.Errorf("start reexec container: %w", err)
 	}
@@ -115,9 +114,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
-	log.Info().Msg("wait for ready")
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
-		log.Info().Msg("ready!!")
 		c.SetStatus(specs.StateCreated)
 		if err := c.Save(); err != nil {
 			return fmt.Errorf("save created state: %w", err)

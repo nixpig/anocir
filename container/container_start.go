@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func (c *Container) Start() error {
+func (c *Container) Start(log *zerolog.Logger) error {
 	if c.Spec.Process == nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
@@ -27,14 +28,14 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial socket: %w", err)
 	}
 
-	if err := c.ExecHooks("prestart"); err != nil {
+	if err := c.ExecHooks("prestart", log); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
 			return fmt.Errorf("(start 2) write state file: %w", err)
 		}
 
 		// TODO: run DELETE tasks here, then...
-		if err := c.ExecHooks("poststop"); err != nil {
+		if err := c.ExecHooks("poststop", log); err != nil {
 			fmt.Println("WARNING: failed to execute poststop hooks")
 		}
 

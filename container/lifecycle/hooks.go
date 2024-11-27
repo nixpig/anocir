@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/rs/zerolog"
 )
 
-func ExecHooks(hooks []specs.Hook, state string) error {
+func ExecHooks(hooks []specs.Hook, state string, log *zerolog.Logger) error {
 	for _, h := range hooks {
 		ctx := context.Background()
 		if h.Timeout != nil {
@@ -25,23 +27,15 @@ func ExecHooks(hooks []specs.Hook, state string) error {
 		args = append(args, state)
 		cmd := exec.CommandContext(ctx, h.Path, args...)
 		cmd.Env = h.Env
+		cmd.Stdin = strings.NewReader(state)
 
-		stdin, err := cmd.StdinPipe()
-		if err != nil {
-			return err
-		}
-
+		log.Info().Any("path", h.Path).Any("args", args).Msg("🎣 EXECUTING HOOK")
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("start exec hook: %s %+v: %w", h.Path, h.Args, err)
+			return fmt.Errorf("start exec hook: %s %+v: %w", h.Path, args, err)
 		}
-
-		if _, err := stdin.Write([]byte(state)); err != nil {
-			return fmt.Errorf("write state to stdin: %w", err)
-		}
-		stdin.Close()
 
 		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("wait exec hook: %s %+v: %w", h.Path, h.Args, err)
+			return fmt.Errorf("wait exec hook: %s %+v: %w", h.Path, args, err)
 		}
 	}
 

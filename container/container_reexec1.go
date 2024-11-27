@@ -125,7 +125,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		}
 
 		// FIXME: do these need to move up before the cmd.Wait call??
-		if err := c.ExecHooks("poststart"); err != nil {
+		if err := c.ExecHooks("poststart", log); err != nil {
 			// TODO: how to handle this (log a warning) from start command??
 			// FIXME: needs to 'log a warning'
 			fmt.Println("WARNING: ", err)

@@ -5,9 +5,11 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"github.com/rs/zerolog"
 )
 
-func (c *Container) Delete(force bool) error {
+func (c *Container) Delete(force bool, log *zerolog.Logger) error {
 	if !force && !c.CanBeDeleted() {
 		return fmt.Errorf("container cannot be deleted in current state: %s", c.Status())
 	}
@@ -21,8 +23,8 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	// TODO: actually do the 'deleting'; rewind all the creation steps
-	if err := c.ExecHooks("poststop"); err != nil {
-		fmt.Println("failed to execute poststop hooks")
+	if err := c.ExecHooks("poststop", log); err != nil {
+		fmt.Println("WARNING: failed to execute poststop hooks")
 		// TODO: log a warning???
 	}
 

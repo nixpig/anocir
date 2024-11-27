@@ -123,6 +123,7 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:  cloneFlags,
 		AmbientCaps: ambientCapsFlags,
+		Setpgid:     true,
 		Credential: &syscall.Credential{
 			Uid:    c.Spec.Process.User.UID,
 			Gid:    c.Spec.Process.User.GID,
@@ -162,7 +163,7 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	if err := c.ExecHooks("startContainer"); err != nil {
+	if err := c.ExecHooks("startContainer", log); err != nil {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
