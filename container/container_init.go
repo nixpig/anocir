@@ -26,7 +26,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
-	initSockAddr := filepath.Join(c.Bundle(), initSockFilename)
+	initSockAddr := filepath.Join("/var/lib/brownie/containers", c.ID(), initSockFilename)
 
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewReceiver(initSockAddr)

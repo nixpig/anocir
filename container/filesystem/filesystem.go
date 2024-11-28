@@ -121,11 +121,11 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("exists: %w", err)
+				return fmt.Errorf("exists (%s): %w", dest, err)
 			}
 
 			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
-				return fmt.Errorf("make dir: %w", err)
+				return fmt.Errorf("make dir (%s): %w", dest, err)
 			}
 		}
 
@@ -142,7 +142,7 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			}
 
 			// TODO: review why this breaks everything!!
-			// o, ok := mountOptions[opt]
+			// o, ok := MountOptions[opt]
 			// if !ok {
 			// 	if !strings.HasPrefix(opt, "gid=") &&
 			// 		!strings.HasPrefix(opt, "uid=") &&
@@ -150,7 +150,6 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			// 		dataOptions = append(dataOptions, opt)
 			// 	}
 			// } else {
-			// 	log.Info().Str("opt", opt).Any("flag", o.Flag).Msg("LISTED OPTION")
 			// 	if !o.No {
 			// 		flags |= o.Flag
 			// 	} else {
@@ -164,14 +163,16 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			data = strings.Join(dataOptions, ",")
 		}
 
-		if err := mountDevice(Device{
+		d := Device{
 			Source: mount.Source,
 			Target: dest,
 			Fstype: mount.Type,
 			Flags:  uintptr(flags),
 			Data:   data,
-		}); err != nil {
-			return fmt.Errorf("mount device: %w", err)
+		}
+
+		if err := mountDevice(d); err != nil {
+			return fmt.Errorf("mount device (%+v): %w", d, err)
 		}
 	}
 
