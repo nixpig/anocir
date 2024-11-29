@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"syscall"
 
+	"github.com/containerd/cgroups/v3/cgroup1"
 	"github.com/nixpig/brownie/container/cgroups"
 	"github.com/nixpig/brownie/container/namespace"
 	"github.com/nixpig/brownie/container/terminal"
@@ -46,6 +47,31 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		}
 		c.termFD = &termSock.FD
 	}
+
+	// -------------------------------
+	// TODO: apply cgroups
+	// -------------------------------
+
+	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
+		staticPath := cgroup1.StaticPath(c.Spec.Linux.CgroupsPath)
+
+		cg, err := cgroup1.New(
+			staticPath,
+			&specs.LinuxResources{
+				Devices: c.Spec.Linux.Resources.Devices,
+			},
+		)
+		if err != nil {
+			return fmt.Errorf("apply cgroups (path: %s): %w", c.Spec.Linux.CgroupsPath, err)
+		}
+		defer cg.Delete()
+
+		cg.Add(cgroup1.Process{Pid: c.PID()})
+	}
+
+	// -------------------------------
+	// -------------------------------
+	// -------------------------------
 
 	reexecCmd := exec.Command(
 		reexec,
