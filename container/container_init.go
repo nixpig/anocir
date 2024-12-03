@@ -16,6 +16,7 @@ import (
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
+	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
@@ -79,10 +80,25 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	)
 
 	cloneFlags := uintptr(0)
+
+	var uidMappings []syscall.SysProcIDMap
+	var gidMappings []syscall.SysProcIDMap
+
 	for _, ns := range c.Spec.Linux.Namespaces {
-		if ns.Type == "user" {
-			continue
+		if ns.Type == specs.UserNamespace {
+			uidMappings = append(uidMappings, syscall.SysProcIDMap{
+				ContainerID: 0,
+				HostID:      os.Getuid(),
+				Size:        1,
+			})
+
+			gidMappings = append(gidMappings, syscall.SysProcIDMap{
+				ContainerID: 0,
+				HostID:      os.Getgid(),
+				Size:        1,
+			})
 		}
+
 		ns := namespace.LinuxNamespace(ns)
 		flag, err := ns.ToFlag()
 		if err != nil {
@@ -92,12 +108,27 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		// if it's path-based, we need to do it in the reexec
 		if ns.Path == "" {
 			cloneFlags |= flag
+		} else {
+			fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
+			if err != nil {
+				log.Error().Err(err).Str("path", ns.Path).Str("type", string(ns.Type)).Msg("failed to open namespace path")
+				return fmt.Errorf("open ns path: %w", err)
+			}
+			defer syscall.Close(fd)
+
+			log.Info().Str("path", ns.Path).Int("fd", int(fd)).Msg("writing ns path")
+			_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+			if errno != 0 {
+				log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
+			}
 		}
 	}
 
 	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:   cloneFlags,
 		Unshareflags: uintptr(0),
+		UidMappings:  uidMappings,
+		GidMappings:  gidMappings,
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {

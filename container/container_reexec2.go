@@ -10,7 +10,6 @@ import (
 	"github.com/nixpig/brownie/container/capabilities"
 	"github.com/nixpig/brownie/container/cgroups"
 	"github.com/nixpig/brownie/container/filesystem"
-	"github.com/nixpig/brownie/container/namespace"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -107,18 +106,6 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	}
 
 	cloneFlags := uintptr(0)
-	if c.Spec.Linux.Namespaces != nil {
-		for _, ns := range c.Spec.Linux.Namespaces {
-			if ns.Type == "user" {
-				ns := namespace.LinuxNamespace(ns)
-				flag, err := ns.ToFlag()
-				if err != nil {
-					return fmt.Errorf("namespace to flag: %w", err)
-				}
-				cloneFlags |= flag
-			}
-		}
-	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:  cloneFlags,

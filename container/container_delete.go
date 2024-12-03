@@ -24,8 +24,8 @@ func (c *Container) Delete(force bool, log *zerolog.Logger) error {
 
 	// TODO: actually do the 'deleting'; rewind all the creation steps
 	if err := c.ExecHooks("poststop", log); err != nil {
+		log.Warn().Err(err).Msg("failed to execute poststop hooks")
 		fmt.Println("WARNING: failed to execute poststop hooks")
-		// TODO: log a warning???
 	}
 
 	if err := os.RemoveAll(

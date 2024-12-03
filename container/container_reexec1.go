@@ -6,13 +6,11 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
-	"syscall"
 
 	"github.com/nixpig/brownie/container/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
-	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Reexec1(log *zerolog.Logger) error {
@@ -22,27 +20,6 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		return fmt.Errorf("create init sock sender: %w", err)
 	}
 	defer c.initIPC.closer()
-
-	for _, ns := range c.Spec.Linux.Namespaces {
-		if ns.Path == "" {
-			continue
-		}
-
-		// FIXME: setns on "mount" and "pid" namespaces fails with EINVAL
-		// See issue in go - https://github.com/golang/go/issues/8676
-		// Solution to this used by runc - https://github.com/opencontainers/runc/tree/main/libcontainer/nsenter
-		if ns.Type == specs.PIDNamespace || ns.Type == specs.MountNamespace {
-			continue
-		}
-
-		fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
-		if err != nil {
-			return fmt.Errorf("open ns path: %w", err)
-		}
-		defer syscall.Close(fd)
-
-		syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
-	}
 
 	// if opts.ConsoleSocketFD != 0 {
 	// 	log.Info().Msg("creating new terminal pty")
@@ -103,6 +80,9 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		[]string{"reexec", "--stage", "2", c.ID()}...,
 	)
 
+	// cmd.SysProcAttr.Unshareflags = cmd.SysProcAttr.Unshareflags | syscall.CLONE_NEWUSER
+	// cmd.SysProcAttr.Cloneflags = cmd.SysProcAttr.Cloneflags | syscall.CLONE_NEWUSER
+
 	c.initIPC.ch <- []byte("ready")
 
 	if err := ipc.WaitForMsg(listCh, "start", func() error {
@@ -128,6 +108,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		if err := c.ExecHooks("poststart", log); err != nil {
 			// TODO: how to handle this (log a warning) from start command??
 			// FIXME: needs to 'log a warning'
+			log.Warn().Err(err).Msg("failed to execute poststart hook")
 			fmt.Println("WARNING: ", err)
 		}
 

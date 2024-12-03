@@ -43,8 +43,8 @@ func (c *Container) Kill(sig syscall.Signal, log *zerolog.Logger) error {
 
 	// TODO: delete everything then
 	if err := c.ExecHooks("poststop", log); err != nil {
-		log.Error().Err(err).Msg("failed to execute poststop hooks")
-		fmt.Println("failed to execute poststop hooks")
+		log.Warn().Err(err).Msg("failed to execute poststop hooks")
+		fmt.Println("WARNING: failed to execute poststop hooks")
 		// TODO: log a warning???
 	}
 

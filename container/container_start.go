@@ -36,6 +36,7 @@ func (c *Container) Start(log *zerolog.Logger) error {
 
 		// TODO: run DELETE tasks here, then...
 		if err := c.ExecHooks("poststop", log); err != nil {
+			log.Warn().Err(err).Msg("failed to execute poststop hooks")
 			fmt.Println("WARNING: failed to execute poststop hooks")
 		}
 
