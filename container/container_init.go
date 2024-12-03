@@ -80,6 +80,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	)
 
 	cloneFlags := uintptr(0)
+	unshareFlags := uintptr(0)
 
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
@@ -105,34 +106,39 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 			return fmt.Errorf("convert namespace to flag: %w", err)
 		}
 
-		// if it's path-based, we need to do it in the reexec
 		if ns.Path == "" {
 			cloneFlags |= flag
 		} else {
-			fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
-			if err != nil {
-				log.Error().Err(err).Str("path", ns.Path).Str("type", string(ns.Type)).Msg("failed to open namespace path")
-				return fmt.Errorf("open ns path: %w", err)
-			}
-			defer syscall.Close(fd)
 
-			log.Info().Str("path", ns.Path).Int("fd", int(fd)).Msg("writing ns path")
-			_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
-			if errno != 0 {
-				log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
+			// TODO: align so the same mechanism is used for all namespaces?
+			if ns.Type == specs.MountNamespace {
+				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_mnt=%s", ns.Path))
+			} else {
+				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
+				if err != nil {
+					log.Error().Err(err).Str("path", ns.Path).Str("type", string(ns.Type)).Msg("failed to open namespace path")
+					return fmt.Errorf("open ns path: %w", err)
+				}
+				defer syscall.Close(fd)
+
+				log.Info().Str("path", ns.Path).Int("fd", int(fd)).Msg("writing ns path")
+				_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+				if errno != 0 {
+					log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
+				}
 			}
 		}
 	}
 
 	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:   cloneFlags,
-		Unshareflags: uintptr(0),
+		Unshareflags: unshareFlags,
 		UidMappings:  uidMappings,
 		GidMappings:  gidMappings,
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
-		reexecCmd.Env = c.Spec.Process.Env
+		reexecCmd.Env = append(reexecCmd.Env, c.Spec.Process.Env...)
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Rlimits != nil {

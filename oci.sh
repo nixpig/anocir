@@ -21,7 +21,7 @@ tests=(
   "linux_mount_label"
   "linux_ns_itype"
   "linux_ns_nopath"
-# "linux_ns_path"
+  "linux_ns_path"
 # "linux_ns_path_type"
 # "linux_process_apparmor_profile" # ???
   "linux_readonly_paths"
@@ -29,7 +29,7 @@ tests=(
 # "linux_seccomp"
   "linux_sysctl"
   "linux_uid_mappings"
-# "misc_props" # flaky due to test suite trying to delete container before process has exiting and status updated to stopped
+# "misc_props" # flaky due to test suite trying to delete container before process has exited and status updated to stopped
   "mounts"
 # "pidfile" # runc and youki both hang on this
   "poststart"

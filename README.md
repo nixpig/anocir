@@ -36,6 +36,17 @@ mv tmp/bin/brownie ~/.local/bin
 
 ## Usage
 
+### Notes
+
+#### cgroups
+
+Need to do some jiggery-pokery for cgroups?
+
+```
+$ sudo mkdir /sys/fs/cgroup/systemd
+$ sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
+```
+
 ### Docker
 
 > [!IMPORTANT]
@@ -189,6 +200,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_mount_label
 - [x] linux_ns_itype
 - [x] linux_ns_nopath
+- [x] linux_ns_path
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
@@ -212,7 +224,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 ### ⚠️ To do
 
 - [ ] delete_only_create_resources
-- [ ] linux_ns_path
 - [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
 - [ ] linux_seccomp

@@ -3,7 +3,6 @@ package ipc
 import (
 	"fmt"
 	"net"
-	"runtime"
 )
 
 type closer func() error
@@ -57,9 +56,6 @@ func NewReceiver(sockAddr string) (chan []byte, closer, error) {
 }
 
 func WaitForMsg(ch chan []byte, msg string, cb func() error) error {
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
 	for {
 		recv := <-ch
 

@@ -8,6 +8,7 @@ import (
 	"github.com/nixpig/brownie/internal/cli"
 	"github.com/nixpig/brownie/internal/logging"
 	"github.com/rs/zerolog"
+	"github.com/thediveo/gons"
 )
 
 const (
@@ -15,6 +16,12 @@ const (
 )
 
 func main() {
+	// check namespace status
+	if err := gons.Status(); err != nil {
+		fmt.Println("join namespace(s): ", err)
+		os.Exit(1)
+	}
+
 	// create logger
 	logPath := filepath.Join(brownieRootDir, "logs", "brownie.log")
 	log, err := logging.CreateLogger(logPath, zerolog.InfoLevel)
