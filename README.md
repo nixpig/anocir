@@ -24,6 +24,7 @@ Items remaining for me to consider this 'complete'.
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2
+- [ ] Major refactor and tidy-up
 
 ## Installation
 
