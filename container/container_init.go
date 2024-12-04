@@ -7,6 +7,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 
 	"github.com/containerd/cgroups/v3/cgroup1"
@@ -110,6 +111,10 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 			cloneFlags |= flag
 		} else {
 
+			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) {
+				return errors.New("namespace type and path do not match")
+			}
+
 			// TODO: align so the same mechanism is used for all namespaces?
 			if ns.Type == specs.MountNamespace {
 				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_mnt=%s", ns.Path))
@@ -125,6 +130,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 				_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 				if errno != 0 {
 					log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
+					return fmt.Errorf("errno: %w", err)
 				}
 			}
 		}

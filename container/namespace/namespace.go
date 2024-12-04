@@ -9,6 +9,30 @@ import (
 
 type LinuxNamespace specs.LinuxNamespace
 
+func (ns *LinuxNamespace) ToEnv() string {
+	switch ns.Type {
+	case specs.PIDNamespace:
+		return "pid"
+	case specs.NetworkNamespace:
+		return "net"
+	case specs.MountNamespace:
+		return "mnt"
+	case specs.IPCNamespace:
+		return "ipc"
+	case specs.UTSNamespace:
+		return "uts"
+	case specs.UserNamespace:
+		return "user"
+	case specs.CgroupNamespace:
+		return "cgroup"
+	case specs.TimeNamespace:
+		return "time"
+	default:
+		return ""
+	}
+
+}
+
 func (ns *LinuxNamespace) ToFlag() (uintptr, error) {
 	switch ns.Type {
 	case specs.PIDNamespace:

@@ -201,6 +201,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_ns_itype
 - [x] linux_ns_nopath
 - [x] linux_ns_path
+- [x] linux_ns_path_type
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
@@ -223,8 +224,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 ### ⚠️ To do
 
-- [ ] delete_only_create_resources
-- [ ] linux_ns_path_type
 - [ ] linux_process_apparmor_profile
 - [ ] linux_seccomp
 - [ ] pidfile
@@ -269,6 +268,7 @@ Clean: Delete:  exit status 1
 
 - misc_props (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
 - delete_resources (depends on cgroupv2, same as linux_cgroups\_\* tests)
+- delete_only_create_resources (depends on cgroupv2, same as linux_cgroups\_\* tests)
 
 ## Contributing
 

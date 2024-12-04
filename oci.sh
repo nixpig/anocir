@@ -9,7 +9,6 @@ tests=(
   "config_updates_without_affect"
   "create"
   "delete"
-# "delete_only_create_resources"
   "hooks"
   "hooks_stdin"
   "hostname"
@@ -22,7 +21,7 @@ tests=(
   "linux_ns_itype"
   "linux_ns_nopath"
   "linux_ns_path"
-# "linux_ns_path_type"
+  "linux_ns_path_type"
 # "linux_process_apparmor_profile" # ???
   "linux_readonly_paths"
   "linux_rootfs_propagation"
@@ -52,6 +51,7 @@ tests=(
   # UNSUPPORTED DUE TO CGROUPV2
   # ---------------------------
   # "delete_resources"
+  # "delete_only_create_resources"
   # "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
   # "linux_cgroups_cpus"
   # "linux_cgroups_devices"
