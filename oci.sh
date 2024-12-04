@@ -22,19 +22,19 @@ tests=(
   "linux_ns_nopath"
   "linux_ns_path"
   "linux_ns_path_type"
-# "linux_process_apparmor_profile" # ???
+  "linux_process_apparmor_profile" # test passes even though feature hasn't been implemented
   "linux_readonly_paths"
   "linux_rootfs_propagation"
-# "linux_seccomp"
+  "linux_seccomp" # test passes even though feature isn't implemented
   "linux_sysctl"
   "linux_uid_mappings"
-# "misc_props" # flaky due to test suite trying to delete container before process has exited and status updated to stopped
+  "misc_props" # flaky due to test suite trying to delete container before process has exited and status updated to stopped
   "mounts"
-# "pidfile" # runc and youki both hang on this
+# "pidfile" # runc also hangs on this
   "poststart"
-# "poststart_fail" # runc and youki both fail this
+# "poststart_fail" # runc also fails this
   "poststop"
-# "poststop_fail" # runc and youki both fail this
+# "poststop_fail" # runc fails this
   "prestart"
   "prestart_fail"
   "process"
@@ -48,15 +48,15 @@ tests=(
   "start"
   "state"
 
-  # UNSUPPORTED DUE TO CGROUPV2
+  # Unsupported; see note in readme.
   # ---------------------------
   # "delete_resources"
   # "delete_only_create_resources"
   # "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
-  "linux_cgroups_cpus"
+  # "linux_cgroups_cpus"
   # "linux_cgroups_devices"
   # "linux_cgroups_hugetlb"
-  "linux_cgroups_memory"
+  # "linux_cgroups_memory"
   # "linux_cgroups_network"
   # "linux_cgroups_pids"
   # "linux_cgroups_relative_blkio" # use of features deprecated in Linux kernel 5.0

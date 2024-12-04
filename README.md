@@ -2,15 +2,27 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime, attempting to implement the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md). See the [Progress](#progress) section below for progress against that goal.
+An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md). See the [Progress](#progress) section below for progress against that goal.
 
 > [!NOTE]
 >
-> 📅 **October 1st, 2024**
+> 📅 **December 4<sup>th</sup>, 2024**
 >
-> ✅ `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+> `brownie` passes all [_passable_](#broken-tests) tests in the opencontainers OCI runtime test suite.
+>
+> 📅 **October 1<sup>st</sup>, 2024**
+>
+> `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
+
+> [!NOTE]
+>
+> **🗒️ To do**
+>
+> - seccomp
+> - apparmor
+> - cgroupsv2
 
 ## Installation
 
@@ -205,6 +217,7 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] linux_readonly_paths
 - [x] linux_rootfs_propagation
 - [x] linux_sysctl
+- [x] misc_props (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
 - [x] mounts
 - [x] poststart
 - [x] poststop
@@ -222,53 +235,50 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 - [x] state
 - [x] linux_uid_mappings
 
-### ⚠️ To do
+### ⚠️ Unsupported tests
 
-- [ ] linux_process_apparmor_profile
-- [ ] linux_seccomp
+#### cgroups v1 & v2 support
 
-### Unsupported tests
+The OCI Runtime Spec test suite provided by opencontainers _does_ support cgroup v1.
 
-#### linux_cgroups\_\*
+The OCI Runtime Spec test suite provided by opencontainers [_does not_ support cgroup v2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73).
 
-The OCI Runtime Spec test suite provided by opencontainers [appears not to support cgroupv2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73), thus all of the `linux_cgroups_*` tests and a few others are unable to run and implicitly pass. For example:
-
-```
-TAP version 13
-not ok 1 - find devices
-# cgroupv2 is not supported yet
-Clean: Delete:  exit status 1
-1..1
-```
+`brownie` currently implements cgroup v1 (v2 will be looked at in future!). However, like `runc` and other container runtimes, the `find x cgroup` tests pass and the `get x cgroup data` tests fail.
 
 <details>
   <summary>Full list of cgroups tests</summary>
 
-- linux_cgroups_blkio
-- linux_cgroups_cpus
-- linux_cgroups_devices
-- linux_cgroups_hugetlb
-- linux_cgroups_memory
-- linux_cgroups_network
-- linux_cgroups_pids
-- linux_cgroups_relative_blkio
-- linux_cgroups_relative_cpus
-- linux_cgroups_relative_devices
-- linux_cgroups_relative_hugetlb
-- linux_cgroups_relative_memory
-- linux_cgroups_relative_network
-- linux_cgroups_relative_pids
+- [ ] ~~linux_cgroups_blkio~~
+- [ ] ~~linux_cgroups_cpus~~
+- [ ] ~~linux_cgroups_devices~~
+- [ ] ~~linux_cgroups_hugetlb~~
+- [ ] ~~linux_cgroups_memory~~
+- [ ] ~~linux_cgroups_network~~
+- [ ] ~~linux_cgroups_pids~~
+- [ ] ~~linux_cgroups_relative_blkio~~
+- [ ] ~~linux_cgroups_relative_cpus~~
+- [ ] ~~linux_cgroups_relative_devices~~
+- [ ] ~~linux_cgroups_relative_hugetlb~~
+- [ ] ~~linux_cgroups_relative_memory~~
+- [ ] ~~linux_cgroups_relative_network~~
+- [ ] ~~linux_cgroups_relative_pids~~
+- [ ] ~~delete_resources~~
+- [ ] ~~delete_only_create_resources~~
 
 </details>
 
-#### Other unsupported tests
+#### Broken tests
 
-- [ ] ~~misc_props~~ (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
-- [ ] ~~delete_resources~~ (depends on cgroupv2, same as linux_cgroups\_\* tests)
-- [ ] ~~delete_only_create_resources~~ (depends on cgroupv2, same as linux_cgroups\_\* tests)
-- [ ] ~~pidfile~~ (runc also doesn't pass this test)
-- [ ] ~~poststart_fail~~ (runc also doesn't pass this test)
-- [ ] ~~poststop_fail~~ (runc also doesn't pass this test)
+Tests failed by `runc` and other container runtimes. In some cases the tests may be broken; in others, who knows. Either way, for my purposes, parity with other runtimes is more important than passing the tests.
+
+- [ ] ~~pidfile~~
+- [ ] ~~poststart_fail~~
+- [ ] ~~poststop_fail~~
+
+Tests that 'pass' even though the feature hasn't been implemented. May indicate a bad test.
+
+- [ ] ~~linux_process_apparmor_profile~~
+- [ ] ~~linux_seccomp~~
 
 ## Contributing
 
