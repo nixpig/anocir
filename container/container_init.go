@@ -185,6 +185,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
+		log.Info().Msg("received ready")
 		c.SetStatus(specs.StateCreated)
 		if err := c.Save(); err != nil {
 			return fmt.Errorf("save created state: %w", err)

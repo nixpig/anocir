@@ -43,6 +43,7 @@ func (c *Container) Start(log *zerolog.Logger) error {
 		return fmt.Errorf("failed to run prestart hooks: %w", err)
 	}
 
+	log.Info().Msg("sending start")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {

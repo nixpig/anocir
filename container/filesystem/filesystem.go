@@ -21,6 +21,10 @@ func mountDevice(device Device) error {
 		}
 	}
 
+	if device.Fstype == "cgroup" {
+		return nil
+	}
+
 	if err := syscall.Mount(
 		device.Source,
 		device.Target,

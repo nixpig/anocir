@@ -16,13 +16,14 @@ An experimental Linux container runtime, implementing the [OCI Runtime Spec](htt
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
-> [!NOTE]
->
-> **🗒️ To do**
->
-> - seccomp
-> - apparmor
-> - cgroupsv2
+## 🗒️ To do
+
+Items remaining for me to consider this 'complete'.
+
+- [ ] Fix stdin/stdout for 'run'
+- [ ] Implement seccomp
+- [ ] Implement AppArmor
+- [ ] Implement cgroups v2
 
 ## Installation
 

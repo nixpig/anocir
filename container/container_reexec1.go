@@ -61,9 +61,11 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	}
 	defer listCloser()
 
+	log.Info().Msg("before setup rootfs")
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
 		return fmt.Errorf("setup rootfs: %w", err)
 	}
+	log.Info().Msg("after setup rootfs")
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
 		if err := os.WriteFile(
@@ -83,9 +85,12 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	// cmd.SysProcAttr.Unshareflags = cmd.SysProcAttr.Unshareflags | syscall.CLONE_NEWUSER
 	// cmd.SysProcAttr.Cloneflags = cmd.SysProcAttr.Cloneflags | syscall.CLONE_NEWUSER
 
+	log.Info().Msg("sending ready to channel")
 	c.initIPC.ch <- []byte("ready")
 
+	log.Info().Msg("waiting on start")
 	if err := ipc.WaitForMsg(listCh, "start", func() error {
+		log.Info().Msg("starting...")
 		if err := cmd.Start(); err != nil {
 			log.Error().Err(err).Msg("🔷 failed to start container")
 			c.SetStatus(specs.StateStopped)
