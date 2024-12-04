@@ -53,10 +53,10 @@ tests=(
   # "delete_resources"
   # "delete_only_create_resources"
   # "linux_cgroups_blkio" # use of features deprecated in Linux kernel 5.0
-  # "linux_cgroups_cpus"
+  "linux_cgroups_cpus"
   # "linux_cgroups_devices"
   # "linux_cgroups_hugetlb"
-  # "linux_cgroups_memory"
+  "linux_cgroups_memory"
   # "linux_cgroups_network"
   # "linux_cgroups_pids"
   # "linux_cgroups_relative_blkio" # use of features deprecated in Linux kernel 5.0
