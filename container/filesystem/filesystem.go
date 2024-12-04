@@ -21,6 +21,7 @@ func mountDevice(device Device) error {
 		}
 	}
 
+	// added to satisfy 'docker run' issue
 	if device.Fstype == "cgroup" {
 		return nil
 	}

@@ -2,28 +2,19 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md). See the [Progress](#progress) section below for progress against that goal.
+An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).
 
-> [!NOTE]
->
-> 📅 **December 4<sup>th</sup>, 2024**
->
-> `brownie` passes all [_passable_](#broken-tests) tests in the opencontainers OCI runtime test suite.
->
-> 📅 **October 1<sup>st</sup>, 2024**
->
-> `brownie` passes all 270 _default_ tests in the [opencontainers OCI runtime test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
-This is a personal project for me to explore and better understand the OCI Runtime Spec to support other projects I'm working on. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
+As of 📅 December 4<sup>th</sup>, 2024, `brownie` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `brownie` is feature-complete...yet. See below for outstanding items.
 
-## 🗒️ To do
+**🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
-Items remaining for me to consider this 'complete'.
-
-- [ ] Fix stdin/stdout for 'run'
+- [ ] Fix stdio for `docker run`
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2
+- [ ] Integration tests for Docker
 - [ ] Major refactor and tidy-up
 
 ## Installation
