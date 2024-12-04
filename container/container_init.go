@@ -111,8 +111,9 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 			cloneFlags |= flag
 		} else {
 
-			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) {
-				return errors.New("namespace type and path do not match")
+			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) &&
+				ns.Type != specs.PIDNamespace {
+				return fmt.Errorf("namespace type (%s) and path (%s) do not match", ns.Type, ns.Path)
 			}
 
 			// TODO: align so the same mechanism is used for all namespaces?
