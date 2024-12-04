@@ -226,9 +226,6 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 - [ ] linux_process_apparmor_profile
 - [ ] linux_seccomp
-- [ ] pidfile
-- [ ] poststart_fail
-- [ ] poststop_fail
 
 ### Unsupported tests
 
@@ -266,9 +263,12 @@ Clean: Delete:  exit status 1
 
 #### Other unsupported tests
 
-- misc_props (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
-- delete_resources (depends on cgroupv2, same as linux_cgroups\_\* tests)
-- delete_only_create_resources (depends on cgroupv2, same as linux_cgroups\_\* tests)
+- [ ] ~~misc_props~~ (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
+- [ ] ~~delete_resources~~ (depends on cgroupv2, same as linux_cgroups\_\* tests)
+- [ ] ~~delete_only_create_resources~~ (depends on cgroupv2, same as linux_cgroups\_\* tests)
+- [ ] ~~pidfile~~ (runc also doesn't pass this test)
+- [ ] ~~poststart_fail~~ (runc also doesn't pass this test)
+- [ ] ~~poststop_fail~~ (runc also doesn't pass this test)
 
 ## Contributing
 
