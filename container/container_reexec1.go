@@ -58,6 +58,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		}
 	} else {
 		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
+		fmt.Println("TODO: implement fallback stdio??")
 	}
 
 	cmd := exec.Command(
