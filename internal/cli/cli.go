@@ -124,6 +124,8 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 		},
 	}
 
+	kill.Flags().BoolP("all", "a", false, "all (docker)??")
+
 	return kill
 }
 

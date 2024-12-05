@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/nixpig/brownie/container/filesystem"
+	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -20,33 +21,6 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		return fmt.Errorf("create init sock sender: %w", err)
 	}
 	defer c.initIPC.closer()
-
-	// if opts.ConsoleSocketFD != 0 {
-	// 	log.Info().Msg("creating new terminal pty")
-	// 	pty, err := terminal.NewPty()
-	// 	if err != nil {
-	// 		return err
-	// 	}
-	// 	defer pty.Close()
-	//
-	// 	log.Info().Msg("connecting to terminal pty")
-	// 	if err := pty.Connect(); err != nil {
-	// 		return err
-	// 	}
-	//
-	// 	log.Info().Msg("opening terminal pty socket")
-	// 	consoleSocketPty := terminal.OpenPtySocket(
-	// 		opts.ConsoleSocketFD,
-	// 		opts.ConsoleSocketPath,
-	// 	)
-	// 	defer consoleSocketPty.Close()
-	//
-	// 	// FIXME: how do we pass ptysocket struct between fork?
-	// 	log.Info().Msg("send message over terminal pty socket")
-	// 	if err := consoleSocketPty.SendMsg(pty); err != nil {
-	// 		return err
-	// 	}
-	// }
 
 	// set up the socket _before_ pivot root
 	if err := os.RemoveAll(
@@ -75,6 +49,15 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		); err != nil {
 			return fmt.Errorf("create oom score adj file: %w", err)
 		}
+	}
+
+	if c.State.ConsoleSocket != nil {
+		if err := terminal.SetupConsole(*c.State.ConsoleSocket); err != nil {
+			log.Error().Err(err).Int("fd", *c.State.ConsoleSocket).Msg("failed to setup console")
+			return fmt.Errorf("setup console: %w", err)
+		}
+	} else {
+		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
 	}
 
 	cmd := exec.Command(

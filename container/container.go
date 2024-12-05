@@ -33,12 +33,13 @@ type Container struct {
 }
 
 type ContainerState struct {
-	Version     string               `json:"ociVersion"`
-	ID          string               `json:"id"`
-	Bundle      string               `json:"bundle"`
-	Annotations map[string]string    `json:"annotations"`
-	Status      specs.ContainerState `json:"status"`
-	PID         int                  `json:"pid"`
+	Version       string               `json:"ociVersion"`
+	ID            string               `json:"id"`
+	Bundle        string               `json:"bundle"`
+	Annotations   map[string]string    `json:"annotations"`
+	Status        specs.ContainerState `json:"status"`
+	PID           int                  `json:"pid"`
+	ConsoleSocket *int                 `json:"consoleSocket"`
 }
 
 type ipcCtrl struct {

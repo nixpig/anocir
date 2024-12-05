@@ -30,13 +30,17 @@ func ExecHooks(hooks []specs.Hook, state string, log *zerolog.Logger) error {
 		cmd.Stdin = strings.NewReader(state)
 
 		log.Info().Any("path", h.Path).Any("args", args).Msg("🎣 EXECUTING HOOK")
-		if err := cmd.Start(); err != nil {
+
+		if out, err := cmd.CombinedOutput(); err != nil {
+			log.Error().
+				Str("out", string(out)).
+				Msg("stderr and stdout")
 			return fmt.Errorf("start exec hook: %s %+v: %w", h.Path, args, err)
 		}
 
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("wait exec hook: %s %+v: %w", h.Path, args, err)
-		}
+		// if err := cmd.Wait(); err != nil {
+		// 	return fmt.Errorf("wait exec hook: %s %+v: %w", h.Path, args, err)
+		// }
 	}
 
 	return nil

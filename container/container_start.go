@@ -29,11 +29,6 @@ func (c *Container) Start(log *zerolog.Logger) error {
 	}
 
 	if err := c.ExecHooks("prestart", log); err != nil {
-		c.SetStatus(specs.StateStopped)
-		if err := c.Save(); err != nil {
-			return fmt.Errorf("(start 2) write state file: %w", err)
-		}
-
 		// TODO: run DELETE tasks here, then...
 		if err := c.ExecHooks("poststop", log); err != nil {
 			log.Warn().Err(err).Msg("failed to execute poststop hooks")
@@ -45,10 +40,6 @@ func (c *Container) Start(log *zerolog.Logger) error {
 
 	log.Info().Msg("sending start")
 	if _, err := conn.Write([]byte("start")); err != nil {
-		c.SetStatus(specs.StateStopped)
-		if err := c.Save(); err != nil {
-			return fmt.Errorf("(start 1) write state file: %w", err)
-		}
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()

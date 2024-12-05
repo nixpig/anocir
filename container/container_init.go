@@ -43,16 +43,16 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		c.Opts.ConsoleSocket != ""
 
 	if useTerminal {
-		termSock, err := terminal.New(c.Opts.ConsoleSocket)
+		consoleSocket, err := terminal.SetupConsoleSocket(
+			filepath.Join("/var/lib/brownie/containers", c.ID()),
+			c.Opts.ConsoleSocket,
+			"console-socket",
+		)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}
-		c.termFD = &termSock.FD
+		c.State.ConsoleSocket = consoleSocket
 	}
-
-	// -------------------------------
-	// TODO: apply cgroups
-	// -------------------------------
 
 	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
 		staticPath := cgroup1.StaticPath(c.Spec.Linux.CgroupsPath)
@@ -70,10 +70,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 		cg.Add(cgroup1.Process{Pid: c.PID()})
 	}
-
-	// -------------------------------
-	// -------------------------------
-	// -------------------------------
 
 	reexecCmd := exec.Command(
 		reexec,
