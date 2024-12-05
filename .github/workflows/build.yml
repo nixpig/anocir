@@ -6,10 +6,6 @@ on:
       - main
 
   workflow_dispatch:
-    inputs:
-      reason:
-        description: "Reason for manual trigger"
-        required: true
 
 jobs:
   build:
@@ -41,20 +37,14 @@ jobs:
           name: binary
           path: tmp/bin/brownie
 
-      - name: upload test artifact
-        uses: actions/upload-artifact@master
-        with:
-          name: test
-          path: oci.sh
-
   test:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: checkout runtime-tools repo
+      - name: checkout brownie repo
         uses: actions/checkout@v4
         with:
-          repository: nixpig/runtime-tools
+          submodules: true
 
       - name: install nodejs
         uses: actions/setup-node@v4
@@ -62,9 +52,11 @@ jobs:
           node-version: 20.9.0
 
       - name: install tap
+        working-directory: test/runtime-tools
         run: npm install tap
 
       - name: build runtime-tools
+        working-directory: test/runtime-tools
         run: make runtimetest validation-executables
 
       - name: download binary artifact
@@ -73,15 +65,10 @@ jobs:
           name: binary
           path: .
 
-      - name: download test artifact
-        uses: actions/download-artifact@master
-        with:
-          name: test
-          path: .
-
       - name: chmod brownie
         run: chmod 755 ./brownie
 
       - name: run oci tests
+        working-directory: test/runtime-tools
         run: |
-          sudo RUNTIME=./brownie bash ./oci.sh
+          sudo RUNTIME=../../brownie ../oci-integration.sh

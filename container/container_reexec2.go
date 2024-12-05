@@ -7,9 +7,9 @@ import (
 	"slices"
 	"syscall"
 
-	"github.com/nixpig/brownie/container/capabilities"
-	"github.com/nixpig/brownie/container/cgroups"
-	"github.com/nixpig/brownie/container/filesystem"
+	"github.com/nixpig/brownie/capabilities"
+	"github.com/nixpig/brownie/cgroups"
+	"github.com/nixpig/brownie/filesystem"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -157,6 +157,7 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	// we can't get logs or anything past this point
 	// syscall.Seteuid(int(c.Spec.Process.User.UID))
 	// syscall.Setegid(int(c.Spec.Process.User.GID))
+	log.Info().Str("cmd", cmd.Args[0]).Any("args", cmd.Args[1:]).Msg("process")
 	if err := cmd.Run(); err != nil {
 		log.Error().Err(err).Msg("(run) error executing in reexec2")
 		return err

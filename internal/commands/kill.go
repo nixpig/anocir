@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nixpig/brownie/container"
-	"github.com/nixpig/brownie/container/signal"
+	"github.com/nixpig/brownie/signal"
 	"github.com/rs/zerolog"
 )
 

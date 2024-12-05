@@ -1,0 +1,14 @@
+TAP version 13
+tar: rootfs-amd64.tar.gz: Cannot open: No such file or directory
+tar: Error is not recoverable: exiting now
+  ---
+  {
+    "actual": "",
+    "expected": "",
+    "level": "MUST",
+    "namespace type": "",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+not ok 1 - cannot run validation tests: exit status 2
+1..1

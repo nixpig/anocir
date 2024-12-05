@@ -1,0 +1,52 @@
+TAP version 13
+not ok 1 - set ipc namespace by path
+  ---
+  {
+    "actual": "err == cannot read namespace link for the unshare process: readlink /proc/13015/ns/ipc: no such file or directory",
+    "expected": "err == nil",
+    "level": "MUST",
+    "namespace type": "ipc",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+not ok 2 - set mnt namespace by path
+  ---
+  {
+    "actual": "err == cannot read namespace link for the unshare process: readlink /proc/13016/ns/mnt: no such file or directory",
+    "expected": "err == nil",
+    "level": "MUST",
+    "namespace type": "mnt",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+not ok 3 - set net namespace by path
+  ---
+  {
+    "actual": "err == cannot read namespace link for the unshare process: readlink /proc/13017/ns/net: no such file or directory",
+    "expected": "err == nil",
+    "level": "MUST",
+    "namespace type": "net",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+not ok 4 - set pid namespace by path
+  ---
+  {
+    "actual": "err == cannot read namespace link for the unshare process: readlink /proc/13018/ns/pid_for_children: no such file or directory",
+    "expected": "err == nil",
+    "level": "MUST",
+    "namespace type": "pid",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+not ok 5 - set uts namespace by path
+  ---
+  {
+    "actual": "err == cannot read namespace link for the unshare process: readlink /proc/13019/ns/uts: no such file or directory",
+    "expected": "err == nil",
+    "level": "MUST",
+    "namespace type": "uts",
+    "reference": "https://github.com/opencontainers/runtime-spec/blob/v1.1.0/config-linux.md#namespaces"
+  }
+  ...
+1..5

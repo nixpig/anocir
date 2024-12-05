@@ -9,8 +9,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nixpig/brownie/container/capabilities"
-	"github.com/nixpig/brownie/container/lifecycle"
+	"github.com/nixpig/brownie/capabilities"
+	"github.com/nixpig/brownie/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
@@ -33,12 +33,13 @@ type Container struct {
 }
 
 type ContainerState struct {
-	Version     string               `json:"ociVersion"`
-	ID          string               `json:"id"`
-	Bundle      string               `json:"bundle"`
-	Annotations map[string]string    `json:"annotations"`
-	Status      specs.ContainerState `json:"status"`
-	PID         int                  `json:"pid"`
+	Version       string               `json:"ociVersion"`
+	ID            string               `json:"id"`
+	Bundle        string               `json:"bundle"`
+	Annotations   map[string]string    `json:"annotations"`
+	Status        specs.ContainerState `json:"status"`
+	PID           int                  `json:"pid"`
+	ConsoleSocket *int                 `json:"consoleSocket"`
 }
 
 type ipcCtrl struct {
@@ -210,7 +211,6 @@ func (c *Container) RefreshState(log *zerolog.Logger) error {
 	}
 
 	if err := process.Signal(syscall.Signal(0)); err != nil {
-		log.Info().Msg("(refresh) process is stopped")
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
 			log.Error().Err(err).Msg("(refresh) failed to save container state")
