@@ -157,6 +157,7 @@ func (c *Container) Reexec2(log *zerolog.Logger) error {
 	// we can't get logs or anything past this point
 	// syscall.Seteuid(int(c.Spec.Process.User.UID))
 	// syscall.Setegid(int(c.Spec.Process.User.GID))
+	log.Info().Str("cmd", cmd.Args[0]).Any("args", cmd.Args[1:]).Msg("running process in container")
 	if err := cmd.Run(); err != nil {
 		log.Error().Err(err).Msg("(run) error executing in reexec2")
 		return err

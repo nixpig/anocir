@@ -1,27 +1,60 @@
 package terminal
 
 import (
+	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
+	"unsafe"
 
 	"github.com/google/goterm/term"
+	"golang.org/x/sys/unix"
 )
 
-type Terminal struct {
-	FD int
+type Pty struct {
+	master *os.File
+	slave  *os.File
 }
 
-func SetupConsoleSocket(
-	containerDir,
-	consoleSocketPath,
-	socketName string,
-) (*int, error) {
-	if err := os.Symlink(consoleSocketPath, filepath.Join(containerDir, socketName)); err != nil {
-		return nil, fmt.Errorf("create socket symlink: %w", err)
+func NewPty() (*Pty, error) {
+	pty, err := term.OpenPTY()
+	if err != nil {
+		return nil, fmt.Errorf("open pty: %w", err)
 	}
 
+	master, slave := pty.Master, pty.Slave
+
+	return &Pty{
+		master: master,
+		slave:  slave,
+	}, nil
+}
+
+func (p *Pty) Connect() error {
+	if _, err := unix.Setsid(); err != nil {
+		return fmt.Errorf("setsid: %w", err)
+	}
+
+	if err := syscall.Dup2(int(p.slave.Fd()), 0); err != nil {
+		return fmt.Errorf("dup2 stdin: %w", err)
+	}
+
+	if err := syscall.Dup2(int(p.slave.Fd()), 1); err != nil {
+		return fmt.Errorf("dup2 stdout: %w", err)
+	}
+
+	if err := syscall.Dup2(int(p.slave.Fd()), 2); err != nil {
+		return fmt.Errorf("dup2 stderr: %w", err)
+	}
+
+	return nil
+}
+
+type PtySocket struct {
+	SocketFd int
+}
+
+func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 	fd, err := syscall.Socket(
 		syscall.AF_UNIX,
 		syscall.SOCK_STREAM,
@@ -34,58 +67,51 @@ func SetupConsoleSocket(
 	if err := syscall.Connect(
 		fd,
 		&syscall.SockaddrUnix{
-			Name: filepath.Join(containerDir, socketName),
+			Name: consoleSocketPath,
 		},
 	); err != nil {
 		return nil, fmt.Errorf("connect to console socket: %w", err)
 	}
 
-	return &fd, nil
+	return &PtySocket{
+		SocketFd: fd,
+	}, nil
 }
 
-func SetupConsole(fd int) error {
-	pty, err := term.OpenPTY()
-	if err != nil {
-		return fmt.Errorf("open pty: %w", err)
-	}
-
-	master, slave := pty.Master, pty.Slave
-
-	fds := []int{int(master.Fd())}
-	rights := syscall.UnixRights(fds...)
-
-	if err := syscall.Sendmsg(
-		fd,
-		[]byte("/dev/ptmx"),
-		rights,
-		nil,
-		0,
-	); err != nil {
-		return fmt.Errorf("terminal sendmsg: %w", err)
-	}
-
-	if err := connectStdio(int(slave.Fd()), int(slave.Fd()), int(slave.Fd())); err != nil {
-		return fmt.Errorf("connect to slave: %w", err)
-	}
-
-	if err := syscall.Close(fd); err != nil {
+func (ps *PtySocket) Close() error {
+	if err := syscall.Close(ps.SocketFd); err != nil {
 		return fmt.Errorf("close console socket: %w", err)
 	}
 
 	return nil
 }
 
-func connectStdio(stdin, stdout, stderr int) error {
-	if err := syscall.Dup2(stdin, 0); err != nil {
-		return fmt.Errorf("dup2 stdin from %d: %w", stdin, err)
+func SendPty(consoleSocket int, pty *Pty) error {
+	masterFds := []int{int(pty.master.Fd())}
+
+	cmsg := syscall.UnixRights(masterFds...)
+
+	size := unsafe.Sizeof(pty.master.Fd())
+
+	buf := make([]byte, size)
+
+	switch size {
+	case 4:
+		binary.NativeEndian.PutUint32(buf, uint32(pty.master.Fd()))
+	case 8:
+		binary.NativeEndian.PutUint64(buf, uint64(pty.master.Fd()))
+	default:
+		panic("done fucked up")
 	}
 
-	if err := syscall.Dup2(stdout, 1); err != nil {
-		return fmt.Errorf("dup2 stdout from %d: %w", stdout, err)
-	}
-
-	if err := syscall.Dup2(stderr, 2); err != nil {
-		return fmt.Errorf("dup2 stderr from %d: %w", stderr, err)
+	if err := syscall.Sendmsg(
+		consoleSocket,
+		buf,
+		cmsg,
+		nil,
+		0,
+	); err != nil {
+		return fmt.Errorf("terminal sendmsg: %w", err)
 	}
 
 	return nil

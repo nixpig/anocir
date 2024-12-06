@@ -43,15 +43,13 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		c.Opts.ConsoleSocket != ""
 
 	if useTerminal {
-		consoleSocket, err := terminal.SetupConsoleSocket(
-			filepath.Join("/var/lib/brownie/containers", c.ID()),
+		consoleSocket, err := terminal.NewPtySocket(
 			c.Opts.ConsoleSocket,
-			"console-socket",
 		)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}
-		c.State.ConsoleSocket = consoleSocket
+		c.State.ConsoleSocket = &consoleSocket.SocketFd
 	}
 
 	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {

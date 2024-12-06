@@ -35,7 +35,7 @@ func ExecHooks(hooks []specs.Hook, state string, log *zerolog.Logger) error {
 			log.Error().
 				Str("out", string(out)).
 				Msg("stderr and stdout")
-			return fmt.Errorf("start exec hook: %s %+v: %w", h.Path, args, err)
+			return fmt.Errorf("start exec hook: (path: %s) (args: %+v) (out: %s): %w", h.Path, args, string(out), err)
 		}
 
 		// if err := cmd.Wait(); err != nil {
