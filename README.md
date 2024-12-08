@@ -6,15 +6,14 @@ An experimental Linux container runtime, implementing the [OCI Runtime Spec](htt
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
-As of 📅 December 4<sup>th</sup>, 2024, `brownie` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `brownie` is feature-complete...yet. See below for outstanding items.
+`brownie` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `brownie` is feature-complete...yet. See below for outstanding items.
 
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
-- [ ] Fix stdio for `docker run`
+- [ ] Docker compatibility
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2
-- [ ] Integration tests for Docker
 - [ ] Major refactor and tidy-up
 
 ## Installation
@@ -41,24 +40,14 @@ mv tmp/bin/brownie ~/.local/bin
 
 ## Usage
 
-### Notes
-
-#### cgroups
-
-Need to do some jiggery-pokery for cgroups?
-
-```
-$ sudo mkdir /sys/fs/cgroup/systemd
-$ sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
-```
+> [!NOTE]
+>
+> Some jiggery-pokery is required for cgroups to work. Needs further investigation.
+> 
+>     $ sudo mkdir /sys/fs/cgroup/systemd
+>     $ sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
 
 ### Docker
-
-> [!IMPORTANT]
->
-> Using `brownie` as a drop in replacement for `runc` in Docker is currently broken and I don't know why. FWIW, other runtimes seem to also be broken, so maybe it's just 'on my machine'.
->
-> Until I get around to investigating and fixing this, you may get issues, should you choose to try it.
 
 By default, the Docker daemon uses the `runc` container runtime. `brownie` can be used as a drop-in replacement for `runc`.
 
@@ -78,7 +67,7 @@ docker run -it --runtime brownie busybox sh
 
 ### CLI
 
-The `brownie` CLI is a wrapper around the [brownie core library](#library) and implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
+The `brownie` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
 
 #### `brownie create`
 
@@ -163,7 +152,7 @@ Flags:
 
 The `container` package of `brownie` can be used directly as a library (in the same way that the CLI does).
 
-The consumer will be responsible for all of the 'bookkeeping', e.g. tracking the location of container bundles, reexec process.
+The consumer will be responsible for all of the necessary 'bookkeeping'.
 
 #### Example
 
@@ -268,7 +257,7 @@ Tests failed by `runc` and other container runtimes. In some cases the tests may
 - [ ] ~~poststart_fail~~
 - [ ] ~~poststop_fail~~
 
-Tests that 'pass' even though the feature hasn't been implemented. May indicate a bad test.
+Tests that 'pass' (seemingly) regardless of whether the feature has been implemented. May indicate a bad test.
 
 - [ ] ~~linux_process_apparmor_profile~~
 - [ ] ~~linux_seccomp~~
