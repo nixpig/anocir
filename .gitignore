@@ -28,3 +28,6 @@ go.work.sum
 tmp/
 testdata/
 results.tap
+
+# Vagrant
+.vagrant
