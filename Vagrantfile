@@ -10,12 +10,14 @@ Vagrant.configure("2") do |config|
 
 
   config.vm.provision "shell", inline: <<-SHELL
-    apt-get update \
-      && apt-get install -y ca-certificates curl
+    set -e -x -o pipefail
 
-    install -m 0755 -d /etc/apt/keyrings \
-      && curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc \
-      && chmod a+r /etc/apt/keyrings/docker.asc
+    apt-get update
+    apt-get install -y ca-certificates curl
+
+    install -m 0755 -d /etc/apt/keyrings
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+    chmod a+r /etc/apt/keyrings/docker.asc
       
     echo \
       "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
@@ -29,7 +31,7 @@ Vagrant.configure("2") do |config|
     tar -C /usr/local -xzf go.tar.gz
     echo "PATH=$PATH:/usr/local/go/bin" >> /etc/environment
 
-    groupadd docker
+    groupadd docker || echo "Group already exists"
     gpasswd -a vagrant docker
     service docker restart
   SHELL
