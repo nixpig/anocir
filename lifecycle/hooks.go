@@ -29,8 +29,6 @@ func ExecHooks(hooks []specs.Hook, state string, log *zerolog.Logger) error {
 		cmd.Env = h.Env
 		cmd.Stdin = strings.NewReader(state)
 
-		log.Info().Any("path", h.Path).Any("args", args).Msg("🎣 EXECUTING HOOK")
-
 		if out, err := cmd.CombinedOutput(); err != nil {
 			log.Error().
 				Str("out", string(out)).

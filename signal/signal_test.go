@@ -4,7 +4,7 @@ import (
 	"syscall"
 	"testing"
 
-	"github.com/nixpig/brownie/container/signal"
+	"github.com/nixpig/brownie/signal"
 	"github.com/stretchr/testify/assert"
 )
 

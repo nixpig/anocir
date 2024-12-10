@@ -1,16 +1,15 @@
 package container
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 
-	"github.com/nixpig/brownie/container/filesystem"
-	"github.com/nixpig/brownie/container/terminal"
+	"github.com/nixpig/brownie/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
+	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -36,11 +35,9 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	}
 	defer listCloser()
 
-	log.Info().Msg("before setup rootfs")
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
 		return fmt.Errorf("setup rootfs: %w", err)
 	}
-	log.Info().Msg("after setup rootfs")
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
 		if err := os.WriteFile(
@@ -62,6 +59,11 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 			return fmt.Errorf("connect pty: %w", err)
 		}
 
+		log.Info().
+			Int("consoleSocket", *c.State.ConsoleSocket).
+			Any("pty master", pty.Master.Name()).
+			Any("pty slave", pty.Slave.Name()).
+			Msg("send pty")
 		if err := terminal.SendPty(
 			*c.State.ConsoleSocket,
 			pty,
@@ -71,6 +73,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 
 	} else {
 		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
+		log.Info().Msg("not using console socket")
 		fmt.Println("TODO: implement fallback stdio??")
 	}
 
@@ -79,20 +82,20 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		[]string{"reexec", "--stage", "2", c.ID()}...,
 	)
 
+	// cmd.ExtraFiles = append(cmd.ExtraFiles, cs)
+
 	// cmd.SysProcAttr.Unshareflags = cmd.SysProcAttr.Unshareflags | syscall.CLONE_NEWUSER
 	// cmd.SysProcAttr.Cloneflags = cmd.SysProcAttr.Cloneflags | syscall.CLONE_NEWUSER
 
-	log.Info().Msg("sending ready to channel")
 	c.initIPC.ch <- []byte("ready")
 
-	stdout := bytes.NewBuffer([]byte{})
-	cmd.Stdout = stdout
-	stderr := bytes.NewBuffer([]byte{})
-	cmd.Stderr = stderr
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
 
-	log.Info().Msg("waiting on start")
+	log.Info().Msg("waiting for start")
 	if err := ipc.WaitForMsg(listCh, "start", func() error {
-		log.Info().Msg("starting...")
+		log.Info().Msg("received start")
 		if err := cmd.Start(); err != nil {
 			log.Error().Err(err).Msg("🔷 failed to start container")
 			c.SetStatus(specs.StateStopped)
@@ -120,8 +123,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 		}
 
 		if err := cmd.Wait(); err != nil {
-			log.Error().Err(err).Str("stdout", stdout.String()).Str("stderr", stderr.String()).Msg("ERROR IN WAITING IN REEXEC1")
-			return fmt.Errorf("waiting for cmd wait in reexec (stdout: %s) (stderr: %s): %w", stdout.String(), stderr.String(), err)
+			return fmt.Errorf("waiting for cmd wait in reexec: %w", err)
 		}
 
 		return nil

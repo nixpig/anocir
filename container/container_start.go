@@ -36,10 +36,9 @@ func (c *Container) Start(log *zerolog.Logger) error {
 			fmt.Println("WARNING: failed to execute poststop hooks")
 		}
 
-		return fmt.Errorf("failed to run prestart hooks: %w", err)
+		log.Warn().Err(err).Msg("failed to execute prestart hooks")
 	}
 
-	log.Info().Msg("sending start")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}

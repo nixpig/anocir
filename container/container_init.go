@@ -1,7 +1,6 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -11,10 +10,9 @@ import (
 	"syscall"
 
 	"github.com/containerd/cgroups/v3/cgroup1"
-	"github.com/nixpig/brownie/container/cgroups"
-	"github.com/nixpig/brownie/container/namespace"
-	"github.com/nixpig/brownie/container/terminal"
 	"github.com/nixpig/brownie/internal/ipc"
+	"github.com/nixpig/brownie/namespace"
+	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 	"golang.org/x/sys/unix"
@@ -38,18 +36,51 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	}
 	defer c.initIPC.closer()
 
+	reexecCmd := exec.Command(
+		reexec,
+		[]string{arg, "--stage", "1", c.ID()}...,
+	)
+
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
 		c.Opts.ConsoleSocket != ""
 
 	if useTerminal {
+		prev, err := os.Getwd()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get current working directory")
+			return fmt.Errorf("get cwd: %w", err)
+		}
+
+		if err := os.Chdir(c.Rootfs()); err != nil {
+			log.Error().Err(err).Msg("failed to change to container root dir")
+			return fmt.Errorf("change to container root dir: %w", err)
+		}
+
+		cwd, err := os.Getwd()
+		if err != nil {
+			log.Error().Err(err).Msg("failed to get cwd")
+			return fmt.Errorf("get cwd: %w", err)
+		}
+		log.Info().Str("cwd", cwd).Msg("INIT current working directory")
+
+		if err := os.Symlink(c.Opts.ConsoleSocket, "./console-socket"); err != nil {
+			log.Error().Err(err).Msg("failed to symlink console socket")
+			return fmt.Errorf("symlink console socket: %w", err)
+		}
+
 		consoleSocket, err := terminal.NewPtySocket(
-			c.Opts.ConsoleSocket,
+			"./console-socket",
 		)
 		if err != nil {
 			return fmt.Errorf("create terminal socket: %w", err)
 		}
 		c.State.ConsoleSocket = &consoleSocket.SocketFd
+
+		if err := os.Chdir(prev); err != nil {
+			log.Error().Err(err).Msg("failed to change back to previous directory")
+			return fmt.Errorf("change back to prev dir: %w", err)
+		}
 	}
 
 	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
@@ -68,11 +99,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 		cg.Add(cgroup1.Process{Pid: c.PID()})
 	}
-
-	reexecCmd := exec.Command(
-		reexec,
-		[]string{arg, "--stage", "1", c.ID()}...,
-	)
 
 	cloneFlags := uintptr(0)
 	unshareFlags := uintptr(0)
@@ -121,7 +147,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 				}
 				defer syscall.Close(fd)
 
-				log.Info().Str("path", ns.Path).Int("fd", int(fd)).Msg("writing ns path")
 				_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 				if errno != 0 {
 					log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
@@ -140,14 +165,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
 		reexecCmd.Env = append(reexecCmd.Env, c.Spec.Process.Env...)
-	}
-
-	if c.Spec.Process != nil && c.Spec.Process.Rlimits != nil {
-		for _, rl := range c.Spec.Process.Rlimits {
-			if _, ok := cgroups.Rlimits[rl.Type]; !ok {
-				return errors.New("unable to map rlimit to kernel interface")
-			}
-		}
 	}
 
 	reexecCmd.Stdin = c.Opts.Stdin
@@ -179,7 +196,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	}
 
 	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
-		log.Info().Msg("received ready")
 		c.SetStatus(specs.StateCreated)
 		if err := c.Save(); err != nil {
 			return fmt.Errorf("save created state: %w", err)

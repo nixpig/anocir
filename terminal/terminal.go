@@ -8,12 +8,11 @@ import (
 	"unsafe"
 
 	"github.com/google/goterm/term"
-	"golang.org/x/sys/unix"
 )
 
 type Pty struct {
-	master *os.File
-	slave  *os.File
+	Master *os.File
+	Slave  *os.File
 }
 
 func NewPty() (*Pty, error) {
@@ -25,25 +24,25 @@ func NewPty() (*Pty, error) {
 	master, slave := pty.Master, pty.Slave
 
 	return &Pty{
-		master: master,
-		slave:  slave,
+		Master: master,
+		Slave:  slave,
 	}, nil
 }
 
 func (p *Pty) Connect() error {
-	if _, err := unix.Setsid(); err != nil {
-		return fmt.Errorf("setsid: %w", err)
-	}
+	// if _, err := unix.Setsid(); err != nil {
+	// 	return fmt.Errorf("setsid: %w", err)
+	// }
 
-	if err := syscall.Dup2(int(p.slave.Fd()), 0); err != nil {
+	if err := syscall.Dup2(int(p.Slave.Fd()), 0); err != nil {
 		return fmt.Errorf("dup2 stdin: %w", err)
 	}
 
-	if err := syscall.Dup2(int(p.slave.Fd()), 1); err != nil {
+	if err := syscall.Dup2(int(p.Slave.Fd()), 1); err != nil {
 		return fmt.Errorf("dup2 stdout: %w", err)
 	}
 
-	if err := syscall.Dup2(int(p.slave.Fd()), 2); err != nil {
+	if err := syscall.Dup2(int(p.Slave.Fd()), 2); err != nil {
 		return fmt.Errorf("dup2 stderr: %w", err)
 	}
 
@@ -87,21 +86,21 @@ func (ps *PtySocket) Close() error {
 }
 
 func SendPty(consoleSocket int, pty *Pty) error {
-	masterFds := []int{int(pty.master.Fd())}
+	masterFds := []int{int(pty.Master.Fd())}
 
 	cmsg := syscall.UnixRights(masterFds...)
 
-	size := unsafe.Sizeof(pty.master.Fd())
+	size := unsafe.Sizeof(pty.Master.Fd())
 
 	buf := make([]byte, size)
 
 	switch size {
 	case 4:
-		binary.NativeEndian.PutUint32(buf, uint32(pty.master.Fd()))
+		binary.NativeEndian.PutUint32(buf, uint32(pty.Master.Fd()))
 	case 8:
-		binary.NativeEndian.PutUint64(buf, uint64(pty.master.Fd()))
+		binary.NativeEndian.PutUint64(buf, uint64(pty.Master.Fd()))
 	default:
-		panic("done fucked up")
+		return fmt.Errorf("unsupported architecture (%d)", size*8)
 	}
 
 	if err := syscall.Sendmsg(

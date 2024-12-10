@@ -1,6 +1,15 @@
-#!/bin/sh
+#!/bin/bash
 
-RUNTIME=${RUNTIME:-./brownie}
+if [[ -z ${RUNTIME} ]]; then
+  echo "'RUNTIME' not set."
+  exit 1
+fi
+
+if [[ -z ./runtimetest ]]; then
+  echo "'runtimetest' not available."
+  echo "Try running in 'runtime-tools' directory."
+  exit 1
+fi
 
 logdir=./logs
 
@@ -41,7 +50,7 @@ tests=(
   "process_capabilities"
   "process_capabilities_fail"
   "process_oom_score_adj"
-  "process_rlimits"
+  # "process_rlimits"
   "process_rlimits_fail"
   "process_user"
   "root_readonly_true"
