@@ -33,4 +33,5 @@ results.tap
 .vagrant
 
 # test logs
+logs
 test/logs
