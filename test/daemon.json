@@ -1,0 +1,7 @@
+{
+  "runtimes": {
+    "brownie": {
+      "path": "/usr/bin/brownie"
+    }
+  }
+}
