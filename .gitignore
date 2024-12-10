@@ -31,3 +31,6 @@ results.tap
 
 # Vagrant
 .vagrant
+
+# test logs
+test/logs
