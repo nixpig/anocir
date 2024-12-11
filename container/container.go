@@ -9,7 +9,6 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/nixpig/brownie/capabilities"
 	"github.com/nixpig/brownie/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
@@ -76,48 +75,6 @@ func New(
 
 	if spec.Root == nil {
 		return nil, errors.New("root is required")
-	}
-
-	if spec.Process != nil && spec.Process.Capabilities != nil {
-		if spec.Process.Capabilities.Ambient != nil {
-			for _, e := range spec.Process.Capabilities.Ambient {
-				if _, ok := capabilities.Capabilities[e]; !ok {
-					return nil, fmt.Errorf("capabilitity '%s' cannot be mapped", e)
-				}
-			}
-		}
-
-		if spec.Process.Capabilities.Bounding != nil {
-			for _, e := range spec.Process.Capabilities.Bounding {
-				if _, ok := capabilities.Capabilities[e]; !ok {
-					return nil, fmt.Errorf("capabilitity '%s' cannot be mapped", e)
-				}
-			}
-		}
-
-		if spec.Process.Capabilities.Effective != nil {
-			for _, e := range spec.Process.Capabilities.Effective {
-				if _, ok := capabilities.Capabilities[e]; !ok {
-					return nil, fmt.Errorf("capabilitity '%s' cannot be mapped", e)
-				}
-			}
-		}
-
-		if spec.Process.Capabilities.Permitted != nil {
-			for _, e := range spec.Process.Capabilities.Permitted {
-				if _, ok := capabilities.Capabilities[e]; !ok {
-					return nil, fmt.Errorf("capabilitity '%s' cannot be mapped", e)
-				}
-			}
-		}
-
-		if spec.Process.Capabilities.Inheritable != nil {
-			for _, e := range spec.Process.Capabilities.Inheritable {
-				if _, ok := capabilities.Capabilities[e]; !ok {
-					return nil, fmt.Errorf("capabilitity '%s' cannot be mapped", e)
-				}
-			}
-		}
 	}
 
 	absBundlePath, err := filepath.Abs(bundle)
