@@ -10,8 +10,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
-- [ ] Docker compatibility
-- [ ] Tidy up dev env/workflow
 - [ ] execve instead of fork/exec
 - [ ] Implement seccomp
 - [ ] Implement AppArmor

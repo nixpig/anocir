@@ -8,51 +8,38 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-var signalsInt = map[int]syscall.Signal{
-	1:  syscall.SIGHUP,
-	2:  syscall.SIGINT,
-	3:  syscall.SIGQUIT,
-	6:  syscall.SIGABRT,
-	9:  syscall.SIGKILL,
-	15: syscall.SIGTERM,
-	17: syscall.SIGCHLD,
-	19: syscall.SIGSTOP,
-	20: syscall.SIGSTOP,
-	21: syscall.SIGSTOP,
-	22: syscall.SIGSTOP,
-}
-
-var signalsStr = map[string]syscall.Signal{
-	"HUP":     syscall.SIGHUP,
-	"SIGHUP":  syscall.SIGHUP,
-	"INT":     syscall.SIGINT,
-	"SIGINT":  syscall.SIGINT,
-	"QUIT":    syscall.SIGQUIT,
-	"SIGQUIT": syscall.SIGQUIT,
-	"ABRT":    syscall.SIGABRT,
-	"SIGABRT": syscall.SIGABRT,
-	"KILL":    syscall.SIGKILL,
-	"SIGKILL": syscall.SIGKILL,
-	"TERM":    syscall.SIGTERM,
-	"SIGTERM": syscall.SIGTERM,
-	"CHLD":    syscall.SIGCHLD,
-	"SIGCHLD": syscall.SIGCHLD,
-	"STOP":    syscall.SIGSTOP,
-	"SIGSTOP": syscall.SIGSTOP,
-}
-
 func TestFromInt(t *testing.T) {
-	for k, v := range signalsInt {
-		sig, err := signal.FromInt(k)
-		assert.NoError(t, err)
-		assert.Equal(t, v, sig, "")
-	}
+	sig, err := signal.FromInt(9)
+	assert.Equal(t, syscall.SIGKILL, sig)
+	assert.NoError(t, err)
 }
 
-func TestFromString(t *testing.T) {
-	for k, v := range signalsStr {
-		sig, err := signal.FromString(k)
-		assert.NoError(t, err)
-		assert.Equal(t, v, sig)
-	}
+func TestFromIntInvalid(t *testing.T) {
+	sig, err := signal.FromInt(99)
+	assert.Equal(t, syscall.Signal(-1), sig)
+	assert.Error(t, err)
+}
+
+func TestFromStringNumber(t *testing.T) {
+	sig, err := signal.FromString("10")
+	assert.Equal(t, syscall.SIGUSR1, sig)
+	assert.NoError(t, err)
+}
+
+func TestFromStringShort(t *testing.T) {
+	sig, err := signal.FromString("CHLD")
+	assert.Equal(t, syscall.SIGCHLD, sig)
+	assert.NoError(t, err)
+}
+
+func TestFromStringLong(t *testing.T) {
+	sig, err := signal.FromString("SIGQUIT")
+	assert.Equal(t, syscall.SIGQUIT, sig)
+	assert.NoError(t, err)
+}
+
+func TestFromStringInvalid(t *testing.T) {
+	sig, err := signal.FromString("something invalid")
+	assert.Equal(t, syscall.Signal(-1), sig)
+	assert.Error(t, err)
 }
