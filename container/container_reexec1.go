@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strconv"
+	"syscall"
 
 	"github.com/nixpig/brownie/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
@@ -96,7 +97,7 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 	log.Info().Msg("waiting for start")
 	if err := ipc.WaitForMsg(listCh, "start", func() error {
 		log.Info().Msg("received start")
-		if err := cmd.Start(); err != nil {
+		if err := syscall.Exec("/proc/self/exe", []string{"/proc/self/exe", "reexec", "--stage", "2", c.ID()}, c.Spec.Process.Env); err != nil {
 			log.Error().Err(err).Msg("🔷 failed to start container")
 			c.SetStatus(specs.StateStopped)
 			if err := c.Save(); err != nil {
@@ -105,6 +106,15 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 
 			return err
 		}
+		// if err := cmd.Start(); err != nil {
+		// 	log.Error().Err(err).Msg("🔷 failed to start container")
+		// 	c.SetStatus(specs.StateStopped)
+		// 	if err := c.Save(); err != nil {
+		// 		return fmt.Errorf("(start 1) write state file: %w", err)
+		// 	}
+		//
+		// 	return err
+		// }
 
 		c.SetStatus(specs.StateRunning)
 		if err := c.Save(); err != nil {
@@ -122,9 +132,9 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 			fmt.Println("WARNING: ", err)
 		}
 
-		if err := cmd.Wait(); err != nil {
-			return fmt.Errorf("waiting for cmd wait in reexec: %w", err)
-		}
+		// if err := cmd.Wait(); err != nil {
+		// 	return fmt.Errorf("waiting for cmd wait in reexec: %w", err)
+		// }
 
 		return nil
 	}); err != nil {
