@@ -43,6 +43,20 @@ func (c *Container) Start(log *zerolog.Logger) error {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()
+	c.SetStatus(specs.StateRunning)
+	if err := c.Save(); err != nil {
+		// do something with err??
+		log.Error().Err(err).Msg("⁉️ host save state running")
+		fmt.Println(err)
+		return fmt.Errorf("save host container state: %w", err)
+	}
+	// FIXME: do these need to move up before the cmd.Wait call??
+	if err := c.ExecHooks("poststart", log); err != nil {
+		// TODO: how to handle this (log a warning) from start command??
+		// FIXME: needs to 'log a warning'
+		log.Warn().Err(err).Msg("failed to execute poststart hook")
+		fmt.Println("WARNING: ", err)
+	}
 
 	return nil
 }

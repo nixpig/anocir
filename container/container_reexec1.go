@@ -106,35 +106,6 @@ func (c *Container) Reexec1(log *zerolog.Logger) error {
 
 			return err
 		}
-		// if err := cmd.Start(); err != nil {
-		// 	log.Error().Err(err).Msg("🔷 failed to start container")
-		// 	c.SetStatus(specs.StateStopped)
-		// 	if err := c.Save(); err != nil {
-		// 		return fmt.Errorf("(start 1) write state file: %w", err)
-		// 	}
-		//
-		// 	return err
-		// }
-
-		c.SetStatus(specs.StateRunning)
-		if err := c.Save(); err != nil {
-			// do something with err??
-			log.Error().Err(err).Msg("⁉️ host save state running")
-			fmt.Println(err)
-			return fmt.Errorf("save host container state: %w", err)
-		}
-
-		// FIXME: do these need to move up before the cmd.Wait call??
-		if err := c.ExecHooks("poststart", log); err != nil {
-			// TODO: how to handle this (log a warning) from start command??
-			// FIXME: needs to 'log a warning'
-			log.Warn().Err(err).Msg("failed to execute poststart hook")
-			fmt.Println("WARNING: ", err)
-		}
-
-		// if err := cmd.Wait(); err != nil {
-		// 	return fmt.Errorf("waiting for cmd wait in reexec: %w", err)
-		// }
 
 		return nil
 	}); err != nil {
