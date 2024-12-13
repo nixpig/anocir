@@ -2,7 +2,7 @@
 
 # 🍪 brownie
 
-An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).
+**An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
@@ -10,11 +10,11 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
-- [ ] execve instead of fork/exec
+- [ ] Use execve instead of fork/exec
+- [ ] Major refactor and tidy-up
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2
-- [ ] Major refactor and tidy-up
 
 ## Installation
 
