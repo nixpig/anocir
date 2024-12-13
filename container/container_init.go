@@ -36,11 +36,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	}
 	defer c.initIPC.closer()
 
-	reexecCmd := exec.Command(
-		reexec,
-		[]string{arg, c.ID()}...,
-	)
-
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
 		c.Opts.ConsoleSocket != ""
@@ -99,6 +94,53 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 		cg.Add(cgroup1.Process{Pid: c.PID()})
 	}
+
+	// ---------------------------
+
+	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
+		if err := os.WriteFile(
+			"/proc/self/oom_score_adj",
+			[]byte(strconv.Itoa(*c.Spec.Process.OOMScoreAdj)),
+			0644,
+		); err != nil {
+			return fmt.Errorf("create oom score adj file: %w", err)
+		}
+	}
+
+	if c.State.ConsoleSocket != nil {
+		pty, err := terminal.NewPty()
+		if err != nil {
+			return fmt.Errorf("new pty: %w", err)
+		}
+
+		if err := pty.Connect(); err != nil {
+			return fmt.Errorf("connect pty: %w", err)
+		}
+
+		log.Info().
+			Int("consoleSocket", *c.State.ConsoleSocket).
+			Any("pty master", pty.Master.Name()).
+			Any("pty slave", pty.Slave.Name()).
+			Msg("send pty")
+		if err := terminal.SendPty(
+			*c.State.ConsoleSocket,
+			pty,
+		); err != nil {
+			return fmt.Errorf("connect pty and socket: %w", err)
+		}
+
+	} else {
+		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
+		log.Info().Msg("not using console socket")
+		fmt.Println("TODO: implement fallback stdio??")
+	}
+
+	// ---------------------------
+
+	reexecCmd := exec.Command(
+		reexec,
+		[]string{arg, c.ID()}...,
+	)
 
 	cloneFlags := uintptr(0)
 
@@ -169,48 +211,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	reexecCmd.Stdin = c.Opts.Stdin
 	reexecCmd.Stdout = c.Opts.Stdout
 	reexecCmd.Stderr = c.Opts.Stderr
-
-	// ---------------------------
-
-	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
-		if err := os.WriteFile(
-			"/proc/self/oom_score_adj",
-			[]byte(strconv.Itoa(*c.Spec.Process.OOMScoreAdj)),
-			0644,
-		); err != nil {
-			return fmt.Errorf("create oom score adj file: %w", err)
-		}
-	}
-
-	if c.State.ConsoleSocket != nil {
-		pty, err := terminal.NewPty()
-		if err != nil {
-			return fmt.Errorf("new pty: %w", err)
-		}
-
-		if err := pty.Connect(); err != nil {
-			return fmt.Errorf("connect pty: %w", err)
-		}
-
-		log.Info().
-			Int("consoleSocket", *c.State.ConsoleSocket).
-			Any("pty master", pty.Master.Name()).
-			Any("pty slave", pty.Slave.Name()).
-			Msg("send pty")
-		if err := terminal.SendPty(
-			*c.State.ConsoleSocket,
-			pty,
-		); err != nil {
-			return fmt.Errorf("connect pty and socket: %w", err)
-		}
-
-	} else {
-		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
-		log.Info().Msg("not using console socket")
-		fmt.Println("TODO: implement fallback stdio??")
-	}
-
-	// ---------------------------
 
 	if err := reexecCmd.Start(); err != nil {
 		return fmt.Errorf("start reexec container: %w", err)

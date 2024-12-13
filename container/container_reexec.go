@@ -12,6 +12,7 @@ import (
 	"github.com/nixpig/brownie/cgroups"
 	"github.com/nixpig/brownie/filesystem"
 	"github.com/nixpig/brownie/internal/ipc"
+	"github.com/nixpig/brownie/user"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
 )
@@ -151,31 +152,11 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 		// syscall.Setgid(int(c.Spec.Process.User.GID))
 
 		if c.Spec.Linux.UIDMappings != nil {
-			var uidMappings []syscall.SysProcIDMap
-
-			for _, uidMapping := range c.Spec.Linux.UIDMappings {
-				uidMappings = append(uidMappings, syscall.SysProcIDMap{
-					ContainerID: int(uidMapping.ContainerID),
-					HostID:      int(uidMapping.HostID),
-					Size:        int(uidMapping.Size),
-				})
-			}
-
-			cmd.SysProcAttr.UidMappings = append(cmd.SysProcAttr.UidMappings, uidMappings...)
+			cmd.SysProcAttr.UidMappings = user.BuildUidMappings(c.Spec.Linux.UIDMappings)
 		}
 
 		if c.Spec.Linux.GIDMappings != nil {
-			var gidMappings []syscall.SysProcIDMap
-
-			for _, gidMapping := range c.Spec.Linux.GIDMappings {
-				gidMappings = append(gidMappings, syscall.SysProcIDMap{
-					ContainerID: int(gidMapping.ContainerID),
-					HostID:      int(gidMapping.HostID),
-					Size:        int(gidMapping.Size),
-				})
-			}
-
-			cmd.SysProcAttr.GidMappings = append(cmd.SysProcAttr.GidMappings, gidMappings...)
+			cmd.SysProcAttr.GidMappings = user.BuildGidMappings(c.Spec.Linux.GIDMappings)
 		}
 
 		cmd.Stdin = os.Stdin
