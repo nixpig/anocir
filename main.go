@@ -17,7 +17,7 @@ func main() {
 
 	// exec root
 	if err := cli.RootCmd().Execute(); err != nil {
-		fmt.Println(fmt.Errorf("Error: %s, %w", os.Args, err))
+		fmt.Println(fmt.Errorf("%s, %w", os.Args, err))
 		os.Exit(1)
 	}
 
