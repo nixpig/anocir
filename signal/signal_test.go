@@ -16,7 +16,7 @@ func TestFromInt(t *testing.T) {
 
 func TestFromIntInvalid(t *testing.T) {
 	sig, err := signal.FromInt(99)
-	assert.Equal(t, syscall.Signal(-1), sig)
+	assert.Equal(t, syscall.Signal(0), sig)
 	assert.Error(t, err)
 }
 
@@ -40,6 +40,6 @@ func TestFromStringLong(t *testing.T) {
 
 func TestFromStringInvalid(t *testing.T) {
 	sig, err := signal.FromString("something invalid")
-	assert.Equal(t, syscall.Signal(-1), sig)
+	assert.Equal(t, syscall.Signal(0), sig)
 	assert.Error(t, err)
 }

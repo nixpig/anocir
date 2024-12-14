@@ -20,7 +20,7 @@ import (
 
 func (c *Container) Reexec(log *zerolog.Logger) error {
 	var err error
-	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join("/var/lib/brownie/containers", c.ID(), initSockFilename))
+	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(containerRootDir, c.ID(), initSockFilename))
 	if err != nil {
 		return fmt.Errorf("create init sock sender: %w", err)
 	}
@@ -28,12 +28,12 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 
 	// set up the socket _before_ pivot root
 	if err := os.RemoveAll(
-		filepath.Join("/var/lib/brownie/containers", c.ID(), containerSockFilename),
+		filepath.Join(containerRootDir, c.ID(), containerSockFilename),
 	); err != nil {
 		return fmt.Errorf("remove socket before creating: %w", err)
 	}
 
-	listCh, listCloser, err := ipc.NewReceiver(filepath.Join("/var/lib/brownie/containers", c.ID(), containerSockFilename))
+	listCh, listCloser, err := ipc.NewReceiver(filepath.Join(containerRootDir, c.ID(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("create new socket receiver channel: %w", err)
 	}

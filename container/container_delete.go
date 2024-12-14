@@ -29,7 +29,7 @@ func (c *Container) Delete(force bool, log *zerolog.Logger) error {
 	}
 
 	if err := os.RemoveAll(
-		filepath.Join("/var/lib/brownie/containers", c.ID()),
+		filepath.Join(containerRootDir, c.ID()),
 	); err != nil {
 		return err
 	}

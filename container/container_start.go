@@ -23,7 +23,7 @@ func (c *Container) Start(log *zerolog.Logger) error {
 		return errors.New("container cannot be started in current state")
 	}
 
-	conn, err := net.Dial("unix", filepath.Join("/var/lib/brownie/containers", c.ID(), containerSockFilename))
+	conn, err := net.Dial("unix", filepath.Join(containerRootDir, c.ID(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
 	}
