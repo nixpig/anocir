@@ -179,7 +179,7 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 			// TODO: align so the same mechanism is used for all namespaces?
 			if ns.Type == specs.MountNamespace {
-				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_mnt=%s", ns.Path))
+				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_%s=%s", ns.ToEnv(), ns.Path))
 			} else {
 				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
 				if err != nil {
