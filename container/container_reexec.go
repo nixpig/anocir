@@ -18,7 +18,11 @@ import (
 )
 
 func (c *Container) Reexec() error {
-	// ---
+	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
+		return fmt.Errorf("setup rootfs: %w", err)
+	}
+
+	// -- sock - send ready
 	initConn, err := net.Dial(
 		"unix",
 		filepath.Join(containerRootDir, c.ID(), initSockFilename),
@@ -28,17 +32,10 @@ func (c *Container) Reexec() error {
 	}
 	defer initConn.Close()
 
-	initCh := make(chan []byte, 1024)
-	go func() {
-		for {
-			b := <-initCh
-			initConn.Write(b)
-		}
-	}()
+	initConn.Write([]byte("ready"))
+	// -- /sock
 
-	// ---
-
-	// set up the socket _before_ pivot root
+	// sock - wait for start
 	if err := os.RemoveAll(
 		filepath.Join(containerRootDir, c.ID(), containerSockFilename),
 	); err != nil {
@@ -53,39 +50,24 @@ func (c *Container) Reexec() error {
 		return err
 	}
 	defer listener.Close()
-
-	containerCh := make(chan []byte, 1024)
-
-	go func() {
-		containerConn, _ := listener.Accept()
-		defer containerConn.Close()
-
-		b := make([]byte, 1024)
-		for {
-			n, err := containerConn.Read(b)
-			if err != nil || n == 0 {
-				continue
-			}
-
-			if string(b[:n]) == "start" {
-				containerCh <- []byte("start")
-			}
-		}
-	}()
-
-	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
-		return fmt.Errorf("setup rootfs: %w", err)
+	containerConn, err := listener.Accept()
+	if err != nil {
+		return err
 	}
+	defer containerConn.Close()
 
-	initCh <- []byte("ready")
-
-	// I think this needs to happen before setup rootfs
+	b := make([]byte, 1024)
 	for {
-		b := <-containerCh
-		if string(b) == "start" {
+		n, err := containerConn.Read(b)
+		if err != nil || n == 0 {
+			continue
+		}
+
+		if string(b[:n]) == "start" {
 			break
 		}
 	}
+	// -- /sock
 
 	// -- pick back up here!
 	if c.Spec.Process == nil {

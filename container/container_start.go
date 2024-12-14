@@ -22,11 +22,6 @@ func (c *Container) Start() error {
 		return errors.New("container cannot be started in current state")
 	}
 
-	conn, err := net.Dial("unix", filepath.Join(containerRootDir, c.ID(), containerSockFilename))
-	if err != nil {
-		return fmt.Errorf("dial socket: %w", err)
-	}
-
 	if err := c.ExecHooks("prestart"); err != nil {
 		// TODO: run DELETE tasks here, then...
 		if err := c.ExecHooks("poststop"); err != nil {
@@ -36,10 +31,17 @@ func (c *Container) Start() error {
 		fmt.Println("Warning: failed to execute prestart hooks")
 	}
 
+	// -- sock - send start
+	conn, err := net.Dial("unix", filepath.Join(containerRootDir, c.ID(), containerSockFilename))
+	if err != nil {
+		return fmt.Errorf("dial socket: %w", err)
+	}
+
 	if _, err := conn.Write([]byte("start")); err != nil {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()
+	// -- /sock
 
 	c.SetStatus(specs.StateRunning)
 	if err := c.Save(); err != nil {
