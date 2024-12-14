@@ -12,7 +12,6 @@ import (
 
 	"github.com/nixpig/brownie/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 	"golang.org/x/mod/semver"
 )
 
@@ -21,6 +20,8 @@ const (
 	containerSockFilename = "container.sock"
 	OCIVersion            = "1.0.1-dev"
 	containerRootDir      = "/var/lib/brownie/containers"
+	stateFilename         = "state.json"
+	configFilename        = "config.json"
 )
 
 type Container struct {
@@ -60,7 +61,7 @@ func New(
 	bundle string,
 	opts *ContainerOpts,
 ) (*Container, error) {
-	b, err := os.ReadFile(filepath.Join(bundle, "config.json"))
+	b, err := os.ReadFile(filepath.Join(bundle, configFilename))
 	if err != nil {
 		return nil, fmt.Errorf("read container config: %w", err)
 	}
@@ -117,7 +118,7 @@ func New(
 }
 
 func Load(id string) (*Container, error) {
-	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
+	s, err := os.ReadFile(filepath.Join(containerRootDir, id, stateFilename))
 	if err != nil {
 		return nil, err
 	}
@@ -128,7 +129,7 @@ func Load(id string) (*Container, error) {
 	}
 
 	bundle := state.Bundle
-	c, err := os.ReadFile(filepath.Join(bundle, "config.json"))
+	c, err := os.ReadFile(filepath.Join(bundle, configFilename))
 	if err != nil {
 		return nil, err
 	}
@@ -143,35 +144,31 @@ func Load(id string) (*Container, error) {
 		Spec:  &conf,
 	}
 
-	// if err := cntr.RefreshState(); err != nil {
-	// 	return nil, fmt.Errorf("refresh state: %w", err)
-	// }
-	//
+	if err := cntr.RefreshState(); err != nil {
+		return nil, err
+	}
+
 	return cntr, nil
 }
 
-func (c *Container) RefreshState(log *zerolog.Logger) error {
-	b, err := os.ReadFile(filepath.Join(containerRootDir, c.ID(), "state.json"))
+func (c *Container) RefreshState() error {
+	b, err := os.ReadFile(filepath.Join(containerRootDir, c.ID(), stateFilename))
 	if err != nil {
-		log.Error().Err(err).Msg("(refresh) failed to read state file")
 		return fmt.Errorf("refresh from state file: %w", err)
 	}
 
 	if err := json.Unmarshal(b, c.State); err != nil {
-		log.Error().Err(err).Msg("(refresh) failed to unmarshal state")
-		return fmt.Errorf("unmarshall refreshed state: %w", err)
+		return fmt.Errorf("unmarshal refreshed state: %w", err)
 	}
 
 	process, err := os.FindProcess(c.State.PID)
 	if err != nil {
-		log.Error().Err(err).Msg("(refresh) failed to find process")
 		return err
 	}
 
 	if err := process.Signal(syscall.Signal(0)); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
-			log.Error().Err(err).Msg("(refresh) failed to save container state")
 			return fmt.Errorf("(refresh) save container state: %w", err)
 		}
 	}
@@ -186,14 +183,11 @@ func (c *Container) Save() error {
 	}
 
 	if err := os.WriteFile(
-		filepath.Join(
-			containerRootDir,
-			c.ID(),
-			"state.json"),
+		filepath.Join(containerRootDir, c.ID(), stateFilename),
 		b,
 		0644,
 	); err != nil {
-		return fmt.Errorf("(save: %s) write state file: %w", c.State.Status, err)
+		return fmt.Errorf("write state file (%s): %w", c.State.Status, err)
 	}
 
 	if c.Opts != nil && c.Opts.PIDFile != "" {

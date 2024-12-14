@@ -6,11 +6,10 @@ import (
 	"os"
 
 	"github.com/nixpig/brownie/internal/commands"
-	"github.com/rs/zerolog"
 	"github.com/spf13/cobra"
 )
 
-func RootCmd(log *zerolog.Logger, logfile string) *cobra.Command {
+func RootCmd() *cobra.Command {
 	root := &cobra.Command{
 		Use:          "brownie",
 		Short:        "An experimental Linux container runtime.",
@@ -21,12 +20,12 @@ func RootCmd(log *zerolog.Logger, logfile string) *cobra.Command {
 	}
 
 	root.AddCommand(
-		createCmd(log),
-		startCmd(log),
-		stateCmd(log),
-		deleteCmd(log),
-		killCmd(log),
-		reexecCmd(log),
+		createCmd(),
+		startCmd(),
+		stateCmd(),
+		deleteCmd(),
+		killCmd(),
+		reexecCmd(),
 	)
 
 	// TODO: implement these flags for Docker
@@ -36,17 +35,18 @@ func RootCmd(log *zerolog.Logger, logfile string) *cobra.Command {
 
 	root.CompletionOptions.HiddenDefaultCmd = true
 
+	// TODO: implement handling of log flag
 	root.PersistentFlags().StringP(
 		"log",
 		"l",
-		logfile,
+		"/var/lib/brownie/logs/brownie.log",
 		"Location of log file",
 	)
 
 	return root
 }
 
-func createCmd(log *zerolog.Logger) *cobra.Command {
+func createCmd() *cobra.Command {
 	create := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
@@ -75,7 +75,7 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 				Bundle:        bundle,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
-			}, log)
+			})
 		},
 	}
 
@@ -87,7 +87,7 @@ func createCmd(log *zerolog.Logger) *cobra.Command {
 	return create
 }
 
-func startCmd(log *zerolog.Logger) *cobra.Command {
+func startCmd() *cobra.Command {
 	start := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
@@ -100,13 +100,13 @@ func startCmd(log *zerolog.Logger) *cobra.Command {
 
 		return commands.Start(&commands.StartOpts{
 			ID: containerID,
-		}, log)
+		})
 	}
 
 	return start
 }
 
-func killCmd(log *zerolog.Logger) *cobra.Command {
+func killCmd() *cobra.Command {
 	kill := &cobra.Command{
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Kill a container",
@@ -119,7 +119,7 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 			return commands.Kill(&commands.KillOpts{
 				ID:     containerID,
 				Signal: signal,
-			}, log)
+			})
 		},
 	}
 
@@ -128,7 +128,7 @@ func killCmd(log *zerolog.Logger) *cobra.Command {
 	return kill
 }
 
-func deleteCmd(log *zerolog.Logger) *cobra.Command {
+func deleteCmd() *cobra.Command {
 	del := &cobra.Command{
 		Use:     "delete [flags] CONTAINER_ID",
 		Short:   "Delete a container",
@@ -145,7 +145,7 @@ func deleteCmd(log *zerolog.Logger) *cobra.Command {
 			return commands.Delete(&commands.DeleteOpts{
 				ID:    containerID,
 				Force: force,
-			}, log)
+			})
 		},
 	}
 
@@ -154,7 +154,7 @@ func deleteCmd(log *zerolog.Logger) *cobra.Command {
 	return del
 }
 
-func reexecCmd(log *zerolog.Logger) *cobra.Command {
+func reexecCmd() *cobra.Command {
 	reexec := &cobra.Command{
 		Use:     "reexec [flags] CONTAINER_ID INIT_SOCK_ADDR CONTAINER_SOCK_ADDR",
 		Short:   "Reexec container process\n\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
@@ -168,14 +168,14 @@ func reexecCmd(log *zerolog.Logger) *cobra.Command {
 				ID: containerID,
 			}
 
-			return commands.Reexec(&opts, log)
+			return commands.Reexec(&opts)
 		},
 	}
 
 	return reexec
 }
 
-func stateCmd(log *zerolog.Logger) *cobra.Command {
+func stateCmd() *cobra.Command {
 	state := &cobra.Command{
 		Use:     "state [flags] CONTAINER_ID",
 		Short:   "Query a container state",
@@ -186,7 +186,7 @@ func stateCmd(log *zerolog.Logger) *cobra.Command {
 
 			state, err := commands.State(&commands.StateOpts{
 				ID: containerID,
-			}, log)
+			})
 			if err != nil {
 				return err
 			}

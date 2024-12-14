@@ -15,10 +15,9 @@ import (
 	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/user"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 )
 
-func (c *Container) Reexec(log *zerolog.Logger) error {
+func (c *Container) Reexec() error {
 	var err error
 	c.initIPC.ch, c.initIPC.closer, err = ipc.NewSender(filepath.Join(containerRootDir, c.ID(), initSockFilename))
 	if err != nil {

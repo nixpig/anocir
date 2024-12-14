@@ -8,7 +8,6 @@ import (
 	"unsafe"
 
 	"github.com/google/goterm/term"
-	"github.com/rs/zerolog/log"
 )
 
 type Pty struct {
@@ -114,24 +113,14 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 
 	prev, err := os.Getwd()
 	if err != nil {
-		log.Error().Err(err).Msg("failed to get current working directory")
 		return nil, fmt.Errorf("get cwd: %w", err)
 	}
 
 	if err := os.Chdir(rootfs); err != nil {
-		log.Error().Err(err).Msg("failed to change to container root dir")
 		return nil, fmt.Errorf("change to container root dir: %w", err)
 	}
 
-	cwd, err := os.Getwd()
-	if err != nil {
-		log.Error().Err(err).Msg("failed to get cwd")
-		return nil, fmt.Errorf("get cwd: %w", err)
-	}
-	log.Info().Str("cwd", cwd).Msg("INIT current working directory")
-
 	if err := os.Symlink(consoleSocketPath, "./console-socket"); err != nil {
-		log.Error().Err(err).Msg("failed to symlink console socket")
 		return nil, fmt.Errorf("symlink console socket: %w", err)
 	}
 
@@ -143,7 +132,6 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 	}
 
 	if err := os.Chdir(prev); err != nil {
-		log.Error().Err(err).Msg("failed to change back to previous directory")
 		return nil, fmt.Errorf("change back to prev dir: %w", err)
 	}
 	return &consoleSocket.SocketFd, nil

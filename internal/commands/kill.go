@@ -5,7 +5,6 @@ import (
 
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/signal"
-	"github.com/rs/zerolog"
 )
 
 type KillOpts struct {
@@ -13,7 +12,7 @@ type KillOpts struct {
 	Signal string
 }
 
-func Kill(opts *KillOpts, log *zerolog.Logger) error {
+func Kill(opts *KillOpts) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return err
@@ -24,5 +23,5 @@ func Kill(opts *KillOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("failed to convert to signal: %w", err)
 	}
 
-	return cntr.Kill(s, log)
+	return cntr.Kill(s)
 }

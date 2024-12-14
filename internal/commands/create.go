@@ -6,7 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/nixpig/brownie/container"
-	"github.com/rs/zerolog"
 )
 
 const containerRootDir = "/var/lib/brownie/containers"
@@ -18,7 +17,7 @@ type CreateOpts struct {
 	PIDFile       string
 }
 
-func Create(opts *CreateOpts, log *zerolog.Logger) error {
+func Create(opts *CreateOpts) error {
 	if _, err := os.Stat(filepath.Join(
 		containerRootDir, opts.ID,
 	)); err == nil {
@@ -43,5 +42,5 @@ func Create(opts *CreateOpts, log *zerolog.Logger) error {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	return cntr.Init("/proc/self/exe", "reexec", log)
+	return cntr.Init("/proc/self/exe", "reexec")
 }

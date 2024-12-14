@@ -2,18 +2,17 @@ package commands
 
 import (
 	"github.com/nixpig/brownie/container"
-	"github.com/rs/zerolog"
 )
 
 type StartOpts struct {
 	ID string
 }
 
-func Start(opts *StartOpts, log *zerolog.Logger) error {
+func Start(opts *StartOpts) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return err
 	}
 
-	return cntr.Start(log)
+	return cntr.Start()
 }

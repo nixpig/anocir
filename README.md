@@ -15,6 +15,7 @@ This is a personal project for me to explore and better understand the OCI Runti
   - internal/logging
   - container/*
   - internal/ipc
+- [ ] Unit tests
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2

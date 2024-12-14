@@ -2,7 +2,6 @@ package commands
 
 import (
 	"github.com/nixpig/brownie/container"
-	"github.com/rs/zerolog"
 )
 
 type DeleteOpts struct {
@@ -10,11 +9,11 @@ type DeleteOpts struct {
 	Force bool
 }
 
-func Delete(opts *DeleteOpts, log *zerolog.Logger) error {
+func Delete(opts *DeleteOpts) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {
 		return err
 	}
 
-	return cntr.Delete(opts.Force, log)
+	return cntr.Delete(opts.Force)
 }

@@ -14,10 +14,9 @@ import (
 	"github.com/nixpig/brownie/namespace"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog"
 )
 
-func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
+func (c *Container) Init(reexec string, arg string) error {
 	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
@@ -84,11 +83,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 			return fmt.Errorf("connect pty: %w", err)
 		}
 
-		log.Info().
-			Int("consoleSocket", *c.State.ConsoleSocket).
-			Any("pty master", pty.Master.Name()).
-			Any("pty slave", pty.Slave.Name()).
-			Msg("send pty")
 		if err := terminal.SendPty(
 			*c.State.ConsoleSocket,
 			pty,
@@ -98,7 +92,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 
 	} else {
 		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
-		log.Info().Msg("not using console socket")
 		fmt.Println("TODO: implement fallback stdio??")
 	}
 

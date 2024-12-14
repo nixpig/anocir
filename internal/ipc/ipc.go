@@ -15,6 +15,7 @@ func NewSender(sockAddr string) (chan []byte, closer, error) {
 		return nil, nil, err
 	}
 
+	// TODO: handle closing down this goroutine when conn is closed
 	go func() {
 		for {
 			b := <-ch
@@ -33,6 +34,7 @@ func NewReceiver(sockAddr string) (chan []byte, closer, error) {
 		return nil, nil, fmt.Errorf("listen (%s): %w", sockAddr, err)
 	}
 
+	// TODO: handle closing down this goroutine when done
 	go func() {
 		conn, err := listener.Accept()
 		if err != nil {

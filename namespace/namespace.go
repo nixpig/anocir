@@ -5,7 +5,6 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/rs/zerolog/log"
 	"golang.org/x/sys/unix"
 )
 
@@ -61,14 +60,12 @@ func (ns *LinuxNamespace) ToFlag() uintptr {
 func (ns *LinuxNamespace) Enter() error {
 	fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
 	if err != nil {
-		log.Error().Err(err).Str("path", ns.Path).Str("type", string(ns.Type)).Msg("failed to open namespace path")
 		return fmt.Errorf("open ns path: %w", err)
 	}
 	defer syscall.Close(fd)
 
 	_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
-		log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
 		return fmt.Errorf("errno: %w", err)
 	}
 
