@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -10,7 +11,6 @@ import (
 	"syscall"
 
 	"github.com/containerd/cgroups/v3/cgroup1"
-	"github.com/nixpig/brownie/internal/ipc"
 	"github.com/nixpig/brownie/namespace"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -27,12 +27,11 @@ func (c *Container) Init(reexec string, arg string) error {
 
 	initSockAddr := filepath.Join(containerRootDir, c.ID(), initSockFilename)
 
-	var err error
-	c.initIPC.ch, c.initIPC.closer, err = ipc.NewReceiver(initSockAddr)
+	listener, err := net.Listen("unix", initSockAddr)
 	if err != nil {
-		return fmt.Errorf("create init ipc receiver: %w", err)
+		return fmt.Errorf("create init sock receiver: %w", err)
 	}
-	defer c.initIPC.closer()
+	defer listener.Close()
 
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
@@ -172,11 +171,25 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
-	return ipc.WaitForMsg(c.initIPC.ch, "ready", func() error {
-		c.SetStatus(specs.StateCreated)
-		if err := c.Save(); err != nil {
-			return fmt.Errorf("save created state: %w", err)
+	conn, err := listener.Accept()
+	if err != nil {
+		return fmt.Errorf("accept on listener: %w", err)
+	}
+
+	b := make([]byte, 1024)
+	for {
+		n, err := conn.Read(b)
+		if err != nil || n == 0 {
+			continue
 		}
-		return nil
-	})
+
+		if string(b[:n]) == "ready" {
+
+			c.SetStatus(specs.StateCreated)
+			if err := c.Save(); err != nil {
+				return fmt.Errorf("save created state: %w", err)
+			}
+			return nil
+		}
+	}
 }

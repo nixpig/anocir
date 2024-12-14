@@ -29,8 +29,7 @@ type Container struct {
 	Spec  *specs.Spec
 	Opts  *ContainerOpts
 
-	termFD  *int
-	initIPC ipcCtrl
+	termFD *int
 }
 
 type ContainerState struct {
@@ -81,7 +80,7 @@ func New(
 
 	absBundlePath, err := filepath.Abs(bundle)
 	if err != nil {
-		return nil, fmt.Errorf("construct absolute bundle path: %w", err)
+		return nil, err
 	}
 
 	if !semver.IsValid("v" + spec.Version) {
@@ -124,7 +123,7 @@ func Load(id string) (*Container, error) {
 	}
 
 	state := ContainerState{}
-	if err := json.Unmarshal([]byte(s), &state); err != nil {
+	if err := json.Unmarshal(s, &state); err != nil {
 		return nil, err
 	}
 
@@ -135,7 +134,7 @@ func Load(id string) (*Container, error) {
 	}
 
 	conf := specs.Spec{}
-	if err := json.Unmarshal([]byte(c), &conf); err != nil {
+	if err := json.Unmarshal(c, &conf); err != nil {
 		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
 	}
 
