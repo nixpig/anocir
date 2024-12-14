@@ -152,11 +152,11 @@ func (c *Container) Reexec(log *zerolog.Logger) error {
 		// syscall.Setgid(int(c.Spec.Process.User.GID))
 
 		if c.Spec.Linux.UIDMappings != nil {
-			cmd.SysProcAttr.UidMappings = user.BuildUidMappings(c.Spec.Linux.UIDMappings)
+			cmd.SysProcAttr.UidMappings = user.BuildUIDMappings(c.Spec.Linux.UIDMappings)
 		}
 
 		if c.Spec.Linux.GIDMappings != nil {
-			cmd.SysProcAttr.GidMappings = user.BuildGidMappings(c.Spec.Linux.GIDMappings)
+			cmd.SysProcAttr.GidMappings = user.BuildGIDMappings(c.Spec.Linux.GIDMappings)
 		}
 
 		cmd.Stdin = os.Stdin
