@@ -6,7 +6,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func BuildUidMappings(specUIDMappings []specs.LinuxIDMapping) []syscall.SysProcIDMap {
+func BuildUIDMappings(specUIDMappings []specs.LinuxIDMapping) []syscall.SysProcIDMap {
 	uidMappings := make([]syscall.SysProcIDMap, len(specUIDMappings))
 
 	for i, m := range specUIDMappings {
@@ -20,7 +20,7 @@ func BuildUidMappings(specUIDMappings []specs.LinuxIDMapping) []syscall.SysProcI
 	return uidMappings
 }
 
-func BuildGidMappings(specGIDMappings []specs.LinuxIDMapping) []syscall.SysProcIDMap {
+func BuildGIDMappings(specGIDMappings []specs.LinuxIDMapping) []syscall.SysProcIDMap {
 	gidMappings := make([]syscall.SysProcIDMap, len(specGIDMappings))
 
 	for i, g := range specGIDMappings {
