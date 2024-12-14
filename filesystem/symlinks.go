@@ -25,7 +25,3 @@ func createSymlinks(symlinks map[string]string, rootfs string) error {
 
 	return nil
 }
-
-func createDefaultSymlinks(rootfs string) error {
-	return createSymlinks(defaultSymlinks, rootfs)
-}

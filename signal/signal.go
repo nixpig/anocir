@@ -29,7 +29,7 @@ func FromInt(s int) (syscall.Signal, error) {
 		return syscall.SIGSTOP, nil
 	}
 
-	return -1, fmt.Errorf("signal not recognised (%d)", s)
+	return 0, fmt.Errorf("signal not recognised (%d)", s)
 }
 
 func FromString(s string) (syscall.Signal, error) {
@@ -56,5 +56,5 @@ func FromString(s string) (syscall.Signal, error) {
 		return syscall.SIGSTOP, nil
 	}
 
-	return syscall.Signal(-1), fmt.Errorf("convert signal string to int (%s)", s)
+	return syscall.Signal(0), fmt.Errorf("convert signal string to int (%s)", s)
 }

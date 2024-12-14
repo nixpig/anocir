@@ -29,9 +29,9 @@ func (c *Container) Start(log *zerolog.Logger) error {
 	}
 
 	// FIXME: 'prestart' hook is deprecated and appears to break 'docker run'??
-	if err := c.ExecHooks("prestart", log); err != nil {
+	if err := c.ExecHooks("prestart"); err != nil {
 		// TODO: run DELETE tasks here, then...
-		if err := c.ExecHooks("poststop", log); err != nil {
+		if err := c.ExecHooks("poststop"); err != nil {
 			log.Warn().Err(err).Msg("failed to execute poststop hooks")
 			fmt.Println("WARNING: failed to execute poststop hooks")
 		}
@@ -51,7 +51,7 @@ func (c *Container) Start(log *zerolog.Logger) error {
 		return fmt.Errorf("save host container state: %w", err)
 	}
 	// FIXME: do these need to move up before the cmd.Wait call??
-	if err := c.ExecHooks("poststart", log); err != nil {
+	if err := c.ExecHooks("poststart"); err != nil {
 		// TODO: how to handle this (log a warning) from start command??
 		// FIXME: needs to 'log a warning'
 		log.Warn().Err(err).Msg("failed to execute poststart hook")

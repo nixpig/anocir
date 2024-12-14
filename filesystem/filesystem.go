@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"syscall"
 
@@ -22,6 +23,7 @@ func mountDevice(device Device) error {
 	}
 
 	// added to satisfy 'docker run' issue
+	// TODO: figure out _why_
 	if device.Fstype == "cgroup" {
 		return nil
 	}
@@ -83,13 +85,9 @@ func mountProc(containerRootfs string) error {
 }
 
 func devIsInSpec(mounts []specs.Mount, dev string) bool {
-	for _, mount := range mounts {
-		if mount.Destination == dev {
-			return true
-		}
-	}
-
-	return false
+	return slices.ContainsFunc(mounts, func(m specs.Mount) bool {
+		return m.Destination == dev
+	})
 }
 
 func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
@@ -145,22 +143,6 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 				mount.Type = "bind"
 				flags |= syscall.MS_BIND
 			}
-
-			// TODO: review why this breaks everything!!
-			// o, ok := MountOptions[opt]
-			// if !ok {
-			// 	if !strings.HasPrefix(opt, "gid=") &&
-			// 		!strings.HasPrefix(opt, "uid=") &&
-			// 		opt != "newinstance" {
-			// 		dataOptions = append(dataOptions, opt)
-			// 	}
-			// } else {
-			// 	if !o.No {
-			// 		flags |= o.Flag
-			// 	} else {
-			// 		flags ^= o.Flag
-			// 	}
-			// }
 		}
 
 		var data string

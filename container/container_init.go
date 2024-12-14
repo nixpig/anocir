@@ -15,15 +15,14 @@ import (
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/rs/zerolog"
-	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
-	if err := c.ExecHooks("createRuntime", log); err != nil {
+	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createruntime hooks: %w", err)
 	}
 
-	if err := c.ExecHooks("createContainer", log); err != nil {
+	if err := c.ExecHooks("createContainer"); err != nil {
 		return fmt.Errorf("execute createcontainer hooks: %w", err)
 	}
 
@@ -41,40 +40,8 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		c.Opts.ConsoleSocket != ""
 
 	if useTerminal {
-		prev, err := os.Getwd()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to get current working directory")
-			return fmt.Errorf("get cwd: %w", err)
-		}
-
-		if err := os.Chdir(c.Rootfs()); err != nil {
-			log.Error().Err(err).Msg("failed to change to container root dir")
-			return fmt.Errorf("change to container root dir: %w", err)
-		}
-
-		cwd, err := os.Getwd()
-		if err != nil {
-			log.Error().Err(err).Msg("failed to get cwd")
-			return fmt.Errorf("get cwd: %w", err)
-		}
-		log.Info().Str("cwd", cwd).Msg("INIT current working directory")
-
-		if err := os.Symlink(c.Opts.ConsoleSocket, "./console-socket"); err != nil {
-			log.Error().Err(err).Msg("failed to symlink console socket")
-			return fmt.Errorf("symlink console socket: %w", err)
-		}
-
-		consoleSocket, err := terminal.NewPtySocket(
-			"./console-socket",
-		)
-		if err != nil {
-			return fmt.Errorf("create terminal socket: %w", err)
-		}
-		c.State.ConsoleSocket = &consoleSocket.SocketFd
-
-		if err := os.Chdir(prev); err != nil {
-			log.Error().Err(err).Msg("failed to change back to previous directory")
-			return fmt.Errorf("change back to prev dir: %w", err)
+		if c.State.ConsoleSocket, err = terminal.Setup(c.Rootfs(), c.Opts.ConsoleSocket); err != nil {
+			return err
 		}
 	}
 
@@ -163,15 +130,10 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 		}
 
 		ns := namespace.LinuxNamespace(ns)
-		flag, err := ns.ToFlag()
-		if err != nil {
-			return fmt.Errorf("convert namespace to flag: %w", err)
-		}
 
 		if ns.Path == "" {
-			cloneFlags |= flag
+			cloneFlags |= ns.ToFlag()
 		} else {
-
 			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) &&
 				ns.Type != specs.PIDNamespace {
 				return fmt.Errorf("namespace type (%s) and path (%s) do not match", ns.Type, ns.Path)
@@ -181,17 +143,8 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 			if ns.Type == specs.MountNamespace {
 				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_%s=%s", ns.ToEnv(), ns.Path))
 			} else {
-				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
-				if err != nil {
-					log.Error().Err(err).Str("path", ns.Path).Str("type", string(ns.Type)).Msg("failed to open namespace path")
-					return fmt.Errorf("open ns path: %w", err)
-				}
-				defer syscall.Close(fd)
-
-				_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
-				if errno != 0 {
-					log.Error().Str("path", ns.Path).Int("errno", int(errno)).Msg("FAIELD THE RAWSYSCALL")
-					return fmt.Errorf("errno: %w", err)
+				if err := ns.Enter(); err != nil {
+					return fmt.Errorf("enter namespace: %w", err)
 				}
 			}
 		}
@@ -220,16 +173,6 @@ func (c *Container) Init(reexec string, arg string, log *zerolog.Logger) error {
 	c.SetPID(pid)
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save pid for reexec: %w", err)
-	}
-
-	if c.Opts.PIDFile != "" {
-		if err := os.WriteFile(
-			c.Opts.PIDFile,
-			[]byte(strconv.Itoa(pid)),
-			0666,
-		); err != nil {
-			return fmt.Errorf("write pid to file (%s): %w", c.Opts.PIDFile, err)
-		}
 	}
 
 	if err := reexecCmd.Process.Release(); err != nil {

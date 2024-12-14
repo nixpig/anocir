@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/nixpig/brownie/container"
 	"github.com/rs/zerolog"
 )
@@ -17,10 +15,5 @@ func Reexec(opts *ReexecOpts, log *zerolog.Logger) error {
 		return err
 	}
 
-	if err := cntr.Reexec(log); err != nil {
-		log.Error().Err(err).Msg("reexec 1 failed...")
-		return fmt.Errorf("reexec 1 container: %w", err)
-	}
-
-	return nil
+	return cntr.Reexec(log)
 }

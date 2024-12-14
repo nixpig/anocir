@@ -12,6 +12,9 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 - [ ] Use execve instead of fork/exec
 - [ ] Major refactor and tidy-up
+  - internal/logging
+  - container/*
+  - internal/ipc
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
 - [ ] Implement cgroups v2

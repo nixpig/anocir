@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -178,28 +179,37 @@ func (c *Container) RefreshState(log *zerolog.Logger) error {
 	return nil
 }
 
-func (c *Container) save(configPath string) error {
+func (c *Container) Save() error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(configPath, b, 0644); err != nil {
+	if err := os.WriteFile(
+		filepath.Join(
+			containerRootDir,
+			c.ID(),
+			"state.json"),
+		b,
+		0644,
+	); err != nil {
 		return fmt.Errorf("(save: %s) write state file: %w", c.State.Status, err)
+	}
+
+	if c.Opts != nil && c.Opts.PIDFile != "" {
+		if err := os.WriteFile(
+			c.Opts.PIDFile,
+			[]byte(strconv.Itoa(c.PID())),
+			0666,
+		); err != nil {
+			return fmt.Errorf("write pid to file (%s): %w", c.Opts.PIDFile, err)
+		}
 	}
 
 	return nil
 }
 
-func (c *Container) Save() error {
-	return c.save(filepath.Join(
-		containerRootDir,
-		c.ID(),
-		"state.json"),
-	)
-}
-
-func (c *Container) ExecHooks(lifecycleHook string, log *zerolog.Logger) error {
+func (c *Container) ExecHooks(lifecycleHook string) error {
 	if c.Spec.Hooks == nil {
 		return nil
 	}
@@ -226,7 +236,7 @@ func (c *Container) ExecHooks(lifecycleHook string, log *zerolog.Logger) error {
 		return fmt.Errorf("marshal state: %w", err)
 	}
 
-	return lifecycle.ExecHooks(specHooks, string(s), log)
+	return lifecycle.ExecHooks(specHooks, string(s))
 }
 
 func (c *Container) CanBeStarted() bool {

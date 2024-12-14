@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/google/goterm/term"
+	"github.com/rs/zerolog/log"
 )
 
 type Pty struct {
@@ -30,10 +31,6 @@ func NewPty() (*Pty, error) {
 }
 
 func (p *Pty) Connect() error {
-	// if _, err := unix.Setsid(); err != nil {
-	// 	return fmt.Errorf("setsid: %w", err)
-	// }
-
 	if err := syscall.Dup2(int(p.Slave.Fd()), 0); err != nil {
 		return fmt.Errorf("dup2 stdin: %w", err)
 	}
@@ -87,11 +84,8 @@ func (ps *PtySocket) Close() error {
 
 func SendPty(consoleSocket int, pty *Pty) error {
 	masterFds := []int{int(pty.Master.Fd())}
-
 	cmsg := syscall.UnixRights(masterFds...)
-
 	size := unsafe.Sizeof(pty.Master.Fd())
-
 	buf := make([]byte, size)
 
 	switch size {
@@ -114,4 +108,43 @@ func SendPty(consoleSocket int, pty *Pty) error {
 	}
 
 	return nil
+}
+
+func Setup(rootfs, consoleSocketPath string) (*int, error) {
+
+	prev, err := os.Getwd()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get current working directory")
+		return nil, fmt.Errorf("get cwd: %w", err)
+	}
+
+	if err := os.Chdir(rootfs); err != nil {
+		log.Error().Err(err).Msg("failed to change to container root dir")
+		return nil, fmt.Errorf("change to container root dir: %w", err)
+	}
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		log.Error().Err(err).Msg("failed to get cwd")
+		return nil, fmt.Errorf("get cwd: %w", err)
+	}
+	log.Info().Str("cwd", cwd).Msg("INIT current working directory")
+
+	if err := os.Symlink(consoleSocketPath, "./console-socket"); err != nil {
+		log.Error().Err(err).Msg("failed to symlink console socket")
+		return nil, fmt.Errorf("symlink console socket: %w", err)
+	}
+
+	consoleSocket, err := NewPtySocket(
+		"./console-socket",
+	)
+	if err != nil {
+		return nil, fmt.Errorf("create terminal socket: %w", err)
+	}
+
+	if err := os.Chdir(prev); err != nil {
+		log.Error().Err(err).Msg("failed to change back to previous directory")
+		return nil, fmt.Errorf("change back to prev dir: %w", err)
+	}
+	return &consoleSocket.SocketFd, nil
 }

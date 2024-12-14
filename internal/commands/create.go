@@ -9,6 +9,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const containers = "/var/lib/brownie/containers"
+
 type CreateOpts struct {
 	ID            string
 	Bundle        string
@@ -18,7 +20,7 @@ type CreateOpts struct {
 
 func Create(opts *CreateOpts, log *zerolog.Logger) error {
 	if _, err := os.Stat(filepath.Join(
-		"/var/lib/brownie/containers", opts.ID,
+		containers, opts.ID,
 	)); err == nil {
 		return fmt.Errorf(
 			"container already exists (%s): %w",
