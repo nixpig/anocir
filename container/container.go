@@ -98,7 +98,7 @@ func New(
 
 	if err := os.MkdirAll(
 		filepath.Join(containerRootDir, cntr.ID()),
-		0644,
+		0666,
 	); err != nil {
 		return nil, fmt.Errorf("create new container directory: %w", err)
 	}
