@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/containerd/cgroups/v3/cgroup1"
+	"github.com/nixpig/brownie/cgroups"
 	"github.com/nixpig/brownie/namespace"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -18,39 +18,35 @@ import (
 
 func (c *Container) Init(reexec string, arg string) error {
 	if err := c.ExecHooks("createRuntime"); err != nil {
-		return fmt.Errorf("execute createruntime hooks: %w", err)
+		return fmt.Errorf("execute createRuntime hooks: %w", err)
 	}
 
 	if err := c.ExecHooks("createContainer"); err != nil {
-		return fmt.Errorf("execute createcontainer hooks: %w", err)
+		return fmt.Errorf("execute createContainer hooks: %w", err)
 	}
 
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
 		c.Opts.ConsoleSocket != ""
 
-	var err error
 	if useTerminal {
-		if c.State.ConsoleSocket, err = terminal.Setup(c.Rootfs(), c.Opts.ConsoleSocket); err != nil {
+		var err error
+		if c.State.ConsoleSocket, err = terminal.Setup(
+			c.Rootfs(),
+			c.Opts.ConsoleSocket,
+		); err != nil {
 			return err
 		}
 	}
 
 	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
-		staticPath := cgroup1.StaticPath(c.Spec.Linux.CgroupsPath)
-
-		cg, err := cgroup1.New(
-			staticPath,
-			&specs.LinuxResources{
-				Devices: c.Spec.Linux.Resources.Devices,
-			},
-		)
-		if err != nil {
-			return fmt.Errorf("apply cgroups (path: %s): %w", c.Spec.Linux.CgroupsPath, err)
+		if err := cgroups.AddV1(
+			c.Spec.Linux.CgroupsPath,
+			c.Spec.Linux.Resources.Devices,
+			c.PID(),
+		); err != nil {
+			return err
 		}
-		defer cg.Delete()
-
-		cg.Add(cgroup1.Process{Pid: c.PID()})
 	}
 
 	// ---------------------------
