@@ -25,6 +25,8 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("execute createContainer hooks: %w", err)
 	}
 
+	cmd := exec.Command(reexec, []string{arg, c.ID()}...)
+
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
 		c.Opts.ConsoleSocket != ""
@@ -38,18 +40,6 @@ func (c *Container) Init(reexec string, arg string) error {
 			return err
 		}
 	}
-
-	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
-		if err := cgroups.AddV1(
-			c.Spec.Linux.CgroupsPath,
-			c.Spec.Linux.Resources.Devices,
-			c.PID(),
-		); err != nil {
-			return err
-		}
-	}
-
-	// ---------------------------
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
 		if err := os.WriteFile(
@@ -83,13 +73,6 @@ func (c *Container) Init(reexec string, arg string) error {
 		fmt.Println("TODO: implement fallback stdio??")
 	}
 
-	// ---------------------------
-
-	reexecCmd := exec.Command(
-		reexec,
-		[]string{arg, c.ID()}...,
-	)
-
 	cloneFlags := uintptr(0)
 
 	var uidMappings []syscall.SysProcIDMap
@@ -122,7 +105,7 @@ func (c *Container) Init(reexec string, arg string) error {
 
 			// TODO: align so the same mechanism is used for all namespaces?
 			if ns.Type == specs.MountNamespace {
-				reexecCmd.Env = append(reexecCmd.Env, fmt.Sprintf("gons_%s=%s", ns.ToEnv(), ns.Path))
+				cmd.Env = append(cmd.Env, fmt.Sprintf("gons_%s=%s", ns.ToEnv(), ns.Path))
 			} else {
 				if err := ns.Enter(); err != nil {
 					return fmt.Errorf("enter namespace: %w", err)
@@ -131,7 +114,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		}
 	}
 
-	reexecCmd.SysProcAttr = &syscall.SysProcAttr{
+	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:   cloneFlags,
 		Unshareflags: uintptr(0),
 		UidMappings:  uidMappings,
@@ -139,24 +122,34 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
-		reexecCmd.Env = append(reexecCmd.Env, c.Spec.Process.Env...)
+		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
 	}
 
-	reexecCmd.Stdin = c.Opts.Stdin
-	reexecCmd.Stdout = c.Opts.Stdout
-	reexecCmd.Stderr = c.Opts.Stderr
+	cmd.Stdin = c.Opts.Stdin
+	cmd.Stdout = c.Opts.Stdout
+	cmd.Stderr = c.Opts.Stderr
 
-	if err := reexecCmd.Start(); err != nil {
+	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start reexec container: %w", err)
 	}
 
-	pid := reexecCmd.Process.Pid
+	pid := cmd.Process.Pid
 	c.SetPID(pid)
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save pid for reexec: %w", err)
 	}
 
-	if err := reexecCmd.Process.Release(); err != nil {
+	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
+		if err := cgroups.AddV1(
+			c.Spec.Linux.CgroupsPath,
+			c.Spec.Linux.Resources.Devices,
+			c.PID(),
+		); err != nil {
+			return err
+		}
+	}
+
+	if err := cmd.Process.Release(); err != nil {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 

@@ -12,7 +12,6 @@ func AddV1(
 	devices []specs.LinuxDeviceCgroup,
 	pid int,
 ) error {
-
 	staticPath := cgroup1.StaticPath(path)
 
 	cg, err := cgroup1.New(
