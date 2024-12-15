@@ -81,7 +81,7 @@ jobs:
           sudo systemctl restart docker
 
       # for some reason this hangs in CI; need to investigate
-      # - name: run docker hello-world
-      #   run: |
-      #     sudo ./test/docker-integration.sh
+      - name: run docker hello-world
+        run: |
+          ./test/docker-integration.sh
 
