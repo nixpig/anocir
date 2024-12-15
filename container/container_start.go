@@ -1,7 +1,6 @@
 package container
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"path/filepath"
@@ -15,15 +14,16 @@ func (c *Container) Start() error {
 		if err := c.Save(); err != nil {
 			return err
 		}
+		// if there's no process, there's nothing to do; return silently
 		return nil
 	}
 
 	if !c.CanBeStarted() {
-		return errors.New("container cannot be started in current state")
+		return fmt.Errorf("container cannot be started in current state (%s)", c.Status())
 	}
 
 	if err := c.ExecHooks("prestart"); err != nil {
-		// TODO: run DELETE tasks here, then...
+		// TODO: rollback and delete (?), then...
 		if err := c.ExecHooks("poststop"); err != nil {
 			fmt.Println("Warning: failed to execute poststop hooks")
 		}
@@ -34,17 +34,17 @@ func (c *Container) Start() error {
 	// send "start"
 	conn, err := net.Dial("unix", filepath.Join(containerRootDir, c.ID(), containerSockFilename))
 	if err != nil {
-		return fmt.Errorf("dial socket: %w", err)
+		return fmt.Errorf("dial container socket: %w", err)
 	}
 
 	if _, err := conn.Write([]byte("start")); err != nil {
-		return fmt.Errorf("send start over ipc: %w", err)
+		return fmt.Errorf("send 'start' to container: %w", err)
 	}
 	defer conn.Close()
 
 	c.SetStatus(specs.StateRunning)
 	if err := c.Save(); err != nil {
-		return fmt.Errorf("save host container state: %w", err)
+		return fmt.Errorf("save running container state: %w", err)
 	}
 
 	if err := c.ExecHooks("poststart"); err != nil {

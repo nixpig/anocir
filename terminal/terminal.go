@@ -21,11 +21,9 @@ func NewPty() (*Pty, error) {
 		return nil, fmt.Errorf("open pty: %w", err)
 	}
 
-	master, slave := pty.Master, pty.Slave
-
 	return &Pty{
-		Master: master,
-		Slave:  slave,
+		Master: pty.Master,
+		Slave:  pty.Slave,
 	}, nil
 }
 
@@ -110,7 +108,6 @@ func SendPty(consoleSocket int, pty *Pty) error {
 }
 
 func Setup(rootfs, consoleSocketPath string) (*int, error) {
-
 	prev, err := os.Getwd()
 	if err != nil {
 		return nil, fmt.Errorf("get cwd: %w", err)
@@ -132,7 +129,8 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 	}
 
 	if err := os.Chdir(prev); err != nil {
-		return nil, fmt.Errorf("change back to prev dir: %w", err)
+		return nil, fmt.Errorf("change back to previos cwd: %w", err)
 	}
+
 	return &consoleSocket.SocketFd, nil
 }

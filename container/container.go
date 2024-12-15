@@ -42,11 +42,6 @@ type ContainerState struct {
 	ConsoleSocket *int                 `json:"consoleSocket"`
 }
 
-type ipcCtrl struct {
-	ch     chan []byte
-	closer func() error
-}
-
 type ContainerOpts struct {
 	PIDFile       string
 	ConsoleSocket string
@@ -62,30 +57,29 @@ func New(
 ) (*Container, error) {
 	b, err := os.ReadFile(filepath.Join(bundle, configFilename))
 	if err != nil {
-		return nil, fmt.Errorf("read container config: %w", err)
+		return nil, fmt.Errorf("read new container config file: %w", err)
 	}
 
 	var spec *specs.Spec
 	if err := json.Unmarshal(b, &spec); err != nil {
-		return nil, fmt.Errorf("parse container config: %w", err)
+		return nil, fmt.Errorf("parse new container config: %w", err)
 	}
 
 	if spec.Linux == nil {
-		return nil, errors.New("only linux containers are supported")
+		return nil, errors.New("only Linux containers are supported")
 	}
 
 	if spec.Root == nil {
-		return nil, errors.New("root is required")
+		return nil, errors.New("root is required in spec")
+	}
+
+	if !semver.IsValid(fmt.Sprintf("v%s", spec.Version)) {
+		return nil, fmt.Errorf("version must be valid semver: %s", spec.Version)
 	}
 
 	absBundlePath, err := filepath.Abs(bundle)
 	if err != nil {
-		return nil, err
-	}
-
-	if !semver.IsValid("v" + spec.Version) {
-		// TODO: rollback state?
-		return nil, fmt.Errorf("invalid version: %s", spec.Version)
+		return nil, fmt.Errorf("absolute path from new container bundle: %w", err)
 	}
 
 	state := &ContainerState{
@@ -106,11 +100,11 @@ func New(
 		filepath.Join(containerRootDir, cntr.ID()),
 		0644,
 	); err != nil {
-		return nil, fmt.Errorf("create container directory: %w", err)
+		return nil, fmt.Errorf("create new container directory: %w", err)
 	}
 
 	if err := cntr.Save(); err != nil {
-		return nil, fmt.Errorf("save newly created container: %w", err)
+		return nil, fmt.Errorf("save new container: %w", err)
 	}
 
 	return &cntr, nil
@@ -119,23 +113,23 @@ func New(
 func Load(id string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(containerRootDir, id, stateFilename))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read existing container state file: %w", err)
 	}
 
 	state := ContainerState{}
 	if err := json.Unmarshal(s, &state); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("parse existing container state: %w", err)
 	}
 
 	bundle := state.Bundle
 	c, err := os.ReadFile(filepath.Join(bundle, configFilename))
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("read existing container config file: %w", err)
 	}
 
 	conf := specs.Spec{}
 	if err := json.Unmarshal(c, &conf); err != nil {
-		return nil, fmt.Errorf("unmarshall state to struct: %w", err)
+		return nil, fmt.Errorf("parse existing container config: %w", err)
 	}
 
 	cntr := &Container{
@@ -153,22 +147,22 @@ func Load(id string) (*Container, error) {
 func (c *Container) RefreshState() error {
 	b, err := os.ReadFile(filepath.Join(containerRootDir, c.ID(), stateFilename))
 	if err != nil {
-		return fmt.Errorf("refresh from state file: %w", err)
+		return fmt.Errorf("read refresh container state file: %w", err)
 	}
 
 	if err := json.Unmarshal(b, c.State); err != nil {
-		return fmt.Errorf("unmarshal refreshed state: %w", err)
+		return fmt.Errorf("parse refresh container state: %w", err)
 	}
 
 	process, err := os.FindProcess(c.State.PID)
 	if err != nil {
-		return err
+		return fmt.Errorf("find refresh container process (%d): %w", c.State.PID, err)
 	}
 
 	if err := process.Signal(syscall.Signal(0)); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
-			return fmt.Errorf("(refresh) save container state: %w", err)
+			return fmt.Errorf("save refresh container state: %w", err)
 		}
 	}
 
@@ -178,7 +172,7 @@ func (c *Container) RefreshState() error {
 func (c *Container) Save() error {
 	b, err := json.Marshal(c.State)
 	if err != nil {
-		return err
+		return fmt.Errorf("serialise container state for saving: %w", err)
 	}
 
 	if err := os.WriteFile(
@@ -186,7 +180,7 @@ func (c *Container) Save() error {
 		b,
 		0644,
 	); err != nil {
-		return fmt.Errorf("write state file (%s): %w", c.State.Status, err)
+		return fmt.Errorf("write container state file (%s): %w", c.State.Status, err)
 	}
 
 	if c.Opts != nil && c.Opts.PIDFile != "" {
@@ -195,7 +189,7 @@ func (c *Container) Save() error {
 			[]byte(strconv.Itoa(c.PID())),
 			0666,
 		); err != nil {
-			return fmt.Errorf("write pid to file (%s): %w", c.Opts.PIDFile, err)
+			return fmt.Errorf("write container PID to file (%s): %w", c.Opts.PIDFile, err)
 		}
 	}
 
@@ -226,7 +220,7 @@ func (c *Container) ExecHooks(lifecycleHook string) error {
 
 	s, err := json.Marshal(c.State)
 	if err != nil {
-		return fmt.Errorf("marshal state: %w", err)
+		return fmt.Errorf("serialise container state for hook exec: %w", err)
 	}
 
 	return lifecycle.ExecHooks(specHooks, string(s))
@@ -237,8 +231,7 @@ func (c *Container) CanBeStarted() bool {
 }
 
 func (c *Container) CanBeKilled() bool {
-	return c.Status() == specs.StateRunning ||
-		c.Status() == specs.StateCreated
+	return c.Status() == specs.StateRunning || c.Status() == specs.StateCreated
 }
 
 func (c *Container) CanBeDeleted() bool {
