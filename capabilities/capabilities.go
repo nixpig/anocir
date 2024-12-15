@@ -52,6 +52,10 @@ var Capabilities = map[string]capability.Cap{
 }
 
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
+	if caps == nil {
+		return nil
+	}
+
 	c, err := capability.NewPid2(0)
 	if err != nil {
 		return fmt.Errorf("initialise capabilities object: %w", err)

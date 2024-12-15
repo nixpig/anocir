@@ -179,16 +179,15 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 	defer conn.Close()
 
-	b := make([]byte, 1024)
-	for {
-		n, err := conn.Read(b)
-		if err != nil || n == 0 {
-			continue
-		}
+	b := make([]byte, 128)
+	n, err := conn.Read(b)
+	if err != nil {
+		return fmt.Errorf("read from init socket: %w", err)
+	}
 
-		if string(b[:n]) == "ready" {
-			break
-		}
+	msg := string(b[:n])
+	if msg != "ready" {
+		return fmt.Errorf("expecting 'ready', received '%s'", msg)
 	}
 
 	// after receiving "ready"

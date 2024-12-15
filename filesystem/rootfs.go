@@ -2,6 +2,7 @@ package filesystem
 
 import (
 	"fmt"
+	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -37,6 +38,42 @@ func SetupRootfs(rootfs string, spec *specs.Spec) error {
 func PivotRoot(rootfs string) error {
 	if err := pivotRootfs(rootfs); err != nil {
 		return fmt.Errorf("pivot root: %w", err)
+	}
+
+	return nil
+}
+
+func SetRootfsMountPropagation(prop string) error {
+	if prop == "" {
+		return nil
+	}
+
+	if err := syscall.Mount(
+		"",
+		"/",
+		"",
+		MountOptions[prop].Flag,
+		"",
+	); err != nil {
+		return fmt.Errorf("set rootfs mount propagation (%s): %w", prop, err)
+	}
+
+	return nil
+}
+
+func MountRootReadonly(ro bool) error {
+	if !ro {
+		return nil
+	}
+
+	if err := syscall.Mount(
+		"",
+		"/",
+		"",
+		syscall.MS_BIND|syscall.MS_REMOUNT|syscall.MS_RDONLY,
+		"",
+	); err != nil {
+		return fmt.Errorf("remount root as readonly: %w", err)
 	}
 
 	return nil

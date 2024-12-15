@@ -39,7 +39,7 @@ func (c *Container) Reexec() error {
 	if err := os.RemoveAll(
 		filepath.Join(containerRootDir, c.ID(), containerSockFilename),
 	); err != nil {
-		return fmt.Errorf("remove socket before creating: %w", err)
+		return fmt.Errorf("remove any existing container socket: %w", err)
 	}
 
 	listener, err := net.Listen(
@@ -54,16 +54,15 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	b := make([]byte, 1024)
-	for {
-		n, err := containerConn.Read(b)
-		if err != nil || n == 0 {
-			continue
-		}
+	b := make([]byte, 128)
+	n, err := containerConn.Read(b)
+	if err != nil {
+		return fmt.Errorf("read from container socket: %w", err)
+	}
 
-		if string(b[:n]) == "start" {
-			break
-		}
+	msg := string(b[:n])
+	if msg != "start" {
+		return fmt.Errorf("expecting 'start', received '%s'", msg)
 	}
 
 	// close as soon as we're done so they don't leak into the container
@@ -91,28 +90,16 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	if c.Spec.Linux.RootfsPropagation != "" {
-		if err := syscall.Mount(
-			"",
-			"/",
-			"",
-			filesystem.MountOptions[c.Spec.Linux.RootfsPropagation].Flag,
-			"",
-		); err != nil {
-			return err
-		}
+	if err := filesystem.SetRootfsMountPropagation(
+		c.Spec.Linux.RootfsPropagation,
+	); err != nil {
+		return err
 	}
 
-	if c.Spec.Root.Readonly {
-		if err := syscall.Mount(
-			"",
-			"/",
-			"",
-			syscall.MS_BIND|syscall.MS_REMOUNT|syscall.MS_RDONLY,
-			"",
-		); err != nil {
-			return err
-		}
+	if err := filesystem.MountRootReadonly(
+		c.Spec.Root.Readonly,
+	); err != nil {
+		return err
 	}
 
 	if slices.ContainsFunc(
@@ -130,18 +117,14 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	if c.Spec.Process.Rlimits != nil {
-		if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-			return err
-		}
+	if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+		return err
 	}
 
-	if c.Spec.Process.Capabilities != nil {
-		if err := capabilities.SetCapabilities(
-			c.Spec.Process.Capabilities,
-		); err != nil {
-			return err
-		}
+	if err := capabilities.SetCapabilities(
+		c.Spec.Process.Capabilities,
+	); err != nil {
+		return err
 	}
 
 	cmd := exec.Command(c.Spec.Process.Args[0], c.Spec.Process.Args[1:]...)
@@ -187,7 +170,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
-	// we can't get logs or anything past this point
+	// point of no return
 	if err := cmd.Run(); err != nil {
 		return err
 	}
