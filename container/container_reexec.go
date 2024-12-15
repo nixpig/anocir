@@ -22,7 +22,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("setup rootfs: %w", err)
 	}
 
-	// -- sock - send ready
+	// send "ready"
 	initConn, err := net.Dial(
 		"unix",
 		filepath.Join(containerRootDir, c.ID(), initSockFilename),
@@ -30,12 +30,12 @@ func (c *Container) Reexec() error {
 	if err != nil {
 		return err
 	}
-	defer initConn.Close()
 
 	initConn.Write([]byte("ready"))
-	// -- /sock
+	// close asap so it doesn't leak into the container
+	initConn.Close()
 
-	// sock - wait for start
+	// wait for "start"
 	if err := os.RemoveAll(
 		filepath.Join(containerRootDir, c.ID(), containerSockFilename),
 	); err != nil {
@@ -49,12 +49,10 @@ func (c *Container) Reexec() error {
 	if err != nil {
 		return err
 	}
-	defer listener.Close()
 	containerConn, err := listener.Accept()
 	if err != nil {
 		return err
 	}
-	defer containerConn.Close()
 
 	b := make([]byte, 1024)
 	for {
@@ -67,9 +65,12 @@ func (c *Container) Reexec() error {
 			break
 		}
 	}
-	// -- /sock
 
-	// -- pick back up here!
+	// close as soon as we're done so they don't leak into the container
+	containerConn.Close()
+	listener.Close()
+
+	// after receiving "start"
 	if c.Spec.Process == nil {
 		return errors.New("process is required")
 	}

@@ -164,7 +164,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("detach reexec container: %w", err)
 	}
 
-	// -- sock - wait for ready
+	// wait for "ready"
 	initSockAddr := filepath.Join(containerRootDir, c.ID(), initSockFilename)
 
 	listener, err := net.Listen("unix", initSockAddr)
@@ -190,8 +190,8 @@ func (c *Container) Init(reexec string, arg string) error {
 			break
 		}
 	}
-	// -- /sock
 
+	// after receiving "ready"
 	c.SetStatus(specs.StateCreated)
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save created state: %w", err)

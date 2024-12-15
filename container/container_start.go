@@ -31,7 +31,7 @@ func (c *Container) Start() error {
 		fmt.Println("Warning: failed to execute prestart hooks")
 	}
 
-	// -- sock - send start
+	// send "start"
 	conn, err := net.Dial("unix", filepath.Join(containerRootDir, c.ID(), containerSockFilename))
 	if err != nil {
 		return fmt.Errorf("dial socket: %w", err)
@@ -41,13 +41,12 @@ func (c *Container) Start() error {
 		return fmt.Errorf("send start over ipc: %w", err)
 	}
 	defer conn.Close()
-	// -- /sock
 
 	c.SetStatus(specs.StateRunning)
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save host container state: %w", err)
 	}
-	// FIXME: do these need to move up before the cmd.Wait call??
+
 	if err := c.ExecHooks("poststart"); err != nil {
 		fmt.Println("Warning: ", err)
 	}
