@@ -11,8 +11,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
 - [ ] Use execve instead of fork/exec
-- [ ] Major refactor and tidy-up
-  - container/*
 - [ ] Unit tests
 - [ ] Implement seccomp
 - [ ] Implement AppArmor
