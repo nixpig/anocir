@@ -23,8 +23,14 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 I'm developing `brownie` on the following environment. Even with the same set up, YMMV. Maybe I'll create a Vagrant box in future.
 
+**Development**
 - `go version go1.23.0 linux/amd64`
 - `Linux 6.10.2-arch1-1 x86_64 GNU/Linux`
+
+**Testing**
+- `Linux Vagrant 5.15.0-116-generic #126-Ubuntu SMP X86_64 GNU/Linux`
+
+You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
 ### Build from source
 
