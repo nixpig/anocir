@@ -148,6 +148,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("set additional GIDs: %w", err)
 	}
 
+	// TODO: reimplement uid and gid mappings for execve
 	// if c.Spec.Linux.UIDMappings != nil {
 	// 	cmd.SysProcAttr.UidMappings =
 	// 		user.BuildUIDMappings(c.Spec.Linux.UIDMappings)
