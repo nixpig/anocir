@@ -67,10 +67,6 @@ func (c *Container) Init(reexec string, arg string) error {
 		); err != nil {
 			return fmt.Errorf("connect pty and socket: %w", err)
 		}
-
-	} else {
-		// TODO: fall back to dup2 on stdin, stdout, stderr from c.Opts??
-		fmt.Println("TODO: implement fallback stdio??")
 	}
 
 	cloneFlags := uintptr(0)
