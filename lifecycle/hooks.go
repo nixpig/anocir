@@ -21,9 +21,16 @@ func ExecHooks(hooks []specs.Hook, state string) error {
 			defer cancel()
 		}
 
-		args := h.Args[1:]
-		args = append(args, state)
+		args := append(h.Args, state)
 		cmd := exec.CommandContext(ctx, h.Path, args...)
+
+		// I don't know why these need to be set here
+		// I thought they're set in the CommandContext above, but maybe not.
+		// -- Skill issue
+		cmd.Path = h.Path
+		cmd.Args = args
+		// ---
+
 		cmd.Env = h.Env
 		cmd.Stdin = strings.NewReader(state)
 

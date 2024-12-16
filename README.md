@@ -11,7 +11,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
 - [ ] ~Unit tests~ Integration tests seem to be sufficing
-- [ ] Fix networking
 - [ ] Container cleanup
 - [ ] Implement [Cgroups v2](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#control-groups)
 - [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
