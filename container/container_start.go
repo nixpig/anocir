@@ -28,7 +28,7 @@ func (c *Container) Start() error {
 			fmt.Println("Warning: failed to execute poststop hooks")
 		}
 
-		return fmt.Errorf("Warning: failed to execute prestart hooks: %w", err)
+		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
 	// send "start"
