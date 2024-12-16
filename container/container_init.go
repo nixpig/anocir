@@ -92,15 +92,18 @@ func (c *Container) Init(reexec string, arg string) error {
 		ns := namespace.LinuxNamespace(ns)
 
 		if ns.Path == "" {
+			fmt.Printf("join '%s' namespace by clone\n", ns.Type)
 			cloneFlags |= ns.ToFlag()
 		} else {
+			fmt.Printf("join '%s' namespace by path\n", ns.Type)
 			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) &&
 				ns.Type != specs.PIDNamespace {
 				return fmt.Errorf("namespace type (%s) and path (%s) do not match", ns.Type, ns.Path)
 			}
 
-			// TODO: align so the same mechanism is used for all namespaces?
 			if ns.Type == specs.MountNamespace {
+				// mount namespaces do not work across threads, so this needs to be done
+				// in single-threaded context in C before the reexec
 				cmd.Env = append(cmd.Env, fmt.Sprintf("gons_%s=%s", ns.ToEnv(), ns.Path))
 			} else {
 				if err := ns.Enter(); err != nil {
@@ -111,10 +114,9 @@ func (c *Container) Init(reexec string, arg string) error {
 	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:   cloneFlags,
-		Unshareflags: uintptr(0),
-		UidMappings:  uidMappings,
-		GidMappings:  gidMappings,
+		Cloneflags:  cloneFlags,
+		UidMappings: uidMappings,
+		GidMappings: gidMappings,
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
@@ -160,7 +162,7 @@ func (c *Container) Init(reexec string, arg string) error {
 
 	conn, err := listener.Accept()
 	if err != nil {
-		return fmt.Errorf("accept on listener: %w", err)
+		return fmt.Errorf("accept on init listener: %w", err)
 	}
 	defer conn.Close()
 

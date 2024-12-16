@@ -148,17 +148,6 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("set additional GIDs: %w", err)
 	}
 
-	// TODO: reimplement uid and gid mappings for execve
-	// if c.Spec.Linux.UIDMappings != nil {
-	// 	cmd.SysProcAttr.UidMappings =
-	// 		user.BuildUIDMappings(c.Spec.Linux.UIDMappings)
-	// }
-	//
-	// if c.Spec.Linux.GIDMappings != nil {
-	// 	cmd.SysProcAttr.GidMappings =
-	// 		user.BuildGIDMappings(c.Spec.Linux.GIDMappings)
-	// }
-
 	if err := c.ExecHooks("startContainer"); err != nil {
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
