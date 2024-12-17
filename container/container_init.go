@@ -75,6 +75,8 @@ func (c *Container) Init(reexec string, arg string) error {
 	var gidMappings []syscall.SysProcIDMap
 
 	for _, ns := range c.Spec.Linux.Namespaces {
+		ns := namespace.LinuxNamespace(ns)
+
 		if ns.Type == specs.UserNamespace {
 			uidMappings = append(uidMappings, syscall.SysProcIDMap{
 				ContainerID: 0,
@@ -89,13 +91,9 @@ func (c *Container) Init(reexec string, arg string) error {
 			})
 		}
 
-		ns := namespace.LinuxNamespace(ns)
-
 		if ns.Path == "" {
-			fmt.Printf("join '%s' namespace by clone\n", ns.Type)
 			cloneFlags |= ns.ToFlag()
 		} else {
-			fmt.Printf("join '%s' namespace by path\n", ns.Type)
 			if !strings.HasSuffix(ns.Path, fmt.Sprintf("/%s", ns.ToEnv())) &&
 				ns.Type != specs.PIDNamespace {
 				return fmt.Errorf("namespace type (%s) and path (%s) do not match", ns.Type, ns.Path)

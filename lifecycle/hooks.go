@@ -2,7 +2,9 @@ package lifecycle
 
 import (
 	"context"
+	"fmt"
 	"os/exec"
+	"path/filepath"
 	"strings"
 	"time"
 
@@ -21,16 +23,16 @@ func ExecHooks(hooks []specs.Hook, state string) error {
 			defer cancel()
 		}
 
-		args := append(h.Args, state)
-		cmd := exec.CommandContext(ctx, h.Path, args...)
+		binary, err := exec.LookPath(h.Path)
+		if err != nil {
+			return fmt.Errorf("find hook binary: %w", err)
+		}
 
-		// I don't know why these need to be set here
-		// I thought they're set in the CommandContext above, but maybe not.
-		// -- Skill issue
-		cmd.Path = h.Path
-		cmd.Args = args
-		// ---
+		path := filepath.Dir(h.Path)
 
+		cmd := exec.CommandContext(ctx, binary, path)
+
+		cmd.Args = append(h.Args, state)
 		cmd.Env = h.Env
 		cmd.Stdin = strings.NewReader(state)
 
