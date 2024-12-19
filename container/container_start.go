@@ -23,7 +23,6 @@ func (c *Container) Start() error {
 	}
 
 	if err := c.ExecHooks("prestart"); err != nil {
-		// TODO: rollback and delete (?), then...
 		if err := c.ExecHooks("poststop"); err != nil {
 			fmt.Println("Warning: failed to execute poststop hooks: ", err)
 		}

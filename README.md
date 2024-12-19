@@ -2,7 +2,7 @@
 
 # 🍪 brownie
 
-**An experimental Linux container runtime, (mostly) implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
+**An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
@@ -11,7 +11,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
 - [ ] ~Unit tests~ Integration tests seem to be sufficing
-- [ ] Container cleanup
 - [ ] Implement [Cgroups v2](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#control-groups)
 - [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
 - [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process)
@@ -22,7 +21,7 @@ This is a personal project for me to explore and better understand the OCI Runti
 >
 > This is an experimental project. It requires `sudo` and will make changes to your system. Take appropriate precautions.
 
-I'm developing `brownie` on the following environment. Even with the same set up, YMMV. Maybe I'll create a Vagrant box in future.
+I'm developing `brownie` on the following environment. Even with the same set up, YMMV.
 
 **Development**
 - `go version go1.23.0 linux/amd64`

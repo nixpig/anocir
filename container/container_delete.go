@@ -20,7 +20,6 @@ func (c *Container) Delete(force bool) error {
 		process.Signal(syscall.Signal(9))
 	}
 
-	// TODO: actually do the 'deleting'; rewind all the creation steps, not just deleting
 	if err := os.RemoveAll(filepath.Join(containerRootDir, c.ID())); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
