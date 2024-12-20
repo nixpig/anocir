@@ -4,6 +4,8 @@
 
 **An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
 
+![docker hello-world with brownie runtime](demo.gif)
+
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
 `brownie` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `brownie` is feature-complete...yet. See below for outstanding items.
