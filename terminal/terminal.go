@@ -8,6 +8,7 @@ import (
 	"unsafe"
 
 	"github.com/google/goterm/term"
+	"golang.org/x/sys/unix"
 )
 
 type Pty struct {
@@ -28,6 +29,14 @@ func NewPty() (*Pty, error) {
 }
 
 func (p *Pty) Connect() error {
+	if _, err := unix.Setsid(); err != nil {
+		return fmt.Errorf("setsid: %w", err)
+	}
+
+	if err := unix.IoctlSetInt(int(p.Slave.Fd()), syscall.TIOCSCTTY, 0); err != nil {
+		return fmt.Errorf("set ioctl: %w", err)
+	}
+
 	if err := syscall.Dup2(int(p.Slave.Fd()), 0); err != nil {
 		return fmt.Errorf("dup2 stdin: %w", err)
 	}
@@ -131,6 +140,8 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 	if err := os.Chdir(prev); err != nil {
 		return nil, fmt.Errorf("change back to previos cwd: %w", err)
 	}
+
+	// TODO: close?
 
 	return &consoleSocket.SocketFd, nil
 }

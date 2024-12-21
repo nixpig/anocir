@@ -3,11 +3,10 @@ Vagrant.configure("2") do |config|
   config.vm.synced_folder '.', '/brownie'
 
   config.vm.provider "virtualbox" do |vb|
-    vb.gui = true
+    vb.gui = false
     vb.memory = "4096"
     vb.cpus = "2"
   end
-
 
   config.vm.provision "shell", inline: <<-SHELL
     set -e -x -o pipefail
@@ -30,11 +29,11 @@ Vagrant.configure("2") do |config|
         docker-buildx-plugin_*_amd64.deb \
         docker-compose-plugin_*_amd64.deb
 
-      # Start docker service with brownie runtime
       # Add user to docker group
       gpasswd -a vagrant docker
     fi
 
+    # Stop and start Docker service with brownie runtime
     service docker stop
     dockerd --add-runtime brownie=/brownie/tmp/bin/brownie \
       > /dev/null 2>&1 & disown

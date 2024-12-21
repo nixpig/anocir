@@ -51,24 +51,6 @@ func (c *Container) Init(reexec string, arg string) error {
 		}
 	}
 
-	if c.State.ConsoleSocket != nil {
-		pty, err := terminal.NewPty()
-		if err != nil {
-			return fmt.Errorf("new pty: %w", err)
-		}
-
-		if err := pty.Connect(); err != nil {
-			return fmt.Errorf("connect pty: %w", err)
-		}
-
-		if err := terminal.SendPty(
-			*c.State.ConsoleSocket,
-			pty,
-		); err != nil {
-			return fmt.Errorf("connect pty and socket: %w", err)
-		}
-	}
-
 	cloneFlags := uintptr(0)
 
 	var uidMappings []syscall.SysProcIDMap

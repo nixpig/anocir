@@ -14,12 +14,31 @@ import (
 	"github.com/nixpig/brownie/capabilities"
 	"github.com/nixpig/brownie/cgroups"
 	"github.com/nixpig/brownie/filesystem"
+	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 func (c *Container) Reexec() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
+
+	if c.State.ConsoleSocket != nil {
+		pty, err := terminal.NewPty()
+		if err != nil {
+			return fmt.Errorf("new pty: %w", err)
+		}
+
+		if err := terminal.SendPty(
+			*c.State.ConsoleSocket,
+			pty,
+		); err != nil {
+			return fmt.Errorf("connect pty and socket: %w", err)
+		}
+
+		if err := pty.Connect(); err != nil {
+			return fmt.Errorf("connect pty: %w", err)
+		}
+	}
 
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
 		return fmt.Errorf("setup rootfs: %w", err)
@@ -161,12 +180,11 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("find process binary: %w", err)
 	}
 
-	if err := syscall.Exec(
-		binary,
-		c.Spec.Process.Args,
-		os.Environ(),
-	); err != nil {
-		return fmt.Errorf("execve: %w", err)
+	args := c.Spec.Process.Args
+	env := os.Environ()
+
+	if err := syscall.Exec(binary, args, env); err != nil {
+		return fmt.Errorf("execve (%s, %v, %v): %w", binary, args, env, err)
 	}
 
 	panic("if you're here, you done fucked up!")
