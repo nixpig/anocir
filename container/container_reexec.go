@@ -55,7 +55,7 @@ func (c *Container) Reexec() error {
 
 	initConn.Write([]byte("ready"))
 	// close asap so it doesn't leak into the container
-	defer initConn.Close()
+	initConn.Close()
 
 	// wait for "start"
 	if err := os.RemoveAll(
@@ -89,8 +89,8 @@ func (c *Container) Reexec() error {
 	}
 
 	// close as soon as we're done so they don't leak into the container
-	defer containerConn.Close()
-	defer listener.Close()
+	containerConn.Close()
+	listener.Close()
 
 	// after receiving "start"
 	if c.Spec.Process == nil {

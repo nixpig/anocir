@@ -39,7 +39,7 @@ func (c *Container) Start() error {
 	if _, err := conn.Write([]byte("start")); err != nil {
 		return fmt.Errorf("send 'start' to container: %w", err)
 	}
-	defer conn.Close()
+	conn.Close()
 
 	c.SetStatus(specs.StateRunning)
 	if err := c.Save(); err != nil {
