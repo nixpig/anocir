@@ -50,7 +50,7 @@ func (c *Container) Reexec() error {
 		filepath.Join(containerRootDir, c.ID(), initSockFilename),
 	)
 	if err != nil {
-		return err
+		return fmt.Errorf("reexec dial init sock: %w", err)
 	}
 
 	initConn.Write([]byte("ready"))

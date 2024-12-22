@@ -1,8 +1,6 @@
 package filesystem
 
-import (
-	"golang.org/x/sys/unix"
-)
+import "golang.org/x/sys/unix"
 
 var MountOptions = map[string]struct {
 	No   bool

@@ -2,6 +2,8 @@ package main
 
 import (
 	"fmt"
+	"io"
+	"log/slog"
 	"os"
 
 	"github.com/nixpig/brownie/internal/cli"
@@ -9,15 +11,22 @@ import (
 )
 
 func main() {
-	// check namespace status
-	if err := gons.Status(); err != nil {
-		fmt.Println("join namespace(s): ", err)
+	log, err := os.OpenFile("/var/log/brownie.log", os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		fmt.Println("open log file: ", err)
 		os.Exit(1)
 	}
 
-	// exec root
+	logger := slog.New(slog.NewTextHandler(io.MultiWriter(log, os.Stdout), nil))
+	slog.SetDefault(logger)
+
+	if err := gons.Status(); err != nil {
+		slog.Error("join namespace(s)", slog.String("err", err.Error()))
+		os.Exit(1)
+	}
+
 	if err := cli.RootCmd().Execute(); err != nil {
-		fmt.Println(fmt.Errorf("%s, %w", os.Args, err))
+		slog.Error("root exec", slog.String("err", err.Error()))
 		os.Exit(1)
 	}
 

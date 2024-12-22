@@ -141,7 +141,5 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 		return nil, fmt.Errorf("change back to previos cwd: %w", err)
 	}
 
-	// TODO: close?
-
 	return &consoleSocket.SocketFd, nil
 }

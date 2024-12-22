@@ -11,7 +11,7 @@ Vagrant.configure("2") do |config|
   config.vm.provision "shell", inline: <<-SHELL
     set -e -x -o pipefail
 
-    apt-get update && apt-get install -y ca-certificates wget make vim libseccomp-dev
+    apt-get update && apt-get install -y ca-certificates wget make vim gcc libseccomp-dev
 
     # Install docker
     if ! command -v docker 2>&1 >/dev/null; then
