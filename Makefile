@@ -49,3 +49,7 @@ clean:
 .PHONY: install
 install:
 	go mod download
+
+.PHONY: vhs
+vhs:
+	vhs demo.tape
