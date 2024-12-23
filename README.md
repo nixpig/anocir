@@ -21,18 +21,15 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 > [!CAUTION]
 >
-> This is an experimental project. It requires `sudo` and will make changes to your system. Take appropriate precautions.
+> Some features may require `sudo` and make changes to your system. This is an experimental project. Take appropriate precautions.
 
-I'm developing `brownie` on the following environment. Even with the same set up, YMMV.
-
-**Development**
-- `go version go1.23.0 linux/amd64`
-- `Linux 6.10.2-arch1-1 x86_64 GNU/Linux`
-
-**Testing**
-- `Linux Vagrant 5.15.0-116-generic #126-Ubuntu SMP X86_64 GNU/Linux`
-
+I'm developing `brownie` on the following environment. Even with the same set up, YMMV. 
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
+
+- `Linux vagrant 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 20 00:40:06 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux`
+- `go version go1.23.4 linux/amd64`
+- `Docker version 27.3.1, build ce12230`
+
 
 ### Build from source
 
@@ -60,7 +57,7 @@ By default, the Docker daemon uses the `runc` container runtime. `brownie` can b
 
 You can find detailed instructions on how to configure alternative runtimes in the [Docker docs](https://docs.docker.com/reference/cli/dockerd/#configure-container-runtimes). If you just want to quickly experiment, the following should suffice:
 
-```
+```bash
 # 1. Stop any running Docker service
 sudo systemctl stop docker.service
 
