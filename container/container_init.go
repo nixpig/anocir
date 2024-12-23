@@ -16,7 +16,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func (c *Container) Init(reexec string, arg string) error {
+func (c *Container) Init(reexecCmd string, reexecArgs []string) error {
 	if err := c.ExecHooks("createRuntime"); err != nil {
 		return fmt.Errorf("execute createRuntime hooks: %w", err)
 	}
@@ -25,7 +25,7 @@ func (c *Container) Init(reexec string, arg string) error {
 		return fmt.Errorf("execute createContainer hooks: %w", err)
 	}
 
-	cmd := exec.Command(reexec, []string{arg, c.ID()}...)
+	cmd := exec.Command(reexecCmd, append(reexecArgs, c.ID())...)
 
 	useTerminal := c.Spec.Process != nil &&
 		c.Spec.Process.Terminal &&
