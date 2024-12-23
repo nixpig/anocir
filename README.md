@@ -21,7 +21,9 @@ This is a personal project for me to explore and better understand the OCI Runti
 
 > [!CAUTION]
 >
-> Some features may require `sudo` and make changes to your system. This is an experimental project. Take appropriate precautions.
+> Some features may require `sudo` and make changes to your system.
+>
+> Given this is an experimental project, take appropriate precautions.
 
 I'm developing `brownie` on the following environment. Even with the same set up, YMMV. 
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.

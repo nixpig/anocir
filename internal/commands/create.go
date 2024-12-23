@@ -15,6 +15,8 @@ type CreateOpts struct {
 	Bundle        string
 	ConsoleSocket string
 	PIDFile       string
+	ReexecCmd     string
+	ReexecSubcmd  string
 }
 
 func Create(opts *CreateOpts) error {
@@ -42,5 +44,5 @@ func Create(opts *CreateOpts) error {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	return cntr.Init("/proc/self/exe", "reexec")
+	return cntr.Init(opts.ReexecCmd, opts.ReexecSubcmd)
 }

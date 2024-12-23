@@ -75,6 +75,8 @@ func createCmd() *cobra.Command {
 				Bundle:        bundle,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
+				ReexecCmd:     "/proc/self/exe",
+				ReexecSubcmd:  "reexec",
 			})
 		},
 	}
