@@ -10,6 +10,7 @@ import (
 	"runtime"
 	"slices"
 	"syscall"
+	"time"
 
 	"github.com/nixpig/brownie/capabilities"
 	"github.com/nixpig/brownie/cgroups"
@@ -44,6 +45,18 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("setup rootfs: %w", err)
 	}
 
+	// wait a sec for init sock to be ready before dialing
+	for i := 0; i < 10; i++ {
+		if _, err := os.Stat(filepath.Join(
+			containerRootDir,
+			c.ID(),
+			initSockFilename,
+		)); errors.Is(err, os.ErrNotExist) {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+	}
+
 	// send "ready"
 	initConn, err := net.Dial(
 		"unix",
@@ -58,11 +71,11 @@ func (c *Container) Reexec() error {
 	initConn.Close()
 
 	// wait for "start"
-	if err := os.RemoveAll(
-		filepath.Join(containerRootDir, c.ID(), containerSockFilename),
-	); err != nil {
-		return fmt.Errorf("remove any existing container socket: %w", err)
-	}
+	// if err := os.RemoveAll(
+	// 	filepath.Join(containerRootDir, c.ID(), containerSockFilename),
+	// ); err != nil {
+	// 	return fmt.Errorf("remove any existing container socket: %w", err)
+	// }
 
 	listener, err := net.Listen(
 		"unix",
