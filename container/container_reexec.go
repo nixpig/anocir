@@ -17,6 +17,7 @@ import (
 	"github.com/nixpig/brownie/filesystem"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Reexec() error {
@@ -161,6 +162,12 @@ func (c *Container) Reexec() error {
 		c.Spec.Process.Capabilities,
 	); err != nil {
 		return err
+	}
+
+	if c.Spec.Process.NoNewPrivileges {
+		if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
+			return fmt.Errorf("set no new privileges: %w", err)
+		}
 	}
 
 	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
