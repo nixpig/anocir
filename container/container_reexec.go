@@ -116,12 +116,12 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	if c.Spec.Linux.Sysctl != nil {
-		// FIXME: why does this segfault??
-		// if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
-		// 	return fmt.Errorf("set sysctl: %w", err)
-		// }
-	}
+	// FIXME: why does this segfault??
+	// if c.Spec.Linux.Sysctl != nil {
+	// if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
+	// 	return fmt.Errorf("set sysctl: %w", err)
+	// }
+	// }
 
 	if err := filesystem.MountMaskedPaths(
 		c.Spec.Linux.MaskedPaths,
@@ -205,12 +205,12 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	if c.Spec.Process.IOPriority != nil {
-		// FIXME: why does this segfault??
-		// if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
-		// 	return fmt.Errorf("set iop: %w", err)
-		// }
-	}
+	// FIXME: why does this segfault??
+	// if c.Spec.Process.IOPriority != nil {
+	// if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
+	// 	return fmt.Errorf("set iop: %w", err)
+	// }
+	// }
 
 	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)
