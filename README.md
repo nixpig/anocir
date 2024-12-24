@@ -16,6 +16,13 @@ This is a personal project for me to explore and better understand the OCI Runti
 - [ ] Implement [Cgroups v2](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#control-groups)
 - [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
 - [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process)
+- [ ] Build, version and package
+- [ ] Integration tests for other tools
+- [ ] Rollback (step 12)
+- [ ] When `terminal` is enabled then bind mount the pseudoterminal pty to `/dev/console` (https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#default-devices).
+- [ ] Refactor and tidy-up
+
+
 
 ## Installation
 

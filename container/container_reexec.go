@@ -15,7 +15,9 @@ import (
 	"github.com/nixpig/brownie/capabilities"
 	"github.com/nixpig/brownie/cgroups"
 	"github.com/nixpig/brownie/filesystem"
+	"github.com/nixpig/brownie/iopriority"
 	"github.com/nixpig/brownie/scheduler"
+	"github.com/nixpig/brownie/sysctl"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -41,6 +43,28 @@ func (c *Container) Reexec() error {
 		if err := pty.Connect(); err != nil {
 			return fmt.Errorf("connect pty: %w", err)
 		}
+
+		// TODO: mount /dev/console??
+		// if _, err := os.Stat(filepath.Join(c.Rootfs(), "/dev/console")); os.IsNotExist(err) {
+		// 	f, err := os.Create(filepath.Join(c.Rootfs(), "/dev/console"))
+		// 	if err != nil && !os.IsExist(err) {
+		// 		return fmt.Errorf("create rootfs dev/console: %w", err)
+		// 	}
+		// 	if f != nil {
+		// 		f.Close()
+		// 	}
+		// }
+		//
+		// if err := syscall.Mount(
+		// 	pty.Slave.Name(),
+		// 	filepath.Join(c.Rootfs(), "dev/console"),
+		// 	"",
+		// 	uintptr(0),
+		// 	"",
+		// ); err != nil {
+		// 	return fmt.Errorf("mount rootfs dev/console: %w", err)
+		// }
+
 	}
 
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
@@ -116,12 +140,11 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	// FIXME: why does this segfault??
-	// if c.Spec.Linux.Sysctl != nil {
-	// if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
-	// 	return fmt.Errorf("set sysctl: %w", err)
-	// }
-	// }
+	if c.Spec.Linux.Sysctl != nil {
+		if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
+			return fmt.Errorf("set sysctl: %w", err)
+		}
+	}
 
 	if err := filesystem.MountMaskedPaths(
 		c.Spec.Linux.MaskedPaths,
@@ -205,12 +228,11 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	// FIXME: why does this segfault??
-	// if c.Spec.Process.IOPriority != nil {
-	// if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
-	// 	return fmt.Errorf("set iop: %w", err)
-	// }
-	// }
+	if c.Spec.Process.IOPriority != nil {
+		if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
+			return fmt.Errorf("set iop: %w", err)
+		}
+	}
 
 	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)

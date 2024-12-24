@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log/slog"
 	"os"
 
@@ -17,7 +16,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	logger := slog.New(slog.NewTextHandler(io.MultiWriter(log, os.Stdout), nil))
+	logger := slog.New(slog.NewTextHandler(log, nil))
 	slog.SetDefault(logger)
 
 	if err := gons.Status(); err != nil {
