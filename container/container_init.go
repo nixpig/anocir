@@ -73,6 +73,27 @@ func (c *Container) Init(reexecCmd string, reexecArgs []string) error {
 			})
 		}
 
+		// if ns.Type == specs.TimeNamespace {
+		// 	if c.Spec.Linux.TimeOffsets != nil && len(c.Spec.Linux.TimeOffsets) > 0 {
+		// 		var tos bytes.Buffer
+		// 		for clock, offset := range c.Spec.Linux.TimeOffsets {
+		// 			if n, err := tos.WriteString(
+		// 				fmt.Sprintf("%s %d %d\n", clock, offset.Secs, offset.Nanosecs),
+		// 			); err != nil || n == 0 {
+		// 				return fmt.Errorf("write time offsets")
+		// 			}
+		// 		}
+		//
+		// if err := os.WriteFile(
+		// 	"/proc/self/timens_offsets",
+		// 	tos.Bytes(),
+		// 	0644,
+		// ); err != nil {
+		// 	return fmt.Errorf("write timens offsets: %w", err)
+		// }
+		// 	}
+		// }
+
 		if ns.Path == "" {
 			cloneFlags |= ns.ToFlag()
 		} else {

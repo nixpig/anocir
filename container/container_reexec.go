@@ -15,6 +15,7 @@ import (
 	"github.com/nixpig/brownie/capabilities"
 	"github.com/nixpig/brownie/cgroups"
 	"github.com/nixpig/brownie/filesystem"
+	"github.com/nixpig/brownie/scheduler"
 	"github.com/nixpig/brownie/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -115,6 +116,23 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
+	if c.Spec.Linux.Sysctl != nil {
+		if len(c.Spec.Linux.Sysctl) > 0 {
+			// fmt.Println(c.Spec.Linux.Sysctl)
+			// for k, v := range c.Spec.Linux.Sysctl {
+			// fmt.Print(k, v)
+			// kp := strings.ReplaceAll(k, ".", "/")
+			// if err := os.WriteFile(
+			// 	path.Join("/proc/sys", kp),
+			// 	[]byte(v),
+			// 	0644,
+			// ); err != nil {
+			// 	// return fmt.Errorf("write sysctl (%s: %s): %w", kp, v, err)
+			// }
+			// }
+		}
+	}
+
 	if err := filesystem.MountMaskedPaths(
 		c.Spec.Linux.MaskedPaths,
 	); err != nil {
@@ -169,6 +187,35 @@ func (c *Container) Reexec() error {
 			return fmt.Errorf("set no new privileges: %w", err)
 		}
 	}
+
+	if c.Spec.Process.Scheduler != nil {
+		policy, err := scheduler.PolicyToInt(c.Spec.Process.Scheduler.Policy)
+		if err != nil {
+			return fmt.Errorf("scheduler policy to int: %w", err)
+		}
+
+		flags, err := scheduler.FlagsToInt(c.Spec.Process.Scheduler.Flags)
+		if err != nil {
+			return fmt.Errorf("scheduler flags to int: %w", err)
+		}
+
+		schedAttr := unix.SchedAttr{
+			Deadline: c.Spec.Process.Scheduler.Deadline,
+			Flags:    uint64(flags),
+			Size:     unix.SizeofSchedAttr,
+			Nice:     c.Spec.Process.Scheduler.Nice,
+			Period:   c.Spec.Process.Scheduler.Period,
+			Policy:   uint32(policy),
+			Priority: uint32(c.Spec.Process.Scheduler.Priority),
+			Runtime:  c.Spec.Process.Scheduler.Runtime,
+		}
+
+		if err := unix.SchedSetAttr(0, &schedAttr, 0); err != nil {
+			return fmt.Errorf("set schedattrs: %w", err)
+		}
+	}
+
+	// TODO: IOPriority
 
 	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)
