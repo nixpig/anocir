@@ -73,6 +73,7 @@ func (c *Container) Init(reexecCmd string, reexecArgs []string) error {
 			})
 		}
 
+		// FIXME: why does this segfault??
 		// if ns.Type == specs.TimeNamespace {
 		// 	if c.Spec.Linux.TimeOffsets != nil && len(c.Spec.Linux.TimeOffsets) > 0 {
 		// 		var tos bytes.Buffer

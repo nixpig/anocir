@@ -117,20 +117,10 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.Spec.Linux.Sysctl != nil {
-		if len(c.Spec.Linux.Sysctl) > 0 {
-			// fmt.Println(c.Spec.Linux.Sysctl)
-			// for k, v := range c.Spec.Linux.Sysctl {
-			// fmt.Print(k, v)
-			// kp := strings.ReplaceAll(k, ".", "/")
-			// if err := os.WriteFile(
-			// 	path.Join("/proc/sys", kp),
-			// 	[]byte(v),
-			// 	0644,
-			// ); err != nil {
-			// 	// return fmt.Errorf("write sysctl (%s: %s): %w", kp, v, err)
-			// }
-			// }
-		}
+		// FIXME: why does this segfault??
+		// if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
+		// 	return fmt.Errorf("set sysctl: %w", err)
+		// }
 	}
 
 	if err := filesystem.MountMaskedPaths(
@@ -215,7 +205,12 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	// TODO: IOPriority
+	if c.Spec.Process.IOPriority != nil {
+		// FIXME: why does this segfault??
+		// if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
+		// 	return fmt.Errorf("set iop: %w", err)
+		// }
+	}
 
 	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)
