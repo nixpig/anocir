@@ -26,6 +26,7 @@ func RootCmd() *cobra.Command {
 		deleteCmd(),
 		killCmd(),
 		reexecCmd(),
+		featuresCmd(),
 	)
 
 	// TODO: implement these flags for Docker
@@ -209,4 +210,33 @@ func stateCmd() *cobra.Command {
 	}
 
 	return state
+}
+
+func featuresCmd() *cobra.Command {
+	features := &cobra.Command{
+		Use:     "features",
+		Short:   "Runtime supported features",
+		Example: "  brownie features",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			f, err := commands.Features()
+			if err != nil {
+				return err
+			}
+
+			var formattedFeatures bytes.Buffer
+			if err := json.Indent(&formattedFeatures, []byte(f), "", "  "); err != nil {
+				return err
+			}
+
+			if _, err := cmd.OutOrStdout().Write(
+				formattedFeatures.Bytes(),
+			); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	return features
 }
