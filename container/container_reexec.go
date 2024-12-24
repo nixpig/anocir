@@ -43,28 +43,6 @@ func (c *Container) Reexec() error {
 		if err := pty.Connect(); err != nil {
 			return fmt.Errorf("connect pty: %w", err)
 		}
-
-		// TODO: mount /dev/console??
-		// if _, err := os.Stat(filepath.Join(c.Rootfs(), "/dev/console")); os.IsNotExist(err) {
-		// 	f, err := os.Create(filepath.Join(c.Rootfs(), "/dev/console"))
-		// 	if err != nil && !os.IsExist(err) {
-		// 		return fmt.Errorf("create rootfs dev/console: %w", err)
-		// 	}
-		// 	if f != nil {
-		// 		f.Close()
-		// 	}
-		// }
-		//
-		// if err := syscall.Mount(
-		// 	pty.Slave.Name(),
-		// 	filepath.Join(c.Rootfs(), "dev/console"),
-		// 	"",
-		// 	uintptr(0),
-		// 	"",
-		// ); err != nil {
-		// 	return fmt.Errorf("mount rootfs dev/console: %w", err)
-		// }
-
 	}
 
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {

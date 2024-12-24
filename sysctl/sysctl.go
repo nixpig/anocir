@@ -9,7 +9,6 @@ import (
 
 func SetSysctl(sc map[string]string) error {
 	for k, v := range sc {
-		fmt.Print(k, v)
 		kp := strings.ReplaceAll(k, ".", "/")
 		if err := os.WriteFile(
 			path.Join("/proc/sys", kp),

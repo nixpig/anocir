@@ -19,7 +19,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 - [ ] Build, version and package
 - [ ] Integration tests for other tools
 - [ ] Rollback (step 12)
-- [ ] When `terminal` is enabled then bind mount the pseudoterminal pty to `/dev/console` (https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#default-devices).
 - [ ] Refactor and tidy-up
 
 
