@@ -13,7 +13,7 @@ func MountMaskedPaths(paths []string) error {
 		}
 
 		if f.IsDir() {
-			if err := mountDevice(Device{
+			if err := MountDevice(Device{
 				Source: "tmpfs",
 				Target: path,
 				Fstype: "tmpfs",
@@ -23,7 +23,7 @@ func MountMaskedPaths(paths []string) error {
 				return err
 			}
 		} else {
-			if err := mountDevice(Device{
+			if err := MountDevice(Device{
 				Source: "/dev/null",
 				Target: path,
 				Fstype: "bind",

@@ -27,8 +27,11 @@ func (c *Container) Reexec() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	var pty *terminal.Pty
 	if c.State.ConsoleSocket != nil {
-		pty, err := terminal.NewPty()
+		var err error
+
+		pty, err = terminal.NewPty()
 		if err != nil {
 			return fmt.Errorf("new pty: %w", err)
 		}
@@ -47,6 +50,18 @@ func (c *Container) Reexec() error {
 
 	if err := filesystem.SetupRootfs(c.Rootfs(), c.Spec); err != nil {
 		return fmt.Errorf("setup rootfs: %w", err)
+	}
+
+	if c.State.ConsoleSocket != nil && c.Spec.Process.Terminal {
+		if err := filesystem.MountDevice(filesystem.Device{
+			Source: pty.Slave.Name(),
+			Target: filepath.Join(c.Rootfs(), "dev/console"),
+			Fstype: "bind",
+			Flags:  syscall.MS_BIND,
+			Data:   "",
+		}); err != nil {
+			return fmt.Errorf("mount dev/console device: %w", err)
+		}
 	}
 
 	// wait a sec for init sock to be ready before dialing

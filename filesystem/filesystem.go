@@ -11,7 +11,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-func mountDevice(device Device) error {
+func MountDevice(device Device) error {
 	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
 		f, err := os.Create(device.Target)
 		if err != nil && !os.IsExist(err) {
@@ -42,7 +42,7 @@ func mountDevice(device Device) error {
 }
 
 func mountRootfs(containerRootfs string) error {
-	if err := mountDevice(Device{
+	if err := MountDevice(Device{
 		Source: "",
 		Target: "/",
 		Fstype: "",
@@ -52,7 +52,7 @@ func mountRootfs(containerRootfs string) error {
 		return err
 	}
 
-	if err := mountDevice(Device{
+	if err := MountDevice(Device{
 		Source: containerRootfs,
 		Target: containerRootfs,
 		Fstype: "",
@@ -71,7 +71,7 @@ func mountProc(containerRootfs string) error {
 		return fmt.Errorf("create proc dir: %w", err)
 	}
 
-	if err := mountDevice(Device{
+	if err := MountDevice(Device{
 		Source: "proc",
 		Target: containerProc,
 		Fstype: "proc",
@@ -104,7 +104,7 @@ func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
 			}
 		}
 
-		if err := mountDevice(Device{
+		if err := MountDevice(Device{
 			Source: dev.Path,
 			Target: absPath,
 			Fstype: "bind",
@@ -158,7 +158,7 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			Data:   data,
 		}
 
-		if err := mountDevice(d); err != nil {
+		if err := MountDevice(d); err != nil {
 			return fmt.Errorf("mount device (%+v): %w", d, err)
 		}
 	}

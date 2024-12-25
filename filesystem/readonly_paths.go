@@ -4,7 +4,7 @@ import "syscall"
 
 func MountReadonlyPaths(paths []string) error {
 	for _, path := range paths {
-		if err := mountDevice(Device{
+		if err := MountDevice(Device{
 			Source: path,
 			Target: path,
 			Fstype: "",
@@ -14,7 +14,7 @@ func MountReadonlyPaths(paths []string) error {
 			return err
 		}
 
-		if err := mountDevice(Device{
+		if err := MountDevice(Device{
 			Source: path,
 			Target: path,
 			Fstype: "",
