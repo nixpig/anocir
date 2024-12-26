@@ -36,6 +36,13 @@ func (c *Container) Reexec() error {
 			return fmt.Errorf("new pty: %w", err)
 		}
 
+		if c.Spec.Process.ConsoleSize != nil {
+			unix.IoctlSetWinsize(int(pty.Slave.Fd()), unix.TIOCSWINSZ, &unix.Winsize{
+				Row: uint16(c.Spec.Process.ConsoleSize.Height),
+				Col: uint16(c.Spec.Process.ConsoleSize.Width),
+			})
+		}
+
 		if err := terminal.SendPty(
 			*c.State.ConsoleSocket,
 			pty,
