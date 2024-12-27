@@ -13,7 +13,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
 
 - [ ] ~Unit tests~ Integration tests seem to be sufficing
-- [ ] Implement [Cgroups v2](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#control-groups)
 - [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
 - [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process)
 - [ ] Refactor and tidy-up
@@ -56,13 +55,6 @@ I'm developing `brownie` on the following environment. Even with the same set up
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
 ## Usage
-
-> [!NOTE]
->
-> Some jiggery-pokery is required for cgroups to work. Needs further investigation.
-> 
->     $ sudo mkdir /sys/fs/cgroup/systemd
->     $ sudo mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
 
 ### Docker
 
@@ -238,11 +230,11 @@ Tests are run on every build in [this Github Action](https://github.com/nixpig/b
 
 #### cgroups v1 & v2 support
 
-The OCI Runtime Spec test suite provided by opencontainers _does_ support cgroup v1.
-
 The OCI Runtime Spec test suite provided by opencontainers [_does not_ support cgroup v2](https://github.com/opencontainers/runtime-tools/blob/6c9570a1678f3bc7eb6ef1caa9099920b7f17383/cgroups/cgroups.go#L73).
 
-`brownie` currently implements cgroup v1 (v2 will be looked at in future!). However, like `runc` and other container runtimes, the `find x cgroup` tests pass and the `get x cgroup data` tests fail.
+The OCI Runtime Spec test suite provided by opencontainers _does_ support cgroup v1.
+
+`brownie` currently implements both cgroup v1 and v2. However, like `runc` and other container runtimes, the `find x cgroup` tests pass and the `get x cgroup data` tests fail.
 
 <details>
   <summary>Full list of cgroups tests</summary>

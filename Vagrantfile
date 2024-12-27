@@ -44,11 +44,5 @@ Vagrant.configure("2") do |config|
       tar -C /usr/local -xzf go.tar.gz
       echo "PATH=$PATH:/usr/local/go/bin" >> /etc/environment
     fi
-
-    # systemd cgroup jiggery-pokery
-    if ! grep -qs '/sys/fs/cgroup/systemd' /proc/mounts; then
-      mkdir -p /sys/fs/cgroup/systemd
-      mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
-    fi
   SHELL
 end

@@ -79,9 +79,6 @@ tests=(
 
 mkdir -p $logdir
 
-mkdir -p /sys/fs/cgroup/systemd
-mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
-
 # run tests
 for test in "${tests[@]}"; do
   ./validation/${test}/${test}.t 2>&1 | tee ${logdir}/${test}.log

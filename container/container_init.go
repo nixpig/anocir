@@ -149,12 +149,22 @@ func (c *Container) Init(reexecCmd string, reexecArgs []string) error {
 	}
 
 	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
-		if err := cgroups.AddV1(
-			c.Spec.Linux.CgroupsPath,
-			c.Spec.Linux.Resources.Devices,
-			c.PID(),
-		); err != nil {
-			return err
+		if cgroups.IsUnified() {
+			if err := cgroups.AddV2(
+				c.ID(),
+				c.Spec.Linux.Resources.Devices,
+				c.PID(),
+			); err != nil {
+				return err
+			}
+		} else {
+			if err := cgroups.AddV1(
+				c.Spec.Linux.CgroupsPath,
+				c.Spec.Linux.Resources.Devices,
+				c.PID(),
+			); err != nil {
+				return err
+			}
 		}
 	}
 
