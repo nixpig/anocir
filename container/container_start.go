@@ -23,8 +23,8 @@ func (c *Container) Start() error {
 	}
 
 	if err := c.ExecHooks("prestart"); err != nil {
-		if err := c.ExecHooks("poststop"); err != nil {
-			fmt.Println("Warning: failed to execute poststop hooks: ", err)
+		if err := c.Delete(true); err != nil {
+			return fmt.Errorf("delete container: %w", err)
 		}
 
 		return fmt.Errorf("execute prestart hooks: %w", err)

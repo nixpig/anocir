@@ -19,10 +19,18 @@ import (
 
 func (c *Container) Init(reexecCmd string, reexecArgs []string) error {
 	if err := c.ExecHooks("createRuntime"); err != nil {
+		if err := c.Delete(true); err != nil {
+			return fmt.Errorf("delete container: %w", err)
+		}
+
 		return fmt.Errorf("execute createRuntime hooks: %w", err)
 	}
 
 	if err := c.ExecHooks("createContainer"); err != nil {
+		if err := c.Delete(true); err != nil {
+			return fmt.Errorf("delete container: %w", err)
+		}
+
 		return fmt.Errorf("execute createContainer hooks: %w", err)
 	}
 

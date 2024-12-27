@@ -252,6 +252,10 @@ func (c *Container) Reexec() error {
 	}
 
 	if err := c.ExecHooks("startContainer"); err != nil {
+		if err := c.Delete(true); err != nil {
+			return fmt.Errorf("delete container: %w", err)
+		}
+
 		return fmt.Errorf("execute startContainer hooks: %w", err)
 	}
 
