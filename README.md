@@ -48,12 +48,12 @@ mv tmp/bin/brownie ~/.local/bin
 ---
 
 I'm developing `brownie` on the following environment. Even with the same set up, YMMV. 
-You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
 - `Linux vagrant 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 20 00:40:06 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux`
 - `go version go1.23.4 linux/amd64`
 - `Docker version 27.3.1, build ce12230`
 
+You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
 ## Usage
 

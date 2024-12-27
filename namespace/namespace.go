@@ -66,7 +66,7 @@ func (ns *LinuxNamespace) Enter() error {
 
 	_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
-		return fmt.Errorf("errno: %w", err)
+		return fmt.Errorf("errno: %w", errno)
 	}
 
 	return nil
