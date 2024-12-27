@@ -28,17 +28,10 @@ This is a personal project for me to explore and better understand the OCI Runti
 >
 > Given this is an experimental project, take appropriate precautions.
 
-I'm developing `brownie` on the following environment. Even with the same set up, YMMV. 
-You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
-
-- `Linux vagrant 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 20 00:40:06 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux`
-- `go version go1.23.4 linux/amd64`
-- `Docker version 27.3.1, build ce12230`
-
 ### Download pre-built binary
 
-1. Go to [Releases](https://github.com/nixpig/brownie/releases/) and download the tarball for your architecture.
-1. Extract the `brownie` binary from the tarball and put somewhere in `$PATH`.
+1. Go to [Releases](https://github.com/nixpig/brownie/releases/) and download the tarball for your architecture, e.g. `brownie_0.0.1_linux_amd64.tar.gz`.
+1. Extract the `brownie` binary from the tarball and put somewhere in `$PATH`, e.g. `~/.local/bin`.
 
 
 ### Build from source
@@ -51,6 +44,16 @@ cd brownie
 make build
 mv tmp/bin/brownie ~/.local/bin
 ```
+
+---
+
+I'm developing `brownie` on the following environment. Even with the same set up, YMMV. 
+You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
+
+- `Linux vagrant 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 20 00:40:06 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux`
+- `go version go1.23.4 linux/amd64`
+- `Docker version 27.3.1, build ce12230`
+
 
 ## Usage
 
