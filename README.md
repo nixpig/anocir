@@ -35,6 +35,11 @@ You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 - `go version go1.23.4 linux/amd64`
 - `Docker version 27.3.1, build ce12230`
 
+### Download pre-built binary
+
+1. Go to [Releases](https://github.com/nixpig/brownie/releases/) and download the tarball for your architecture.
+1. Extract the `brownie` binary from the tarball and put somewhere in `$PATH`.
+
 
 ### Build from source
 
