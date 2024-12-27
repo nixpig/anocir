@@ -5,7 +5,7 @@ version: 2
 
 builds:
   - id: brownie
-    main: ./...
+    main: .
     binary: brownie
     env:
       - CGO_ENABLED=1
