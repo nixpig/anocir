@@ -1,8 +1,6 @@
 package commands
 
 import (
-	"fmt"
-
 	"github.com/nixpig/brownie/container"
 	"github.com/nixpig/brownie/signal"
 )
@@ -18,10 +16,7 @@ func Kill(opts *KillOpts) error {
 		return err
 	}
 
-	s, err := signal.FromString(opts.Signal)
-	if err != nil {
-		return fmt.Errorf("failed to convert to signal: %w", err)
-	}
+	s := signal.FromString(opts.Signal)
 
 	return cntr.Kill(s)
 }

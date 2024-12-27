@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
+
+	"github.com/nixpig/brownie/cgroups"
+	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Delete(force bool) error {
@@ -12,12 +14,12 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("container cannot be deleted in current state (%s)", c.Status())
 	}
 
-	process, err := os.FindProcess(c.PID())
-	if err != nil {
-		return fmt.Errorf("find container process (%d): %w", c.PID(), err)
+	if err := c.Kill(unix.SIGKILL); err != nil {
+		return fmt.Errorf("send sigkill to container: %w", err)
 	}
-	if process != nil {
-		process.Signal(syscall.Signal(9))
+
+	if err := cgroups.DeleteV1(c.Spec.Linux.CgroupsPath); err != nil {
+		return fmt.Errorf("delete cgroups: %w", err)
 	}
 
 	if err := os.RemoveAll(filepath.Join(containerRootDir, c.ID())); err != nil {
