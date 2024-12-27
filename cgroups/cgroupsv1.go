@@ -64,11 +64,15 @@ func AddV1(
 func DeleteV2(containerID string) error {
 	cg, err := cgroup2.LoadSystemd("/", fmt.Sprintf("%s.slice", containerID))
 	if err != nil {
-		return fmt.Errorf("load cgroups (id: %s): ", containerID, err)
+		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
+	}
+
+	if err := cg.Kill(); err != nil {
+		return fmt.Errorf("kill cgroups processes (id: %s): %w", containerID, err)
 	}
 
 	if err := cg.DeleteSystemd(); err != nil {
-		return fmt.Errorf("delete cgroups (id: %s): %w", err)
+		return fmt.Errorf("delete cgroups (id: %s): %w", containerID, err)
 	}
 
 	return nil
