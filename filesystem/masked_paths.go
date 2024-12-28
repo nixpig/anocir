@@ -13,26 +13,28 @@ func MountMaskedPaths(paths []string) error {
 			continue
 		}
 
+		var dev Device
+
 		if f.IsDir() {
-			if err := MountDevice(Device{
+			dev = Device{
 				Source: "tmpfs",
 				Target: path,
 				Fstype: "tmpfs",
 				Flags:  unix.MS_RDONLY,
 				Data:   "",
-			}); err != nil {
-				return err
 			}
 		} else {
-			if err := MountDevice(Device{
+			dev = Device{
 				Source: "/dev/null",
 				Target: path,
 				Fstype: "bind",
 				Flags:  unix.MS_BIND,
 				Data:   "",
-			}); err != nil {
-				return err
 			}
+		}
+
+		if err := dev.Mount(); err != nil {
+			return err
 		}
 
 	}

@@ -6,60 +6,32 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
 
-func MountDevice(device Device) error {
-	if _, err := os.Stat(device.Target); os.IsNotExist(err) {
-		f, err := os.Create(device.Target)
-		if err != nil && !os.IsExist(err) {
-			return fmt.Errorf("create device target if not exists: %w", err)
-		}
-		if f != nil {
-			f.Close()
-		}
-	}
-
-	// added to satisfy 'docker run' issue
-	// TODO: figure out _why_
-	if device.Fstype == "cgroup" {
-		return nil
-	}
-
-	if err := syscall.Mount(
-		device.Source,
-		device.Target,
-		device.Fstype,
-		device.Flags,
-		device.Data,
-	); err != nil {
-		return fmt.Errorf("mounting device: %w", err)
-	}
-
-	return nil
-}
-
 func mountRootfs(containerRootfs string) error {
-	if err := MountDevice(Device{
+	dev1 := Device{
 		Source: "",
 		Target: "/",
 		Fstype: "",
 		Flags:  unix.MS_PRIVATE | unix.MS_REC,
 		Data:   "",
-	}); err != nil {
+	}
+	if err := dev1.Mount(); err != nil {
 		return err
 	}
 
-	if err := MountDevice(Device{
+	dev2 := Device{
 		Source: containerRootfs,
 		Target: containerRootfs,
 		Fstype: "",
 		Flags:  unix.MS_BIND | unix.MS_REC,
 		Data:   "",
-	}); err != nil {
+	}
+
+	if err := dev2.Mount(); err != nil {
 		return err
 	}
 
@@ -72,13 +44,15 @@ func mountProc(containerRootfs string) error {
 		return fmt.Errorf("create proc dir: %w", err)
 	}
 
-	if err := MountDevice(Device{
+	dev := Device{
 		Source: "proc",
 		Target: containerProc,
 		Fstype: "proc",
 		Flags:  uintptr(0),
 		Data:   "",
-	}); err != nil {
+	}
+
+	if err := dev.Mount(); err != nil {
 		return err
 	}
 
@@ -92,8 +66,8 @@ func devIsInSpec(mounts []specs.Mount, dev string) bool {
 }
 
 func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
-	for _, dev := range devices {
-		absPath := filepath.Join(rootfs, strings.TrimPrefix(dev.Path, "/"))
+	for _, d := range devices {
+		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
 
 		if _, err := os.Stat(absPath); os.IsNotExist(err) {
 			f, err := os.Create(absPath)
@@ -105,13 +79,15 @@ func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
 			}
 		}
 
-		if err := MountDevice(Device{
-			Source: dev.Path,
+		dev := Device{
+			Source: d.Path,
 			Target: absPath,
 			Fstype: "bind",
 			Flags:  unix.MS_BIND,
 			Data:   "",
-		}); err != nil {
+		}
+
+		if err := dev.Mount(); err != nil {
 			return fmt.Errorf("mount device: %w", err)
 		}
 	}
@@ -151,7 +127,7 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			data = strings.Join(dataOptions, ",")
 		}
 
-		d := Device{
+		dev := Device{
 			Source: mount.Source,
 			Target: dest,
 			Fstype: mount.Type,
@@ -159,8 +135,8 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			Data:   data,
 		}
 
-		if err := MountDevice(d); err != nil {
-			return fmt.Errorf("mount device (%+v): %w", d, err)
+		if err := dev.Mount(); err != nil {
+			return fmt.Errorf("mount device (%+v): %w", dev, err)
 		}
 	}
 

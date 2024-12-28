@@ -60,13 +60,14 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.State.ConsoleSocket != nil && c.Spec.Process.Terminal {
-		if err := filesystem.MountDevice(filesystem.Device{
+		dev := filesystem.Device{
 			Source: pty.Slave.Name(),
 			Target: filepath.Join(c.Rootfs(), "dev/console"),
 			Fstype: "bind",
 			Flags:  syscall.MS_BIND,
 			Data:   "",
-		}); err != nil {
+		}
+		if err := dev.Mount(); err != nil {
 			return fmt.Errorf("mount dev/console device: %w", err)
 		}
 	}

@@ -1,6 +1,7 @@
 package filesystem
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -87,6 +88,36 @@ var defaultDevices = []specs.LinuxDevice{
 		UID:      &defaultUID,
 		GID:      &defaultGID,
 	},
+}
+
+func (d *Device) Mount() error {
+	if _, err := os.Stat(d.Target); os.IsNotExist(err) {
+		f, err := os.Create(d.Target)
+		if err != nil && !os.IsExist(err) {
+			return fmt.Errorf("create device target if not exists: %w", err)
+		}
+		if f != nil {
+			f.Close()
+		}
+	}
+
+	// added to satisfy 'docker run' issue
+	// TODO: figure out _why_
+	if d.Fstype == "cgroup" {
+		return nil
+	}
+
+	if err := syscall.Mount(
+		d.Source,
+		d.Target,
+		d.Fstype,
+		d.Flags,
+		d.Data,
+	); err != nil {
+		return fmt.Errorf("mounting device: %w", err)
+	}
+
+	return nil
 }
 
 func mountDefaultDevices(rootfs string) error {
