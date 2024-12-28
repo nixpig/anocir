@@ -43,6 +43,7 @@ type ContainerState struct {
 }
 
 type ContainerOpts struct {
+	Bundle        string
 	PIDFile       string
 	ConsoleSocket string
 	Stdin         *os.File
@@ -52,19 +53,9 @@ type ContainerOpts struct {
 
 func New(
 	id string,
-	bundle string,
+	spec *specs.Spec,
 	opts *ContainerOpts,
 ) (*Container, error) {
-	b, err := os.ReadFile(filepath.Join(bundle, configFilename))
-	if err != nil {
-		return nil, fmt.Errorf("read new container config file: %w", err)
-	}
-
-	var spec *specs.Spec
-	if err := json.Unmarshal(b, &spec); err != nil {
-		return nil, fmt.Errorf("parse new container config: %w", err)
-	}
-
 	if spec.Linux == nil {
 		return nil, errors.New("only Linux containers are supported")
 	}
@@ -77,15 +68,10 @@ func New(
 		return nil, fmt.Errorf("version must be valid semver: %s", spec.Version)
 	}
 
-	absBundlePath, err := filepath.Abs(bundle)
-	if err != nil {
-		return nil, fmt.Errorf("absolute path from new container bundle: %w", err)
-	}
-
 	state := &ContainerState{
 		Version:     OCIVersion,
 		ID:          id,
-		Bundle:      absBundlePath,
+		Bundle:      opts.Bundle,
 		Annotations: spec.Annotations,
 		Status:      specs.StateCreating,
 	}
@@ -96,18 +82,13 @@ func New(
 		Opts:  opts,
 	}
 
-	if err := os.MkdirAll(
-		filepath.Join(containerRootDir, cntr.ID()),
-		0666,
-	); err != nil {
-		return nil, fmt.Errorf("create new container directory: %w", err)
-	}
-
-	if err := cntr.Save(); err != nil {
-		return nil, fmt.Errorf("save new container: %w", err)
-	}
-
 	return &cntr, nil
+}
+
+func Exists(containerRootDir string, id string) bool {
+	_, err := os.Stat(filepath.Join(containerRootDir, id))
+
+	return err == nil
 }
 
 func Load(id string) (*Container, error) {
@@ -170,6 +151,13 @@ func (c *Container) RefreshState() error {
 }
 
 func (c *Container) Save() error {
+	if err := os.MkdirAll(
+		filepath.Join(containerRootDir, c.ID()),
+		0666,
+	); err != nil {
+		return fmt.Errorf("create container directory: %w", err)
+	}
+
 	b, err := json.Marshal(c.State)
 	if err != nil {
 		return fmt.Errorf("serialise container state for saving: %w", err)
