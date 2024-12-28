@@ -229,7 +229,12 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.Spec.Process.IOPriority != nil {
-		if err := iopriority.SetIOPriority(*c.Spec.Process.IOPriority); err != nil {
+		ioprio, err := iopriority.ToInt(c.Spec.Process.IOPriority)
+		if err != nil {
+			return fmt.Errorf("iopriority to int: %w", err)
+		}
+
+		if err := iopriority.SetIOPriority(ioprio); err != nil {
 			return fmt.Errorf("set iop: %w", err)
 		}
 	}
