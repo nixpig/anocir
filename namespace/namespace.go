@@ -37,21 +37,21 @@ func (ns *LinuxNamespace) ToEnv() string {
 func (ns *LinuxNamespace) ToFlag() uintptr {
 	switch ns.Type {
 	case specs.PIDNamespace:
-		return syscall.CLONE_NEWPID
+		return unix.CLONE_NEWPID
 	case specs.NetworkNamespace:
-		return syscall.CLONE_NEWNET
+		return unix.CLONE_NEWNET
 	case specs.MountNamespace:
-		return syscall.CLONE_NEWNS
+		return unix.CLONE_NEWNS
 	case specs.IPCNamespace:
-		return syscall.CLONE_NEWIPC
+		return unix.CLONE_NEWIPC
 	case specs.UTSNamespace:
-		return syscall.CLONE_NEWUTS
+		return unix.CLONE_NEWUTS
 	case specs.UserNamespace:
-		return syscall.CLONE_NEWUSER
+		return unix.CLONE_NEWUSER
 	case specs.CgroupNamespace:
-		return syscall.CLONE_NEWCGROUP
+		return unix.CLONE_NEWCGROUP
 	case specs.TimeNamespace:
-		return syscall.CLONE_NEWTIME
+		return unix.CLONE_NEWTIME
 	default:
 		return 0
 	}
@@ -64,7 +64,7 @@ func (ns *LinuxNamespace) Enter() error {
 	}
 	defer syscall.Close(fd)
 
-	_, _, errno := syscall.RawSyscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+	_, _, errno := syscall.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("errno: %w", errno)
 	}

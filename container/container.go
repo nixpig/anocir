@@ -8,11 +8,11 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"syscall"
 
 	"github.com/nixpig/brownie/lifecycle"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/mod/semver"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -140,7 +140,7 @@ func (c *Container) RefreshState() error {
 		return fmt.Errorf("find refresh container process (%d): %w", c.State.PID, err)
 	}
 
-	if err := process.Signal(syscall.Signal(0)); err != nil {
+	if err := process.Signal(unix.Signal(0)); err != nil {
 		c.SetStatus(specs.StateStopped)
 		if err := c.Save(); err != nil {
 			return fmt.Errorf("save refresh container state: %w", err)

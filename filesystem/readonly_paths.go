@@ -1,6 +1,8 @@
 package filesystem
 
-import "syscall"
+import (
+	"golang.org/x/sys/unix"
+)
 
 func MountReadonlyPaths(paths []string) error {
 	for _, path := range paths {
@@ -8,7 +10,7 @@ func MountReadonlyPaths(paths []string) error {
 			Source: path,
 			Target: path,
 			Fstype: "",
-			Flags:  syscall.MS_REC | syscall.MS_BIND,
+			Flags:  unix.MS_REC | unix.MS_BIND,
 			Data:   "",
 		}); err != nil {
 			return err
@@ -18,8 +20,8 @@ func MountReadonlyPaths(paths []string) error {
 			Source: path,
 			Target: path,
 			Fstype: "",
-			Flags: syscall.MS_NOSUID | syscall.MS_NODEV | syscall.MS_NOEXEC |
-				syscall.MS_BIND | syscall.MS_REMOUNT | syscall.MS_RDONLY,
+			Flags: unix.MS_NOSUID | unix.MS_NODEV | unix.MS_NOEXEC |
+				unix.MS_BIND | unix.MS_REMOUNT | unix.MS_RDONLY,
 			Data: "",
 		}); err != nil {
 			return err

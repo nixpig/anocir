@@ -58,8 +58,8 @@ type PtySocket struct {
 
 func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 	fd, err := syscall.Socket(
-		syscall.AF_UNIX,
-		syscall.SOCK_STREAM,
+		unix.AF_UNIX,
+		unix.SOCK_STREAM,
 		0,
 	)
 	if err != nil {

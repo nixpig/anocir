@@ -1,139 +1,70 @@
 package signal
 
-import (
-	"syscall"
-)
+import "golang.org/x/sys/unix"
 
-func FromInt(s int) syscall.Signal {
-	switch s {
-	case 1:
-		return syscall.SIGHUP
-	case 2:
-		return syscall.SIGINT
-	case 3:
-		return syscall.SIGQUIT
-	case 4:
-		return syscall.SIGILL
-	case 5:
-		return syscall.SIGTRAP
-	case 6:
-		return syscall.SIGIOT
-	case 7:
-		return syscall.SIGBUS
-	case 8:
-		return syscall.SIGFPE
-	case 9:
-		return syscall.SIGKILL
-	case 10:
-		return syscall.SIGUSR1
-	case 11:
-		return syscall.SIGSEGV
-	case 12:
-		return syscall.SIGUSR2
-	case 13:
-		return syscall.SIGPIPE
-	case 14:
-		return syscall.SIGALRM
-	case 15:
-		return syscall.SIGTERM
-	case 16:
-		return syscall.SIGSTKFLT
-	case 17:
-		return syscall.SIGCHLD
-	case 18:
-		return syscall.SIGCONT
-	case 19:
-		return syscall.SIGSTOP
-	case 20:
-		return syscall.SIGTSTP
-	case 21:
-		return syscall.SIGTTIN
-	case 22:
-		return syscall.SIGTTOU
-	case 23:
-		return syscall.SIGURG
-	case 24:
-		return syscall.SIGXCPU
-	case 25:
-		return syscall.SIGXFSZ
-	case 26:
-		return syscall.SIGVTALRM
-	case 27:
-		return syscall.SIGPROF
-	case 28:
-		return syscall.SIGWINCH
-	case 29:
-		return syscall.SIGIO
-	case 30:
-		return syscall.SIGPWR
-	}
-
-	return 0
-}
-
-func FromString(s string) syscall.Signal {
+func FromString(s string) unix.Signal {
 	switch s {
 	case "SIGHUP", "HUP", "1":
-		return syscall.SIGHUP
+		return unix.SIGHUP
 	case "SIGINT", "INT", "2":
-		return syscall.SIGINT
+		return unix.SIGINT
 	case "SIGQUIT", "QUIT", "3":
-		return syscall.SIGQUIT
+		return unix.SIGQUIT
 	case "SIGILL", "ILL", "4":
-		return syscall.SIGILL
+		return unix.SIGILL
 	case "SIGTRAP", "TRAP", "5":
-		return syscall.SIGTRAP
+		return unix.SIGTRAP
 	case "SIGIOT", "IOT", "6":
-		return syscall.SIGIOT
+		return unix.SIGIOT
 	case "SIGBUS", "BUS", "7":
-		return syscall.SIGBUS
+		return unix.SIGBUS
 	case "SIGFPE", "FPE", "8":
-		return syscall.SIGFPE
+		return unix.SIGFPE
 	case "SIGKILL", "KILL", "9":
-		return syscall.SIGKILL
+		return unix.SIGKILL
 	case "SIGUSR1", "USR1", "10":
-		return syscall.SIGUSR1
+		return unix.SIGUSR1
 	case "SIGSEGV", "SEGV", "11":
-		return syscall.SIGSEGV
+		return unix.SIGSEGV
 	case "SIGUSR2", "USR2", "12":
-		return syscall.SIGUSR2
+		return unix.SIGUSR2
 	case "SIGPIPE", "PIPE", "13":
-		return syscall.SIGPIPE
+		return unix.SIGPIPE
 	case "SIGALRM", "ALRM", "14":
-		return syscall.SIGALRM
+		return unix.SIGALRM
 	case "SIGTERM", "TERM", "15":
-		return syscall.SIGTERM
+		return unix.SIGTERM
 	case "SIGSTKFLT", "STKFLT", "16":
-		return syscall.SIGSTKFLT
+		return unix.SIGSTKFLT
 	case "SIGCHLD", "CHLD", "17":
-		return syscall.SIGCHLD
+		return unix.SIGCHLD
 	case "SIGCONT", "CONT", "18":
-		return syscall.SIGCONT
+		return unix.SIGCONT
 	case "SIGSTOP", "STOP", "19":
-		return syscall.SIGSTOP
+		return unix.SIGSTOP
 	case "SIGTSTP", "TSTP", "20":
-		return syscall.SIGTSTP
+		return unix.SIGTSTP
 	case "SIGTTIN", "TTIN", "21":
-		return syscall.SIGTTIN
+		return unix.SIGTTIN
 	case "SIGTTOU", "TTOU", "22":
-		return syscall.SIGTTOU
+		return unix.SIGTTOU
 	case "SIGURG", "URG", "23":
-		return syscall.SIGURG
+		return unix.SIGURG
 	case "SIGXCPU", "XCPU", "24":
-		return syscall.SIGXCPU
+		return unix.SIGXCPU
 	case "SIGXFSZ", "XFSZ", "25":
-		return syscall.SIGXFSZ
+		return unix.SIGXFSZ
 	case "SIGVTALRM", "VTALRM", "26":
-		return syscall.SIGVTALRM
+		return unix.SIGVTALRM
 	case "SIGPROF", "PROF", "27":
-		return syscall.SIGPROF
+		return unix.SIGPROF
 	case "SIGWINCH", "WINCH", "28":
-		return syscall.SIGWINCH
+		return unix.SIGWINCH
 	case "SIGIO", "IO", "29":
-		return syscall.SIGIO
+		return unix.SIGIO
 	case "SIGPWR", "PWR", "30":
-		return syscall.SIGPWR
+		return unix.SIGPWR
 	}
 
-	return syscall.Signal(0)
+	return unix.Signal(0)
 }

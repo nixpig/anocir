@@ -5,9 +5,10 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
-func (c *Container) Kill(sig syscall.Signal) error {
+func (c *Container) Kill(sig unix.Signal) error {
 	if !c.CanBeKilled() {
 		return fmt.Errorf("container cannot be killed in current state (%s)", c.Status())
 	}

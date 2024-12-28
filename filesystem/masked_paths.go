@@ -2,7 +2,8 @@ package filesystem
 
 import (
 	"os"
-	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 func MountMaskedPaths(paths []string) error {
@@ -17,7 +18,7 @@ func MountMaskedPaths(paths []string) error {
 				Source: "tmpfs",
 				Target: path,
 				Fstype: "tmpfs",
-				Flags:  syscall.MS_RDONLY,
+				Flags:  unix.MS_RDONLY,
 				Data:   "",
 			}); err != nil {
 				return err
@@ -27,7 +28,7 @@ func MountMaskedPaths(paths []string) error {
 				Source: "/dev/null",
 				Target: path,
 				Fstype: "bind",
-				Flags:  syscall.MS_BIND,
+				Flags:  unix.MS_BIND,
 				Data:   "",
 			}); err != nil {
 				return err

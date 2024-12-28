@@ -9,6 +9,7 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
 func MountDevice(device Device) error {
@@ -46,7 +47,7 @@ func mountRootfs(containerRootfs string) error {
 		Source: "",
 		Target: "/",
 		Fstype: "",
-		Flags:  syscall.MS_PRIVATE | syscall.MS_REC,
+		Flags:  unix.MS_PRIVATE | unix.MS_REC,
 		Data:   "",
 	}); err != nil {
 		return err
@@ -56,7 +57,7 @@ func mountRootfs(containerRootfs string) error {
 		Source: containerRootfs,
 		Target: containerRootfs,
 		Fstype: "",
-		Flags:  syscall.MS_BIND | syscall.MS_REC,
+		Flags:  unix.MS_BIND | unix.MS_REC,
 		Data:   "",
 	}); err != nil {
 		return err
@@ -108,7 +109,7 @@ func mountDevices(devices []specs.LinuxDevice, rootfs string) error {
 			Source: dev.Path,
 			Target: absPath,
 			Fstype: "bind",
-			Flags:  syscall.MS_BIND,
+			Flags:  unix.MS_BIND,
 			Data:   "",
 		}); err != nil {
 			return fmt.Errorf("mount device: %w", err)
@@ -134,14 +135,14 @@ func mountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		var flags uintptr
 		if mount.Type == "bind" {
-			flags |= syscall.MS_BIND
+			flags |= unix.MS_BIND
 		}
 
 		var dataOptions []string
 		for _, opt := range mount.Options {
 			if opt == "bind" || opt == "rbind" {
 				mount.Type = "bind"
-				flags |= syscall.MS_BIND
+				flags |= unix.MS_BIND
 			}
 		}
 

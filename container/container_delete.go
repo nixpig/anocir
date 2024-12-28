@@ -7,6 +7,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 func (c *Container) Delete(force bool) error {
@@ -19,7 +21,7 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("find container process (%d): %w", c.PID(), err)
 	}
 	if process != nil {
-		process.Signal(syscall.Signal(9))
+		process.Signal(unix.Signal(9))
 	}
 
 	if err := os.RemoveAll(filepath.Join(containerRootDir, c.ID())); err != nil {
@@ -40,7 +42,7 @@ func killAllChildren(pid int) error {
 	}
 
 	for _, p := range childPIDs {
-		if err := syscall.Kill(p, syscall.Signal(9)); err != nil {
+		if err := syscall.Kill(p, unix.Signal(9)); err != nil {
 			return fmt.Errorf("kill child pid: %w", err)
 		}
 	}

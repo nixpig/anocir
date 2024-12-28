@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"syscall"
+
+	"golang.org/x/sys/unix"
 )
 
 const oldroot = ".oldroot"
@@ -28,7 +30,7 @@ func pivotRootfs(containerRootfs string) error {
 		return fmt.Errorf("chdir to new root: %w", err)
 	}
 
-	if err := syscall.Unmount(oldroot, syscall.MNT_DETACH); err != nil {
+	if err := syscall.Unmount(oldroot, unix.MNT_DETACH); err != nil {
 		return fmt.Errorf("unmount old root: %w", err)
 	}
 

@@ -5,6 +5,7 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
 func SetupRootfs(rootfs string, spec *specs.Spec) error {
@@ -70,7 +71,7 @@ func MountRootReadonly(ro bool) error {
 		"",
 		"/",
 		"",
-		syscall.MS_BIND|syscall.MS_REMOUNT|syscall.MS_RDONLY,
+		unix.MS_BIND|unix.MS_REMOUNT|unix.MS_RDONLY,
 		"",
 	); err != nil {
 		return fmt.Errorf("remount root as readonly: %w", err)
