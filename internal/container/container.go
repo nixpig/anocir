@@ -25,7 +25,7 @@ type NewContainerOpts struct {
 }
 
 func New(opts *NewContainerOpts) (*Container, error) {
-	if exists(filepath.Join(containerRootDir, opts.ID)) {
+	if exists(opts.ID) {
 		return nil, fmt.Errorf("container '%s' exists", opts.ID)
 	}
 
@@ -69,8 +69,8 @@ func (c *Container) Save() error {
 	return nil
 }
 
-func exists(containerPath string) bool {
-	_, err := os.Stat(containerPath)
+func exists(containerID string) bool {
+	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
 
 	return !os.IsNotExist(err)
 }
