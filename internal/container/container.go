@@ -29,7 +29,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		return nil, fmt.Errorf("container '%s' exists", opts.ID)
 	}
 
-	state := specs.State{
+	state := &specs.State{
 		Version:     specs.Version,
 		ID:          opts.ID,
 		Bundle:      opts.Bundle,
@@ -37,12 +37,12 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		Status:      specs.StateCreating,
 	}
 
-	c := Container{
-		State: &state,
+	c := &Container{
+		State: state,
 		Spec:  opts.Spec,
 	}
 
-	return &c, nil
+	return c, nil
 }
 
 func (c *Container) Save() error {
@@ -69,8 +69,37 @@ func (c *Container) Save() error {
 	return nil
 }
 
+func Load(id string) (*Container, error) {
+	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
+	if err != nil {
+		return nil, fmt.Errorf("read state file: %w", err)
+	}
+
+	var state *specs.State
+	if err := json.Unmarshal(s, &state); err != nil {
+		return nil, fmt.Errorf("unmarshal state: %w", err)
+	}
+
+	config, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
+	if err != nil {
+		return nil, fmt.Errorf("read config file: %w", err)
+	}
+
+	var spec *specs.Spec
+	if err := json.Unmarshal(config, &spec); err != nil {
+		return nil, fmt.Errorf("unmarshal config: %w", err)
+	}
+
+	c := &Container{
+		State: state,
+		Spec:  spec,
+	}
+
+	return c, nil
+}
+
 func exists(containerID string) bool {
 	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
 
-	return !os.IsNotExist(err)
+	return err == nil
 }

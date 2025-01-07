@@ -23,8 +23,11 @@ func stateCmd() *cobra.Command {
 				return err
 			}
 
-			// TODO: do something with 'state'
-			fmt.Println(state)
+			if _, err := cmd.OutOrStdout().Write(
+				[]byte(state),
+			); err != nil {
+				return fmt.Errorf("write state to stdout: %w", err)
+			}
 
 			return nil
 		},

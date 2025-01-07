@@ -2,14 +2,27 @@
 
 package operations
 
-import "fmt"
+import (
+	"encoding/json"
+	"fmt"
+
+	"github.com/nixpig/anocir/internal/container"
+)
 
 type StateOpts struct {
 	ID string
 }
 
 func State(opts *StateOpts) (string, error) {
-	fmt.Println(opts)
+	cntr, err := container.Load(opts.ID)
+	if err != nil {
+		return "", fmt.Errorf("load container: %w", err)
+	}
 
-	return "", nil
+	state, err := json.Marshal(cntr.State)
+	if err != nil {
+		return "", fmt.Errorf("marshal state: %w", err)
+	}
+
+	return string(state), nil
 }
