@@ -72,5 +72,5 @@ func (c *Container) Save() error {
 func exists(containerID string) bool {
 	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
 
-	return !os.IsNotExist(err)
+	return err == nil
 }
