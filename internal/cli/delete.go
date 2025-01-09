@@ -14,11 +14,19 @@ func deleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
+			force, err := cmd.Flags().GetBool("force")
+			if err != nil {
+				return err
+			}
+
 			return operations.Delete(&operations.DeleteOpts{
-				ID: containerID,
+				ID:    containerID,
+				Force: force,
 			})
 		},
 	}
+
+	cmd.Flags().BoolP("force", "f", false, "Force delete regardless of state")
 
 	return cmd
 }

@@ -69,6 +69,24 @@ func (c *Container) Save() error {
 	return nil
 }
 
+func (c *Container) Delete(force bool) error {
+	if !force && !c.canBeDeleted() {
+		return fmt.Errorf("container cannot be deleted in current state (%s) try using '--force'", c.State.Status)
+	}
+
+	if err := os.RemoveAll(
+		filepath.Join(containerRootDir, c.State.ID),
+	); err != nil {
+		return fmt.Errorf("delete container directory: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) canBeDeleted() bool {
+	return c.State.Status == specs.StateStopped
+}
+
 func Load(id string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
 	if err != nil {
