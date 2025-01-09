@@ -26,7 +26,7 @@ func deleteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP("force", "f", false, "Force delete regardless of state")
+	cmd.Flags().BoolP("force", "f", false, "Delete container regardless of state")
 
 	return cmd
 }
