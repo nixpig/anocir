@@ -221,7 +221,7 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("find container process to delete: %w", err)
 	}
 	if process != nil {
-		process.Signal(unix.Signal(9))
+		process.Signal(unix.SIGKILL)
 	}
 
 	if err := os.RemoveAll(
