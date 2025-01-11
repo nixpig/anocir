@@ -82,13 +82,10 @@ func (c *Container) Init() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	initSockAddr := filepath.Join(
-		containerRootDir,
-		c.State.ID,
-		initSockFilename,
+	listener, err := net.Listen(
+		"unix",
+		filepath.Join(containerRootDir, c.State.ID, initSockFilename),
 	)
-
-	listener, err := net.Listen("unix", initSockAddr)
 	if err != nil {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
