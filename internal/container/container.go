@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/nixpig/anocir/internal/hooks"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
@@ -76,6 +77,10 @@ func (c *Container) Save() error {
 }
 
 func (c *Container) Init() error {
+	if err := c.execHooks("createRuntime"); err != nil {
+		return fmt.Errorf("exec createruntime hooks: %w", err)
+	}
+
 	cmd := exec.Command("/proc/self/exe", "reexec", c.State.ID)
 
 	cmd.Stdin = os.Stdin
@@ -90,6 +95,10 @@ func (c *Container) Init() error {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
 	defer listener.Close()
+
+	if err := c.execHooks("createContainer"); err != nil {
+		return fmt.Errorf("exec createcontainer hooks: %w", err)
+	}
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
@@ -165,6 +174,10 @@ func (c *Container) Reexec() error {
 	containerConn.Close()
 	listener.Close()
 
+	if err := c.execHooks("startContainer"); err != nil {
+		return fmt.Errorf("exec startcontainer hooks: %w", err)
+	}
+
 	bin, err := exec.LookPath(c.Spec.Process.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of user process binary: %w", err)
@@ -190,6 +203,10 @@ func (c *Container) Start() error {
 		return fmt.Errorf("container cannot be started in current state (%s)", c.State.Status)
 	}
 
+	if err := c.execHooks("prestart"); err != nil {
+		return fmt.Errorf("execute prestart hooks: %w", err)
+	}
+
 	conn, err := net.Dial(
 		"unix",
 		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
@@ -204,6 +221,10 @@ func (c *Container) Start() error {
 	conn.Close()
 
 	c.State.Status = specs.StateRunning
+
+	if err := c.execHooks("poststart"); err != nil {
+		return fmt.Errorf("exec poststart hooks: %w", err)
+	}
 
 	return nil
 }
@@ -227,7 +248,54 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
+	if err := c.execHooks("poststop"); err != nil {
+		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
+	}
+
 	return nil
+}
+
+func (c *Container) Kill(sig unix.Signal) error {
+	if !c.canBeKilled() {
+		return fmt.Errorf("container cannot be killed in current state (%s)", c.State.Status)
+	}
+
+	if err := syscall.Kill(c.State.Pid, sig); err != nil {
+		return fmt.Errorf("send signal '%d' to process '%d': %w", sig, c.State.Pid, err)
+	}
+
+	c.State.Status = specs.StateStopped
+
+	if err := c.execHooks("poststop"); err != nil {
+		fmt.Println("Warning: failed to execute poststop hooks")
+	}
+
+	return nil
+}
+
+func (c *Container) execHooks(event string) error {
+	if c.Spec.Hooks == nil {
+		return nil
+	}
+
+	var h []specs.Hook
+	switch event {
+	case "prestart":
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
+		h = c.Spec.Hooks.Prestart
+	case "createRuntime":
+		h = c.Spec.Hooks.CreateRuntime
+	case "createContainer":
+		h = c.Spec.Hooks.CreateContainer
+	case "startContainer":
+		h = c.Spec.Hooks.StartContainer
+	case "poststart":
+		h = c.Spec.Hooks.Poststart
+	case "poststop":
+		h = c.Spec.Hooks.Poststop
+	}
+
+	return hooks.ExecHooks(h, c.State)
 }
 
 func (c *Container) canBeDeleted() bool {
@@ -236,6 +304,11 @@ func (c *Container) canBeDeleted() bool {
 
 func (c *Container) canBeStarted() bool {
 	return c.State.Status == specs.StateCreated
+}
+
+func (c *Container) canBeKilled() bool {
+	return c.State.Status == specs.StateRunning ||
+		c.State.Status == specs.StateCreated
 }
 
 func Load(id string) (*Container, error) {
