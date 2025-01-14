@@ -77,7 +77,10 @@ func (c *Container) Save() error {
 }
 
 func (c *Container) Init() error {
-	if err := c.execHooks(hooks.CreateRuntime); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.CreateRuntime,
+		c.State,
+	); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
 
@@ -96,7 +99,10 @@ func (c *Container) Init() error {
 	}
 	defer listener.Close()
 
-	if err := c.execHooks(hooks.CreateContainer); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.CreateContainer,
+		c.State,
+	); err != nil {
 		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
 
@@ -174,7 +180,10 @@ func (c *Container) Reexec() error {
 	containerConn.Close()
 	listener.Close()
 
-	if err := c.execHooks(hooks.StartContainer); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.StartContainer,
+		c.State,
+	); err != nil {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
@@ -203,7 +212,11 @@ func (c *Container) Start() error {
 		return fmt.Errorf("container cannot be started in current state (%s)", c.State.Status)
 	}
 
-	if err := c.execHooks(hooks.Prestart); err != nil {
+	if err := hooks.ExecHooks(
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
+		c.Spec.Hooks.Prestart,
+		c.State,
+	); err != nil {
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
@@ -222,7 +235,10 @@ func (c *Container) Start() error {
 
 	c.State.Status = specs.StateRunning
 
-	if err := c.execHooks(hooks.Poststart); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.Poststart,
+		c.State,
+	); err != nil {
 		return fmt.Errorf("exec poststart hooks: %w", err)
 	}
 
@@ -248,7 +264,10 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
-	if err := c.execHooks(hooks.Poststop); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.Poststop,
+		c.State,
+	); err != nil {
 		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
 	}
 
@@ -266,36 +285,14 @@ func (c *Container) Kill(sig unix.Signal) error {
 
 	c.State.Status = specs.StateStopped
 
-	if err := c.execHooks(hooks.Poststop); err != nil {
+	if err := hooks.ExecHooks(
+		c.Spec.Hooks.Poststop,
+		c.State,
+	); err != nil {
 		fmt.Println("Warning: failed to execute poststop hooks")
 	}
 
 	return nil
-}
-
-func (c *Container) execHooks(event hooks.Event) error {
-	if c.Spec.Hooks == nil {
-		return nil
-	}
-
-	var h []specs.Hook
-	switch event {
-	case hooks.Prestart:
-		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
-		h = c.Spec.Hooks.Prestart
-	case hooks.CreateRuntime:
-		h = c.Spec.Hooks.CreateRuntime
-	case hooks.CreateContainer:
-		h = c.Spec.Hooks.CreateContainer
-	case hooks.StartContainer:
-		h = c.Spec.Hooks.StartContainer
-	case hooks.Poststart:
-		h = c.Spec.Hooks.Poststart
-	case hooks.Poststop:
-		h = c.Spec.Hooks.Poststop
-	}
-
-	return hooks.ExecHooks(h, c.State)
 }
 
 func (c *Container) canBeDeleted() bool {

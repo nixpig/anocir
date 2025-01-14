@@ -12,17 +12,6 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-type Event int
-
-const (
-	Prestart Event = iota
-	Poststart
-	Poststop
-	CreateRuntime
-	CreateContainer
-	StartContainer
-)
-
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	if hooks == nil {
 		return nil
