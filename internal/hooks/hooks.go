@@ -13,10 +13,6 @@ import (
 )
 
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
-	if hooks == nil {
-		return nil
-	}
-
 	s, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)

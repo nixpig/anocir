@@ -77,11 +77,12 @@ func (c *Container) Save() error {
 }
 
 func (c *Container) Init() error {
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.CreateRuntime,
-		c.State,
-	); err != nil {
-		return fmt.Errorf("exec createruntime hooks: %w", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.CreateRuntime, c.State,
+		); err != nil {
+			return fmt.Errorf("exec createruntime hooks: %w", err)
+		}
 	}
 
 	cmd := exec.Command("/proc/self/exe", "reexec", c.State.ID)
@@ -99,11 +100,12 @@ func (c *Container) Init() error {
 	}
 	defer listener.Close()
 
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.CreateContainer,
-		c.State,
-	); err != nil {
-		return fmt.Errorf("exec createcontainer hooks: %w", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.CreateContainer, c.State,
+		); err != nil {
+			return fmt.Errorf("exec createcontainer hooks: %w", err)
+		}
 	}
 
 	if err := cmd.Start(); err != nil {
@@ -180,11 +182,12 @@ func (c *Container) Reexec() error {
 	containerConn.Close()
 	listener.Close()
 
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.StartContainer,
-		c.State,
-	); err != nil {
-		return fmt.Errorf("exec startcontainer hooks: %w", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.StartContainer, c.State,
+		); err != nil {
+			return fmt.Errorf("exec startcontainer hooks: %w", err)
+		}
 	}
 
 	bin, err := exec.LookPath(c.Spec.Process.Args[0])
@@ -212,12 +215,13 @@ func (c *Container) Start() error {
 		return fmt.Errorf("container cannot be started in current state (%s)", c.State.Status)
 	}
 
-	if err := hooks.ExecHooks(
-		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
-		c.Spec.Hooks.Prestart,
-		c.State,
-	); err != nil {
-		return fmt.Errorf("execute prestart hooks: %w", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
+			c.Spec.Hooks.Prestart, c.State,
+		); err != nil {
+			return fmt.Errorf("execute prestart hooks: %w", err)
+		}
 	}
 
 	conn, err := net.Dial(
@@ -235,11 +239,12 @@ func (c *Container) Start() error {
 
 	c.State.Status = specs.StateRunning
 
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.Poststart,
-		c.State,
-	); err != nil {
-		return fmt.Errorf("exec poststart hooks: %w", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.Poststart, c.State,
+		); err != nil {
+			return fmt.Errorf("exec poststart hooks: %w", err)
+		}
 	}
 
 	return nil
@@ -264,11 +269,12 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.Poststop,
-		c.State,
-	); err != nil {
-		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.Poststop, c.State,
+		); err != nil {
+			fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
+		}
 	}
 
 	return nil
@@ -285,11 +291,12 @@ func (c *Container) Kill(sig unix.Signal) error {
 
 	c.State.Status = specs.StateStopped
 
-	if err := hooks.ExecHooks(
-		c.Spec.Hooks.Poststop,
-		c.State,
-	); err != nil {
-		fmt.Println("Warning: failed to execute poststop hooks")
+	if c.Spec.Hooks != nil {
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.Poststop, c.State,
+		); err != nil {
+			fmt.Println("Warning: failed to execute poststop hooks")
+		}
 	}
 
 	return nil
