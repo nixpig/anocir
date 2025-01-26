@@ -22,9 +22,5 @@ func Start(opts *StartOpts) error {
 		return fmt.Errorf("start container: %w", err)
 	}
 
-	if err := cntr.Save(); err != nil {
-		return fmt.Errorf("save container: %w", err)
-	}
-
 	return nil
 }

@@ -13,11 +13,17 @@ import (
 )
 
 type CreateOpts struct {
-	ID     string
-	Bundle string
+	ID            string
+	Bundle        string
+	ConsoleSocket string
+	PIDFile       string
 }
 
 func Create(opts *CreateOpts) error {
+	if container.Exists(opts.ID) {
+		return fmt.Errorf("container '%s' exists", opts.ID)
+	}
+
 	bundle, err := filepath.Abs(opts.Bundle)
 	if err != nil {
 		return fmt.Errorf("absolute path from bundle: %w", err)
@@ -34,24 +40,18 @@ func Create(opts *CreateOpts) error {
 	}
 
 	cntr, err := container.New(&container.NewContainerOpts{
-		ID:     opts.ID,
-		Bundle: bundle,
-		Spec:   spec,
+		ID:            opts.ID,
+		Bundle:        bundle,
+		Spec:          spec,
+		ConsoleSocket: opts.ConsoleSocket,
+		PIDFile:       opts.PIDFile,
 	})
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	if err := cntr.Save(); err != nil {
-		return fmt.Errorf("save container: %w", err)
-	}
-
 	if err := cntr.Init(); err != nil {
 		return fmt.Errorf("initialise container: %w", err)
-	}
-
-	if err := cntr.Save(); err != nil {
-		return fmt.Errorf("save container: %w", err)
 	}
 
 	return nil

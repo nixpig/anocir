@@ -22,5 +22,8 @@ func killCmd() *cobra.Command {
 		},
 	}
 
+	// TODO: do something with this
+	cmd.Flags().BoolP("all", "a", false, "Kill all (Docker??)")
+
 	return cmd
 }

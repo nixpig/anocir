@@ -21,15 +21,29 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
+			consoleSocket, err := cmd.Flags().GetString("console-socket")
+			if err != nil {
+				return err
+			}
+
+			pidFile, err := cmd.Flags().GetString("pid-file")
+			if err != nil {
+				return err
+			}
+
 			return operations.Create(&operations.CreateOpts{
-				ID:     containerID,
-				Bundle: bundle,
+				ID:            containerID,
+				Bundle:        bundle,
+				ConsoleSocket: consoleSocket,
+				PIDFile:       pidFile,
 			})
 		},
 	}
 
 	cwd, _ := os.Getwd()
 	cmd.Flags().StringP("bundle", "b", cwd, "Path to bundle directory")
+	cmd.Flags().StringP("console-socket", "s", "", "Console socket path")
+	cmd.Flags().StringP("pid-file", "p", "", "File to write container PID to")
 
 	return cmd
 }

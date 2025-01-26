@@ -15,7 +15,78 @@ logdir=/var/log/runtime-tools
 mkdir -p $logdir
 
 tests=(
+    # "misc_props" # ❗️ (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
+
+    "delete" # ❌
+    # "linux_uid_mappings" # ❌ should be fixable
+
+    # ✅ passing!
     "create"
+    "start"
+    "default"
+    "state"
+    "kill"
+    "killsig"
+    "hooks"
+    "hooks_stdin"
+    "hostname"
+    "kill_no_effect"
+    "linux_devices"
+    "linux_masked_paths"
+    "linux_mount_label"
+    "linux_ns_itype"
+    "linux_ns_nopath"
+    "linux_ns_path_type"
+    "linux_ns_path"
+    "linux_readonly_paths"
+    "linux_rootfs_propagation"
+    "linux_sysctl"
+    "mounts"
+    "poststart"
+    "poststop"
+    "prestart"
+    "prestart_fail"
+    "process"
+    "process_capabilities"
+    "process_capabilities_fail"
+    "process_oom_score_adj"
+    "process_rlimits_fail"
+    "process_user"
+    "root_readonly_true"
+    
+    # ---
+
+    # ❗ ️cgroups tests
+    # "linux_cgroups_blkio"
+    # "linux_cgroups_cpus"
+    # "linux_cgroups_devices"
+    # "linux_cgroups_hugetlb"
+    # "linux_cgroups_memory"
+    # "linux_cgroups_network"
+    # "linux_cgroups_pids"
+    # "linux_cgroups_relative_blkio"
+    # "linux_cgroups_relative_cpus"
+    # "linux_cgroups_relative_devices"
+    # "linux_cgroups_relative_hugetlb"
+    # "linux_cgroups_relative_memory"
+    # "linux_cgroups_relative_network"
+    # "linux_cgroups_relative_pids"
+    # "delete_resources"
+    # "delete_only_create_resources"
+    
+    # ---
+
+    # ❗️ tests that also fail in runc and other runtimes
+    # "pidfile"
+    # "poststart_fail"
+    # "poststop_fail"
+    # "process_rlimits" # ❌ also fails in brownie
+
+    # ---
+
+    # ❗️ tests that 'pass' (seemingly) regardless of whether the feature has been implemented
+    "linux_process_apparmor_profile"
+    "linux_seccomp"
 )
 
 # run tests

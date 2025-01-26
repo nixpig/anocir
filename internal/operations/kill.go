@@ -4,10 +4,9 @@ package operations
 
 import (
 	"fmt"
-	"strconv"
 
 	"github.com/nixpig/anocir/internal/container"
-	"golang.org/x/sys/unix"
+	"github.com/nixpig/anocir/internal/specconv"
 )
 
 type KillOpts struct {
@@ -21,17 +20,8 @@ func Kill(opts *KillOpts) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	sig, err := strconv.Atoi(opts.Signal)
-	if err != nil {
-		return fmt.Errorf("convert signal to int: %w", err)
-	}
-
-	if err := cntr.Kill(unix.Signal(sig)); err != nil {
+	if err := cntr.Kill(specconv.SignalArgToSignal(opts.Signal)); err != nil {
 		return fmt.Errorf("kill container: %w", err)
-	}
-
-	if err := cntr.Save(); err != nil {
-		return fmt.Errorf("save container: %w", err)
 	}
 
 	return nil

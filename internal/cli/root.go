@@ -19,5 +19,18 @@ func RootCmd() *cobra.Command {
 		reexecCmd(),
 	)
 
+	// TODO: implement for Docker?
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "placeholder")
+	cmd.PersistentFlags().StringP("root", "", "", "placeholder")
+	cmd.PersistentFlags().StringP("log-format", "", "", "placeholder")
+	cmd.PersistentFlags().StringP(
+		"log",
+		"l",
+		"/var/log/anocir/log.txt",
+		"Location of log file",
+	)
+
+	cmd.CompletionOptions.HiddenDefaultCmd = true
+
 	return cmd
 }
