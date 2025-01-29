@@ -1,4 +1,4 @@
-package capabilities
+package anosys
 
 import (
 	"fmt"
@@ -7,7 +7,7 @@ import (
 	"github.com/syndtr/gocapability/capability"
 )
 
-var Capabilities = map[string]capability.Cap{
+var capabilities = map[string]capability.Cap{
 	"CAP_AUDIT_CONTROL":      capability.CAP_AUDIT_CONTROL,
 	"CAP_AUDIT_READ":         capability.CAP_AUDIT_READ,
 	"CAP_AUDIT_WRITE":        capability.CAP_AUDIT_WRITE,
@@ -69,7 +69,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Ambient != nil {
 		for _, e := range caps.Ambient {
-			if v, ok := Capabilities[e]; ok {
+			if v, ok := capabilities[e]; ok {
 				c.Set(capability.AMBIENT, capability.Cap(v))
 			}
 		}
@@ -77,7 +77,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Bounding != nil {
 		for _, e := range caps.Bounding {
-			if v, ok := Capabilities[e]; ok {
+			if v, ok := capabilities[e]; ok {
 				c.Set(capability.BOUNDING, capability.Cap(v))
 			}
 		}
@@ -85,7 +85,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Effective != nil {
 		for _, e := range caps.Effective {
-			if v, ok := Capabilities[e]; ok {
+			if v, ok := capabilities[e]; ok {
 				c.Set(capability.EFFECTIVE, capability.Cap(v))
 			}
 		}
@@ -93,7 +93,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Permitted != nil {
 		for _, e := range caps.Permitted {
-			if v, ok := Capabilities[e]; ok {
+			if v, ok := capabilities[e]; ok {
 				c.Set(capability.PERMITTED, capability.Cap(v))
 			}
 		}
@@ -101,7 +101,7 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Inheritable != nil {
 		for _, e := range caps.Inheritable {
-			if v, ok := Capabilities[e]; ok {
+			if v, ok := capabilities[e]; ok {
 				c.Set(capability.INHERITABLE, capability.Cap(v))
 			}
 		}

@@ -1,7 +1,6 @@
 package container
 
 import (
-	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,14 +15,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nixpig/anocir/internal/capabilities"
-	"github.com/nixpig/anocir/internal/cgroups"
-	"github.com/nixpig/anocir/internal/filesystem"
+	"github.com/nixpig/anocir/internal/anosys"
 	"github.com/nixpig/anocir/internal/hooks"
-	"github.com/nixpig/anocir/internal/iopriority"
-	"github.com/nixpig/anocir/internal/scheduler"
-	"github.com/nixpig/anocir/internal/specconv"
-	"github.com/nixpig/anocir/internal/sysctl"
 	"github.com/nixpig/anocir/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -131,16 +124,6 @@ func (c *Container) Init() error {
 		}
 	}
 
-	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
-		if err := os.WriteFile(
-			"/proc/self/oom_score_adj",
-			[]byte(strconv.Itoa(*c.Spec.Process.OOMScoreAdj)),
-			0644,
-		); err != nil {
-			return fmt.Errorf("create oom score adj file: %w", err)
-		}
-	}
-
 	cmd := exec.Command("/proc/self/exe", "reexec", c.State.ID)
 
 	cmd.Stdin = os.Stdin
@@ -164,27 +147,16 @@ func (c *Container) Init() error {
 		}
 	}
 
+	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
+		if err := anosys.AdjustOOMScore(*c.Spec.Process.OOMScoreAdj); err != nil {
+			return fmt.Errorf("adjust oom score: %w", err)
+		}
+	}
+
 	cloneFlags := uintptr(0)
 
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
-
-	// FIXME: needed to run 'linux_uid_mappings'
-	// for _, m := range c.Spec.Linux.UIDMappings {
-	// 	uidMappings = append(uidMappings, syscall.SysProcIDMap{
-	// 		ContainerID: int(m.ContainerID),
-	// 		HostID:      int(m.HostID),
-	// 		Size:        int(m.Size),
-	// 	})
-	// }
-	//
-	// for _, m := range c.Spec.Linux.GIDMappings {
-	// 	gidMappings = append(gidMappings, syscall.SysProcIDMap{
-	// 		ContainerID: int(m.ContainerID),
-	// 		HostID:      int(m.HostID),
-	// 		Size:        int(m.Size),
-	// 	})
-	// }
 
 	for _, ns := range c.Spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
@@ -203,32 +175,18 @@ func (c *Container) Init() error {
 
 		if ns.Type == specs.TimeNamespace {
 			if c.Spec.Linux.TimeOffsets != nil {
-				var tos bytes.Buffer
-
-				for clock, offset := range c.Spec.Linux.TimeOffsets {
-					if n, err := tos.WriteString(
-						fmt.Sprintf("%s %d %d\n", clock, offset.Secs, offset.Nanosecs),
-					); err != nil || n == 0 {
-						return fmt.Errorf("write time offsets")
-					}
-				}
-
-				if err := os.WriteFile(
-					"/proc/self/timens_offsets",
-					tos.Bytes(),
-					0644,
-				); err != nil {
-					return fmt.Errorf("write timens offsets: %w", err)
+				if err := anosys.SetTimeOffsets(c.Spec.Linux.TimeOffsets); err != nil {
+					return fmt.Errorf("set timens offsets: %w", err)
 				}
 			}
 		}
 
 		if ns.Path == "" {
-			cloneFlags |= specconv.NamespaceTypeToFlag(ns.Type)
+			cloneFlags |= anosys.NamespaceTypeToFlag(ns.Type)
 		} else {
 			suffix := fmt.Sprintf(
 				"/%s",
-				specconv.NamespaceTypeToEnv(ns.Type),
+				anosys.NamespaceTypeToEnv(ns.Type),
 			)
 			if !strings.HasSuffix(ns.Path, suffix) &&
 				ns.Type != specs.PIDNamespace {
@@ -240,7 +198,7 @@ func (c *Container) Init() error {
 				// in single-threaded context in C before the reexec
 				gonsEnv := fmt.Sprintf(
 					"gons_%s=%s",
-					specconv.NamespaceTypeToEnv(ns.Type),
+					anosys.NamespaceTypeToEnv(ns.Type),
 					ns.Path,
 				)
 				cmd.Env = append(cmd.Env, gonsEnv)
@@ -258,8 +216,24 @@ func (c *Container) Init() error {
 				syscall.Close(fd)
 			}
 		}
-
 	}
+
+	// FIXME: needed to run 'linux_uid_mappings'
+	// for _, m := range c.Spec.Linux.UIDMappings {
+	// 	uidMappings = append(uidMappings, syscall.SysProcIDMap{
+	// 		ContainerID: int(m.ContainerID),
+	// 		HostID:      int(m.HostID),
+	// 		Size:        int(m.Size),
+	// 	})
+	// }
+	//
+	// for _, m := range c.Spec.Linux.GIDMappings {
+	// 	gidMappings = append(gidMappings, syscall.SysProcIDMap{
+	// 		ContainerID: int(m.ContainerID),
+	// 		HostID:      int(m.HostID),
+	// 		Size:        int(m.Size),
+	// 	})
+	// }
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:  cloneFlags,
@@ -280,19 +254,19 @@ func (c *Container) Init() error {
 		return fmt.Errorf("save container pid state: %w", err)
 	}
 
-	if c.Spec.Linux.CgroupsPath != "" && c.Spec.Linux.Resources != nil {
-		if cgroups.IsUnified() {
-			if err := cgroups.AddV2(
+	if c.Spec.Linux.Resources != nil {
+		if anosys.IsUnifiedCGroupsMode() {
+			if err := anosys.AddV2CGroups(
 				c.State.ID,
-				c.Spec.Linux.Resources.Devices,
+				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
 				return err
 			}
-		} else {
-			if err := cgroups.AddV1(
+		} else if c.Spec.Linux.CgroupsPath != "" {
+			if err := anosys.AddV1CGroups(
 				c.Spec.Linux.CgroupsPath,
-				c.Spec.Linux.Resources.Devices,
+				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
 				return err
@@ -361,19 +335,38 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	if err := filesystem.SetupRootfs(c.rootFS(), c.Spec); err != nil {
-		return fmt.Errorf("setup rootfs: %w", err)
+	if err := anosys.MountRootfs(c.rootFS()); err != nil {
+		return fmt.Errorf("mount rootfs: %w", err)
+	}
+
+	if err := anosys.MountProc(c.rootFS()); err != nil {
+		return fmt.Errorf("mount proc: %w", err)
+	}
+
+	if err := anosys.MountSpecMounts(c.Spec.Mounts, c.rootFS()); err != nil {
+		return fmt.Errorf("mount spec: %w", err)
+	}
+
+	if err := anosys.MountDefaultDevices(c.rootFS()); err != nil {
+		return fmt.Errorf("mount default devices: %w", err)
+	}
+
+	if err := anosys.CreateDeviceNodes(c.Spec.Linux.Devices, c.rootFS()); err != nil {
+		return fmt.Errorf("mount devices from spec: %w", err)
+	}
+
+	if err := anosys.CreateDefaultSymlinks(c.rootFS()); err != nil {
+		return fmt.Errorf("create default symlinks: %w", err)
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-		dev := filesystem.Device{
-			Source: pty.Slave.Name(),
-			Target: filepath.Join(c.rootFS(), "dev/console"),
-			Fstype: "bind",
-			Flags:  syscall.MS_BIND,
-			Data:   "",
-		}
-		if err := dev.Mount(); err != nil {
+		if err := syscall.Mount(
+			pty.Slave.Name(),
+			filepath.Join(c.rootFS(), "dev/console"),
+			"bind",
+			syscall.MS_BIND,
+			"",
+		); err != nil {
 			return fmt.Errorf("mount dev/console device: %w", err)
 		}
 	}
@@ -435,171 +428,88 @@ func (c *Container) Reexec() error {
 		return errors.New("process is required")
 	}
 
-	logfile, err := os.OpenFile(filepath.Join(containerRootDir, c.State.ID, "log.txt"), 0755, os.FileMode(os.O_CREATE|os.O_RDWR))
-	if err != nil {
-		return err
-	}
-	defer logfile.Close()
-
-	if err := filesystem.PivotRoot(c.rootFS()); err != nil {
-		logfile.Write([]byte(err.Error()))
+	if err := anosys.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}
 
 	if c.Spec.Linux.Sysctl != nil {
-		if err := sysctl.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("setctl: %s", err)))
+		if err := anosys.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
 			return fmt.Errorf("set sysctl: %w", err)
 		}
 	}
 
-	if err := filesystem.MountMaskedPaths(
+	if err := anosys.MountMaskedPaths(
 		c.Spec.Linux.MaskedPaths,
 	); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("mount masked paths: %s", err)))
 		return err
 	}
 
-	if err := filesystem.MountReadonlyPaths(
+	if err := anosys.MountReadonlyPaths(
 		c.Spec.Linux.ReadonlyPaths,
 	); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("mount readonly paths: %s", err)))
 		return err
 	}
 
-	if err := filesystem.SetRootfsMountPropagation(
+	if err := anosys.SetRootfsMountPropagation(
 		c.Spec.Linux.RootfsPropagation,
 	); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set rootfs mount propagation: %s", err)))
 		return err
 	}
 
-	if err := filesystem.MountRootReadonly(
+	if err := anosys.MountRootReadonly(
 		c.Spec.Root.Readonly,
 	); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("mount root readonly: %s", err)))
 		return err
 	}
 
-	logfile.Write([]byte("after mounts"))
-
-	if slices.ContainsFunc(
+	hasUTSNamespace := slices.ContainsFunc(
 		c.Spec.Linux.Namespaces,
 		func(n specs.LinuxNamespace) bool {
 			return n.Type == specs.UTSNamespace
 		},
-	) {
+	)
+
+	if hasUTSNamespace {
 		if err := syscall.Sethostname([]byte(c.Spec.Hostname)); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("set hostname: %s", err)))
 			return err
 		}
 
 		if err := syscall.Setdomainname([]byte(c.Spec.Domainname)); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("set domainname: %s", err)))
 			return err
 		}
 	}
 
-	logfile.Write([]byte("after namespaces"))
-
-	if err := cgroups.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set rlimits: %s", err)))
-		return err
+	if err := anosys.SetRlimits(c.Spec.Process.Rlimits); err != nil {
+		return fmt.Errorf("set rlimits: %w", err)
 	}
 
-	logfile.Write([]byte("after rlimits"))
-
-	if err := capabilities.SetCapabilities(
-		c.Spec.Process.Capabilities,
-	); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set capabilities: %s", err)))
-		return err
+	if c.Spec.Process.Capabilities != nil {
+		if err := anosys.SetCapabilities(c.Spec.Process.Capabilities); err != nil {
+			return fmt.Errorf("set capabilities: %w", err)
+		}
 	}
-
-	logfile.Write([]byte("after caps"))
 
 	if c.Spec.Process.NoNewPrivileges {
-		if err := unix.Prctl(unix.PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("set no new privileges: %s", err)))
+		if err := anosys.SetNoNewPrivs(); err != nil {
 			return fmt.Errorf("set no new privileges: %w", err)
 		}
 	}
 
-	logfile.Write([]byte("after privs"))
-
 	if c.Spec.Process.Scheduler != nil {
-		policy, err := scheduler.PolicyToInt(c.Spec.Process.Scheduler.Policy)
-		if err != nil {
-			logfile.Write([]byte(fmt.Sprintf("get scheduler policy flags: %s", err)))
-			return fmt.Errorf("scheduler policy to int: %w", err)
-		}
-
-		flags, err := scheduler.FlagsToInt(c.Spec.Process.Scheduler.Flags)
-		if err != nil {
-			logfile.Write([]byte(fmt.Sprintf("convert scheduler flags to int: %s", err)))
-			return fmt.Errorf("scheduler flags to int: %w", err)
-		}
-
-		schedAttr := unix.SchedAttr{
-			Deadline: c.Spec.Process.Scheduler.Deadline,
-			Flags:    uint64(flags),
-			Size:     unix.SizeofSchedAttr,
-			Nice:     c.Spec.Process.Scheduler.Nice,
-			Period:   c.Spec.Process.Scheduler.Period,
-			Policy:   uint32(policy),
-			Priority: uint32(c.Spec.Process.Scheduler.Priority),
-			Runtime:  c.Spec.Process.Scheduler.Runtime,
-		}
-
-		if err := unix.SchedSetAttr(0, &schedAttr, 0); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("set scheduler policy: %s", err)))
-			return fmt.Errorf("set schedattrs: %w", err)
+		if err := anosys.SetSchedAttrs(c.Spec.Process.Scheduler); err != nil {
+			return fmt.Errorf("set sched attrs: %w", err)
 		}
 	}
-
-	logfile.Write([]byte("after sched"))
 
 	if c.Spec.Process.IOPriority != nil {
-		ioprio, err := iopriority.ToInt(c.Spec.Process.IOPriority)
-		if err != nil {
-			logfile.Write([]byte(fmt.Sprintf("iopriority to int: %s", err)))
-			return fmt.Errorf("iopriority to int: %w", err)
-		}
-
-		if err := iopriority.SetIOPriority(ioprio); err != nil {
-			logfile.Write([]byte(fmt.Sprintf("set ioprio: %s", err)))
-			return fmt.Errorf("set iop: %w", err)
+		if err := anosys.SetIOPriority(c.Spec.Process.IOPriority); err != nil {
+			return fmt.Errorf("set ioprio: %w", err)
 		}
 	}
 
-	logfile.Write([]byte("after ioprio"))
-
-	if err := syscall.Setuid(int(c.Spec.Process.User.UID)); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set uid: %s", err)))
-		return fmt.Errorf("set UID: %w", err)
+	if err := anosys.SetUser(&c.Spec.Process.User); err != nil {
+		return fmt.Errorf("set user: %w", err)
 	}
-
-	logfile.Write([]byte("after uid"))
-
-	if err := syscall.Setgid(int(c.Spec.Process.User.GID)); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set gid: %s", err)))
-		return fmt.Errorf("set GID: %w", err)
-	}
-
-	logfile.Write([]byte("after gid"))
-
-	additionalGids := make([]int, len(c.Spec.Process.User.AdditionalGids))
-	for i, gid := range c.Spec.Process.User.AdditionalGids {
-		additionalGids[i] = int(gid)
-	}
-
-	// FIXME: run 'linux_uid_mappings' and it causes it to 'disappear'
-	// if err := syscall.Setgroups(additionalGids); err != nil {
-	// 	logfile.Write([]byte(fmt.Sprintf("set additional gids: %s", err)))
-	// 	return fmt.Errorf("set additional GIDs: %w", err)
-	// }
-
-	logfile.Write([]byte("after additional gids"))
 
 	if c.Spec.Hooks != nil {
 		if err := hooks.ExecHooks(
@@ -610,26 +520,20 @@ func (c *Container) Reexec() error {
 	}
 
 	if err := os.Chdir(c.Spec.Process.Cwd); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("set working directory: %s", err)))
 		return fmt.Errorf("set working directory: %w", err)
 	}
 
 	bin, err := exec.LookPath(c.Spec.Process.Args[0])
 	if err != nil {
-		logfile.Write([]byte(fmt.Sprintf("find path of process binary: %s", err)))
 		return fmt.Errorf("find path of user process binary: %w", err)
 	}
 
 	args := c.Spec.Process.Args
 	env := os.Environ()
 
-	logfile.Write([]byte("exec the process :)"))
 	if err := syscall.Exec(bin, args, env); err != nil {
-		logfile.Write([]byte(fmt.Sprintf("exec process binary: %s", err)))
 		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
 	}
-
-	logfile.Write([]byte("time to panic!!"))
 
 	panic("if you got here then something went horribly wrong")
 }
@@ -716,13 +620,13 @@ func (c *Container) Delete(force bool) error {
 	return nil
 }
 
-func (c *Container) Kill(sig unix.Signal) error {
+func (c *Container) Kill(sig string) error {
 	if !c.canBeKilled() {
 		return fmt.Errorf("container cannot be killed in current state (%s)", c.State.Status)
 	}
 
-	if err := syscall.Kill(c.State.Pid, sig); err != nil {
-		return fmt.Errorf("send signal '%d' to process '%d': %w", sig, c.State.Pid, err)
+	if err := anosys.SendSignal(c.State.Pid, sig); err != nil {
+		return fmt.Errorf("send signal '%s' to process '%d': %w", sig, c.State.Pid, err)
 	}
 
 	c.State.Status = specs.StateStopped

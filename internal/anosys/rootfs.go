@@ -1,8 +1,13 @@
-package filesystem
+package anosys
 
-import "golang.org/x/sys/unix"
+import (
+	"fmt"
+	"syscall"
 
-var MountOptions = map[string]struct {
+	"golang.org/x/sys/unix"
+)
+
+var mountOptions = map[string]struct {
 	No   bool
 	Flag uintptr
 }{
@@ -44,4 +49,64 @@ var MountOptions = map[string]struct {
 	"suid":          {No: false, Flag: unix.MS_NOSUID},
 	"sync":          {No: false, Flag: unix.MS_SYNCHRONOUS},
 	"unbindable":    {No: false, Flag: unix.MS_UNBINDABLE},
+}
+
+func MountRootfs(containerRootfs string) error {
+	if err := syscall.Mount(
+		"",
+		"/",
+		"",
+		unix.MS_PRIVATE|unix.MS_REC,
+		"",
+	); err != nil {
+		return err
+	}
+
+	if err := syscall.Mount(
+		containerRootfs,
+		containerRootfs,
+		"",
+		unix.MS_BIND|unix.MS_REC,
+		"",
+	); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func MountRootReadonly(ro bool) error {
+	if !ro {
+		return nil
+	}
+
+	if err := syscall.Mount(
+		"",
+		"/",
+		"",
+		unix.MS_BIND|unix.MS_REMOUNT|unix.MS_RDONLY,
+		"",
+	); err != nil {
+		return fmt.Errorf("remount root as readonly: %w", err)
+	}
+
+	return nil
+}
+
+func SetRootfsMountPropagation(prop string) error {
+	if prop == "" {
+		return nil
+	}
+
+	if err := syscall.Mount(
+		"",
+		"/",
+		"",
+		mountOptions[prop].Flag,
+		"",
+	); err != nil {
+		return fmt.Errorf("set rootfs mount propagation (%s): %w", prop, err)
+	}
+
+	return nil
 }

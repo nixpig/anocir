@@ -1,4 +1,4 @@
-package sysctl
+package anosys
 
 import (
 	"fmt"

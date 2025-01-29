@@ -17,27 +17,25 @@ mkdir -p $logdir
 tests=(
     # "misc_props" # ❗️ (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
 
-    "delete" # ❌
     # "linux_uid_mappings" # ❌ should be fixable
 
     # ✅ passing!
-    "create"
-    "start"
     "default"
-    "state"
-    "kill"
-    "killsig"
+    "create"
+    "delete"
     "hooks"
     "hooks_stdin"
     "hostname"
+    "kill"
     "kill_no_effect"
+    "killsig"
     "linux_devices"
     "linux_masked_paths"
     "linux_mount_label"
     "linux_ns_itype"
     "linux_ns_nopath"
-    "linux_ns_path_type"
     "linux_ns_path"
+    "linux_ns_path_type"
     "linux_readonly_paths"
     "linux_rootfs_propagation"
     "linux_sysctl"
@@ -53,7 +51,9 @@ tests=(
     "process_rlimits_fail"
     "process_user"
     "root_readonly_true"
-    
+    "start"
+    "state"
+
     # ---
 
     # ❗ ️cgroups tests
@@ -85,8 +85,8 @@ tests=(
     # ---
 
     # ❗️ tests that 'pass' (seemingly) regardless of whether the feature has been implemented
-    "linux_process_apparmor_profile"
-    "linux_seccomp"
+    # "linux_process_apparmor_profile"
+    # "linux_seccomp"
 )
 
 # run tests

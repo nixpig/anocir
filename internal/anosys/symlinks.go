@@ -1,4 +1,4 @@
-package filesystem
+package anosys
 
 import (
 	"os"
@@ -11,6 +11,10 @@ var defaultSymlinks = map[string]string{
 	"/proc/self/fd/1": "dev/stdout",
 	"/proc/self/fd/2": "dev/stderr",
 	"pts/ptmx":        "dev/ptmx",
+}
+
+func CreateDefaultSymlinks(rootfs string) error {
+	return createSymlinks(defaultSymlinks, rootfs)
 }
 
 func createSymlinks(symlinks map[string]string, rootfs string) error {

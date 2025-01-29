@@ -1,4 +1,4 @@
-package filesystem
+package anosys
 
 import (
 	"fmt"
@@ -11,7 +11,7 @@ import (
 
 const oldroot = ".oldroot"
 
-func pivotRootfs(containerRootfs string) error {
+func PivotRoot(containerRootfs string) error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootfs, oldroot),
 		0700,

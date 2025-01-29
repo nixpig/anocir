@@ -6,7 +6,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/container"
-	"github.com/nixpig/anocir/internal/specconv"
 )
 
 type KillOpts struct {
@@ -20,7 +19,7 @@ func Kill(opts *KillOpts) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
-	if err := cntr.Kill(specconv.SignalArgToSignal(opts.Signal)); err != nil {
+	if err := cntr.Kill(opts.Signal); err != nil {
 		return fmt.Errorf("kill container: %w", err)
 	}
 

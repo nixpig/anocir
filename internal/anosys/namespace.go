@@ -1,4 +1,4 @@
-package specconv
+package anosys
 
 import (
 	"github.com/opencontainers/runtime-spec/specs-go"

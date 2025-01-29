@@ -1,8 +1,24 @@
-package specconv
+package anosys
 
-import "golang.org/x/sys/unix"
+import (
+	"fmt"
+	"syscall"
 
-func SignalArgToSignal(sigName string) unix.Signal {
+	"golang.org/x/sys/unix"
+)
+
+func SendSignal(pid int, sig string) error {
+	if err := syscall.Kill(
+		pid,
+		signalArgToSignal(sig),
+	); err != nil {
+		return fmt.Errorf("kill: %w", err)
+	}
+
+	return nil
+}
+
+func signalArgToSignal(sigName string) unix.Signal {
 	switch sigName {
 	case "SIGHUP", "HUP", "1":
 		return unix.SIGHUP

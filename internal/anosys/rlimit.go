@@ -1,4 +1,4 @@
-package cgroups
+package anosys
 
 import (
 	"fmt"
@@ -8,7 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var Rlimits = map[string]uint{
+var rlimit = map[string]uint{
 	"RLIMIT_AS":         unix.RLIMIT_AS,
 	"RLIMIT_CORE":       unix.RLIMIT_CORE,
 	"RLIMIT_CPU":        unix.RLIMIT_CPU,
@@ -29,7 +29,7 @@ var Rlimits = map[string]uint{
 
 func SetRlimits(rlimits []specs.POSIXRlimit) error {
 	for _, rl := range rlimits {
-		rlType := int(Rlimits[rl.Type])
+		rlType := int(rlimit[rl.Type])
 
 		if err := syscall.Getrlimit(rlType, &syscall.Rlimit{
 			Cur: rl.Soft,

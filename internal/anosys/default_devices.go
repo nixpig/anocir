@@ -1,4 +1,4 @@
-package filesystem
+package anosys
 
 import (
 	"fmt"
@@ -11,26 +11,25 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-type Device struct {
-	Source string
-	Target string
-	Fstype string
-	Flags  uintptr
-	Data   string
-}
-
-var (
-	defaultFileMode        = os.FileMode(0666)
-	defaultUID      uint32 = 0
-	defaultGID      uint32 = 0
-)
-
 var (
 	AllDevices           = "a"
 	BlockDevice          = "b"
 	CharDevice           = "c"
 	UnbufferedCharDevice = "u"
 	FifoDevice           = "p"
+)
+
+var deviceType = map[string]uint32{
+	"b": unix.S_IFBLK,
+	"c": unix.S_IFCHR,
+	"s": unix.S_IFSOCK,
+	"p": unix.S_IFIFO,
+}
+
+var (
+	defaultFileMode        = os.FileMode(0666)
+	defaultUID      uint32 = 0
+	defaultGID      uint32 = 0
 )
 
 var defaultDevices = []specs.LinuxDevice{
@@ -90,68 +89,57 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 }
 
-func (d *Device) Mount() error {
-	if _, err := os.Stat(d.Target); os.IsNotExist(err) {
-		f, err := os.Create(d.Target)
+func MountDefaultDevices(rootfs string) error {
+	for _, d := range defaultDevices {
+		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
+
+		f, err := os.Create(absPath)
 		if err != nil && !os.IsExist(err) {
-			return fmt.Errorf("create device target if not exists: %w", err)
+			return err
 		}
-		if f != nil {
-			f.Close()
+		f.Close()
+
+		// added to satisfy 'docker run' issue
+		// TODO: figure out _why_
+		if d.Type == "cgroup" {
+			continue
 		}
-	}
 
-	// added to satisfy 'docker run' issue
-	// TODO: figure out _why_
-	if d.Fstype == "cgroup" {
-		return nil
-	}
-
-	if err := syscall.Mount(
-		d.Source,
-		d.Target,
-		d.Fstype,
-		d.Flags,
-		d.Data,
-	); err != nil {
-		return fmt.Errorf("mounting device: %w", err)
+		if err := syscall.Mount(
+			d.Path,
+			absPath,
+			"bind",
+			unix.MS_BIND,
+			"",
+		); err != nil {
+			return fmt.Errorf("bind mount device: %w", err)
+		}
 	}
 
 	return nil
 }
 
-func mountDefaultDevices(rootfs string) error {
-	return mountDevices(defaultDevices, rootfs)
-}
-
-func mountSpecDevices(devices []specs.LinuxDevice, rootfs string) error {
-	for _, dev := range devices {
-		absPath := filepath.Join(rootfs, strings.TrimPrefix(dev.Path, "/"))
-
-		dt := map[string]uint32{
-			"b": unix.S_IFBLK,
-			"c": unix.S_IFCHR,
-			"s": unix.S_IFSOCK,
-			"p": unix.S_IFIFO,
-		}
+func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
+	for _, d := range devices {
+		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
 
 		if err := unix.Mknod(
 			absPath,
-			dt[dev.Type],
-			int(unix.Mkdev(uint32(dev.Major), uint32(dev.Minor))),
+			deviceType[d.Type],
+			int(unix.Mkdev(uint32(d.Major), uint32(d.Minor))),
 		); err != nil {
 			return err
 		}
 
-		if err := syscall.Chmod(absPath, uint32(*dev.FileMode)); err != nil {
+		if err := syscall.Chmod(absPath, uint32(*d.FileMode)); err != nil {
 			return err
 		}
 
-		if dev.UID != nil && dev.GID != nil {
+		if d.UID != nil && d.GID != nil {
 			if err := os.Chown(
 				absPath,
-				int(*dev.UID),
-				int(*dev.GID),
+				int(*d.UID),
+				int(*d.GID),
 			); err != nil {
 				return err
 			}
