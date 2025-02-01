@@ -33,9 +33,9 @@ Vagrant.configure("2") do |config|
     fi
 
     # Stop and start Docker service with anocir runtime
-    # service docker stop
-    # dockerd --add-runtime anocir=/anocir/tmp/bin/anocir \
-    #   > /dev/null 2>&1 & disown
+    echo '{ "runtimes": { "anocir": { "path": "anocir/tmp/bin/anocir" } } }' > /etc/docker/daemon.json
+
+    service docker restart
 
     # Install go
     if ! command -v go 2>&1 >/dev/null; then
