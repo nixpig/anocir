@@ -11,7 +11,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: checkout brownie repo
+      - name: checkout anocir repo
         uses: actions/checkout@v4
 
       - name: setup go
@@ -35,13 +35,13 @@ jobs:
         uses: actions/upload-artifact@master
         with:
           name: binary
-          path: tmp/bin/brownie
+          path: tmp/bin/anocir
 
   test:
     needs: build
     runs-on: ubuntu-latest
     steps:
-      - name: checkout brownie repo
+      - name: checkout anocir repo
         uses: actions/checkout@v4
         with:
           submodules: true
@@ -65,15 +65,15 @@ jobs:
           name: binary
           path: .
 
-      - name: chmod brownie
+      - name: chmod anocir
         run: |
-          chmod 755 ./brownie
-          sudo mv ./brownie /usr/bin/brownie
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
 
       - name: run oci tests
         working-directory: test/runtime-tools
         run: |
-          sudo RUNTIME=/usr/bin/brownie ../oci-integration.sh
+          sudo RUNTIME=/usr/bin/anocir ../oci-integration.sh
 
       - name: set docker daemon
         run: |

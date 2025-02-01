@@ -32,9 +32,9 @@ Vagrant.configure("2") do |config|
       gpasswd -a vagrant docker
     fi
 
-    # Stop and start Docker service with brownie runtime
+    # Stop and start Docker service with anocir runtime
     # service docker stop
-    # dockerd --add-runtime brownie=/brownie/tmp/bin/brownie \
+    # dockerd --add-runtime anocir=/anocir/tmp/bin/anocir \
     #   > /dev/null 2>&1 & disown
 
     # Install go
