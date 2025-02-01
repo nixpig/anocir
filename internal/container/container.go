@@ -15,6 +15,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/nixpig/anocir/internal/anosys"
 	"github.com/nixpig/anocir/internal/hooks"
 	"github.com/nixpig/anocir/internal/terminal"
@@ -103,10 +105,21 @@ func (c *Container) Save() error {
 
 func (c *Container) Init() error {
 	if c.Spec.Hooks != nil {
+		logrus.Info("executing createruntime hooks")
+		logrus.Info("HOOKS: %s", c.Spec.Hooks)
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.CreateRuntime, c.State,
 		); err != nil {
 			return fmt.Errorf("exec createruntime hooks: %w", err)
+		}
+	}
+
+	if c.Spec.Hooks != nil {
+		logrus.Info("executing createcontainer hooks")
+		if err := hooks.ExecHooks(
+			c.Spec.Hooks.CreateContainer, c.State,
+		); err != nil {
+			return fmt.Errorf("exec createcontainer hooks: %w", err)
 		}
 	}
 
@@ -124,7 +137,17 @@ func (c *Container) Init() error {
 		}
 	}
 
-	cmd := exec.Command("/proc/self/exe", "reexec", c.State.ID)
+	args := []string{"reexec", c.State.ID}
+
+	logLevel := logrus.GetLevel()
+	if logLevel == logrus.DebugLevel {
+		args = append(args, "--debug")
+	}
+
+	cmd := exec.Command(
+		"/proc/self/exe",
+		args...,
+	)
 
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
@@ -138,14 +161,6 @@ func (c *Container) Init() error {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
 	defer listener.Close()
-
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.CreateContainer, c.State,
-		); err != nil {
-			return fmt.Errorf("exec createcontainer hooks: %w", err)
-		}
-	}
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
 		if err := anosys.AdjustOOMScore(*c.Spec.Process.OOMScoreAdj); err != nil {
@@ -245,6 +260,7 @@ func (c *Container) Init() error {
 		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
 	}
 
+	logrus.Debug("about to reexec")
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
@@ -299,6 +315,8 @@ func (c *Container) Init() error {
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}
+
+	logrus.Info("📦️ created")
 
 	return nil
 }
@@ -391,6 +409,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("dial init sock: %w", err)
 	}
 
+	logrus.Info("write 'ready' to init sock")
 	if _, err := initConn.Write([]byte("ready")); err != nil {
 		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
 	}
@@ -405,6 +424,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
 
+	logrus.Info("waiting for start")
 	containerConn, err := listener.Accept()
 	if err != nil {
 		return fmt.Errorf("accept on container sock: %w", err)
@@ -421,6 +441,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
 
+	logrus.Info("received start")
 	containerConn.Close()
 	listener.Close()
 
@@ -428,9 +449,11 @@ func (c *Container) Reexec() error {
 		return errors.New("process is required")
 	}
 
+	logrus.Debug("pivot root")
 	if err := anosys.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}
+	logrus.Debug("pivoted root!")
 
 	if c.Spec.Linux.Sysctl != nil {
 		if err := anosys.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
@@ -539,6 +562,7 @@ func (c *Container) Reexec() error {
 }
 
 func (c *Container) Start() error {
+	logrus.Info("🚀 START")
 	if c.Spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
@@ -553,10 +577,12 @@ func (c *Container) Start() error {
 	}
 
 	if c.Spec.Hooks != nil {
+		logrus.Info("executing prestart hooks")
 		if err := hooks.ExecHooks(
 			//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
 			c.Spec.Hooks.Prestart, c.State,
 		); err != nil {
+			logrus.Errorf("failed to exec prestart hooks: %s", err)
 			return fmt.Errorf("execute prestart hooks: %w", err)
 		}
 	}
@@ -566,10 +592,12 @@ func (c *Container) Start() error {
 		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
 	)
 	if err != nil {
+		logrus.Errorf("failed to dial container sock: %s", err)
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
 	if _, err := conn.Write([]byte("start")); err != nil {
+		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
 	}
 	conn.Close()
@@ -580,6 +608,7 @@ func (c *Container) Start() error {
 	}
 
 	if c.Spec.Hooks != nil {
+		logrus.Info("executing poststart hooks")
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.Poststart, c.State,
 		); err != nil {

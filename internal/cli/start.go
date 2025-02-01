@@ -3,7 +3,10 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -14,11 +17,17 @@ func startCmd() *cobra.Command {
 		Example: "  anocir start busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			logrus.Info("starting...")
 			containerID := args[0]
 
-			return operations.Start(&operations.StartOpts{
+			if err := operations.Start(&operations.StartOpts{
 				ID: containerID,
-			})
+			}); err != nil {
+				logrus.Errorf("start operation failed: %s", err)
+				return fmt.Errorf("start: %w", err)
+			}
+
+			return nil
 		},
 	}
 

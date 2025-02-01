@@ -54,5 +54,11 @@ Vagrant.configure("2") do |config|
 
     # Build runtime tools
     (cd runtime-tools && make runtimetest validation-executables)
+
+    # systemd jiggery-pokery
+    if ! grep -qs '/sys/fs/cgroup/systemd' /proc/mounts; then
+      mkdir -p /sys/fs/cgroup/systemd
+      mount -t cgroup -o none,name=systemd cgroup /sys/fs/cgroup/systemd
+    fi
   SHELL
 end

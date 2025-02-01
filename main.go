@@ -12,7 +12,9 @@ import (
 
 func main() {
 	if err := gons.Status(); err != nil {
-		fmt.Printf("Error joining namespaces: %s\n", err)
+		os.Stderr.Write([]byte(
+			fmt.Sprintf("Error: failed to join namespaces: %s\n", err),
+		))
 		os.Exit(1)
 	}
 

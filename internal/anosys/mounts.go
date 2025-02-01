@@ -13,6 +13,12 @@ import (
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, mount := range mounts {
+		// added to satisfy 'docker run' issue
+		// TODO: figure out _why_
+		if mount.Type == "cgroup" {
+			continue
+		}
+
 		dest := filepath.Join(rootfs, mount.Destination)
 
 		if _, err := os.Stat(dest); err != nil {
@@ -50,7 +56,15 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			uintptr(flags),
 			data,
 		); err != nil {
-			return fmt.Errorf("mount spec mount: %w", err)
+			return fmt.Errorf(
+				"mount spec mount (%s, %s, %s, %s, %s): %w",
+				mount.Source,
+				dest,
+				mount.Type,
+				flags,
+				data,
+				err,
+			)
 		}
 	}
 

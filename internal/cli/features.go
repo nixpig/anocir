@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +34,8 @@ func featuresCmd() *cobra.Command {
 			if _, err := cmd.OutOrStdout().Write(
 				formattedFeatures.Bytes(),
 			); err != nil {
-				return err
+				logrus.Errorf("features operation failed: %s", err)
+				return fmt.Errorf("features: %w", err)
 			}
 
 			return nil

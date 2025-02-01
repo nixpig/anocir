@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 )
 
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
@@ -17,6 +18,8 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
 	}
+
+	logrus.Info("hooks: %s", hooks)
 
 	for _, h := range hooks {
 		ctx := context.Background()

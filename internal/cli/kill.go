@@ -3,7 +3,10 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -17,10 +20,15 @@ func killCmd() *cobra.Command {
 			containerID := args[0]
 			signal := args[1]
 
-			return operations.Kill(&operations.KillOpts{
+			if err := operations.Kill(&operations.KillOpts{
 				ID:     containerID,
 				Signal: signal,
-			})
+			}); err != nil {
+				logrus.Errorf("kill operation failed: %s", err)
+				return fmt.Errorf("kill: %w", err)
+			}
+
+			return nil
 		},
 	}
 

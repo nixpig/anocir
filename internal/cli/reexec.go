@@ -3,7 +3,10 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -17,9 +20,14 @@ func reexecCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			return operations.Reexec(&operations.ReexecOpts{
+			if err := operations.Reexec(&operations.ReexecOpts{
 				ID: containerID,
-			})
+			}); err != nil {
+				logrus.Errorf("reexec operation failed: %s", err)
+				return fmt.Errorf("reexec: %w", err)
+			}
+
+			return nil
 		},
 	}
 

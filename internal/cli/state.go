@@ -6,6 +6,7 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -28,6 +29,7 @@ func stateCmd() *cobra.Command {
 			if _, err := cmd.OutOrStdout().Write(
 				[]byte(state),
 			); err != nil {
+				logrus.Errorf("state operation failed: %s", err)
 				return fmt.Errorf("write state to stdout: %w", err)
 			}
 

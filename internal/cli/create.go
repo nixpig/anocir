@@ -3,9 +3,11 @@
 package cli
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -33,12 +35,17 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
-			return operations.Create(&operations.CreateOpts{
+			if err := operations.Create(&operations.CreateOpts{
 				ID:            containerID,
 				Bundle:        bundle,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
-			})
+			}); err != nil {
+				logrus.Errorf("create operation failed: %s", err)
+				return fmt.Errorf("create: %w", err)
+			}
+
+			return nil
 		},
 	}
 
