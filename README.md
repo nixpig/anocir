@@ -8,6 +8,8 @@
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
 
+**The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/)**
+
 `anocir` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `anocir` is feature-complete...yet. See below for outstanding items.
 
 **🗒️ To do** (items remaining for _me_ to consider this 'complete')
@@ -15,9 +17,6 @@ This is a personal project for me to explore and better understand the OCI Runti
 - [ ] ~Unit tests~ Integration tests seem to be sufficing
 - [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
 - [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process)
-- [ ] Refactor and tidy-up
-
-
 
 ## Installation
 
@@ -78,106 +77,7 @@ docker run -it --runtime anocir busybox sh
 
 The `anocir` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
 
-#### `anocir create`
-
-Create a new container.
-
-```
-Usage:
-  anocir create [flags] CONTAINER_ID
-
-Examples:
-  anocir create busybox
-
-Flags:
-  -b, --bundle string           Path to bundle directory
-  -s, --console-socket string   Console socket
-  -h, --help                    help for create
-  -p, --pid-file string         File to write container PID to
-```
-
-#### `anocir start`
-
-Start an existing container.
-
-```
-Usage:
-  anocir start [flags] CONTAINER_ID
-
-Examples:
-  anocir start busybox
-
-Flags:
-  -h, --help   help for start
-```
-
-#### `anocir kill`
-
-Send a signal to a running container.
-
-```
-Usage:
-  anocir kill [flags] CONTAINER_ID SIGNAL
-
-Examples:
-  anocir kill busybox 9
-
-Flags:
-  -h, --help   help for kill
-```
-
-#### `anocir delete`
-
-Delete a container.
-
-```
-Usage:
-  anocir delete [flags] CONTAINER_ID
-
-Examples:
-  anocir delete busybox
-
-Flags:
-  -f, --force   force delete
-  -h, --help    help for delete
-```
-
-#### `anocir state`
-
-Get the state of a container.
-
-```
-Usage:
-  anocir state [flags] CONTAINER_ID
-
-Examples:
-  anocir state busybox
-
-Flags:
-  -h, --help   help for state
-```
-
-### Library
-
-The `container` package of `anocir` can be used directly as a library (in the same way that the CLI does).
-
-The consumer will be responsible for all of the necessary 'bookkeeping'.
-
-#### Example
-
-```shell
-go get github.com/nixpig/anocir/container
-```
-
-```go
-package main
-
-import "github.com/nixpig/anocir/container"
-
-func main() {
-  // TODO: example usage
-}
-```
+View full docs by running `anocir --help` or `anocir COMMAND --help`.
 
 ## Progress
 
@@ -273,7 +173,7 @@ Tests that 'pass' (seemingly) regardless of whether the feature has been impleme
 
 ## Contributing
 
-Given this is an exploratory personal project, I'm not interested in taking code contributions. However, if you have any comments/suggestions/feedback, do feel free to leave them in [issues](https://github.com/nixpig/anocir/issues).
+Feel free to leave any comments/suggestions/feedback in [issues](https://github.com/nixpig/anocir/issues).
 
 ## Inspiration
 
