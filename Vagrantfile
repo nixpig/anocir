@@ -33,7 +33,7 @@ Vagrant.configure("2") do |config|
     fi
 
     # Stop and start Docker service with anocir runtime
-    echo '{ "runtimes": { "anocir": { "path": "anocir/tmp/bin/anocir" } } }' > /etc/docker/daemon.json
+    echo '{ "runtimes": { "anocir": { "path": "/anocir/tmp/bin/anocir" } } }' > /etc/docker/daemon.json
 
     service docker restart
 
