@@ -2,13 +2,15 @@
 
 # 🍪 anocir
 
+[_an-oh-cheer_] **An**other **OCI** **R**untime.
+
 **An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
+
+The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/).
 
 ![docker hello-world with anocir runtime](demo.gif)
 
 This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
-
-**The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/)**
 
 `anocir` [passes all _passable_ tests](#progress) in the opencontainers OCI runtime test suite. That doesn't mean that `anocir` is feature-complete...yet. See below for outstanding items.
 
