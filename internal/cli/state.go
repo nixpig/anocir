@@ -11,8 +11,10 @@ import (
 
 func stateCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "state [flags] CONTAINER_ID",
-		Args: cobra.ExactArgs(1),
+		Use:     "state [flags] CONTAINER_ID",
+		Short:   "Query state of a container",
+		Example: "  anocir state busybox",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 

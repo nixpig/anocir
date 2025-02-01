@@ -11,8 +11,10 @@ import (
 
 func createCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "create [flags] CONTAINER_ID",
-		Args: cobra.ExactArgs(1),
+		Use:     "create [flags] CONTAINER_ID",
+		Short:   "Create a container",
+		Example: "  anocir create busybox",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 

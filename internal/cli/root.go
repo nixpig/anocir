@@ -7,6 +7,10 @@ import "github.com/spf13/cobra"
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "anocir",
+		Short:        "An experimental Linux container runtime.",
+		Long:         "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
+		Example:      "",
+		Version:      "0.0.1",
 		SilenceUsage: true,
 	}
 
@@ -17,6 +21,7 @@ func RootCmd() *cobra.Command {
 		deleteCmd(),
 		killCmd(),
 		reexecCmd(),
+		featuresCmd(),
 	)
 
 	// TODO: implement for Docker?
