@@ -56,15 +56,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			uintptr(flags),
 			data,
 		); err != nil {
-			return fmt.Errorf(
-				"mount spec mount (%s, %s, %s, %s, %s): %w",
-				m.Source,
-				dest,
-				m.Type,
-				flags,
-				data,
-				err,
-			)
+			return fmt.Errorf("mount spec mount: %w", err)
 		}
 	}
 
