@@ -20,11 +20,15 @@ func reexecCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			consoleSocketFD, _ := cmd.Flags().GetInt("console-socket-fd")
+			var consoleSocketFD *int
+			if cmd.Flags().Changed("console-socket-fd") {
+				flag, _ := cmd.Flags().GetInt("console-socket-fd")
+				consoleSocketFD = &flag
+			}
 
 			if err := operations.Reexec(&operations.ReexecOpts{
 				ID:              containerID,
-				ConsoleSocketFD: &consoleSocketFD,
+				ConsoleSocketFD: consoleSocketFD,
 			}); err != nil {
 				logrus.Errorf("reexec operation failed: %s", err)
 				return fmt.Errorf("reexec: %w", err)

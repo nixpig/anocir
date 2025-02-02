@@ -330,7 +330,7 @@ func (c *Container) Reexec() error {
 	defer runtime.UnlockOSThread()
 
 	var pty *terminal.Pty
-	if c.ConsoleSocketFD != nil && *c.ConsoleSocketFD != 0 {
+	if c.ConsoleSocketFD != nil {
 		var err error
 
 		pty, err = terminal.NewPty()
