@@ -60,7 +60,7 @@ func RootCmd() *cobra.Command {
 		"/var/log/anocir/log.txt",
 		"Location of log file",
 	)
-	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
+	// cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 

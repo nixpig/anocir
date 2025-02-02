@@ -103,10 +103,10 @@ func (c *Container) Save() error {
 	return nil
 }
 
-func (c *Container) Init() error {
+func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 	if c.Spec.Hooks != nil {
 		logrus.Info("executing createruntime hooks")
-		logrus.Info("HOOKS: %s", c.Spec.Hooks)
+		logrus.Infof("HOOKS: %+v", c.Spec.Hooks)
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.CreateRuntime, c.State,
 		); err != nil {
@@ -149,9 +149,9 @@ func (c *Container) Init() error {
 		args...,
 	)
 
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
+	cmd.Stdin = stdin
+	cmd.Stdout = stdout
+	cmd.Stderr = stderr
 
 	listener, err := net.Listen(
 		"unix",

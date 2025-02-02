@@ -45,6 +45,7 @@ func createCmd() *cobra.Command {
 				return fmt.Errorf("create: %w", err)
 			}
 
+			logrus.Info("finished in create - should be exited")
 			return nil
 		},
 	}

@@ -12,14 +12,14 @@ import (
 )
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
-	for _, mount := range mounts {
+	for _, m := range mounts {
 		// added to satisfy 'docker run' issue
 		// TODO: figure out _why_
-		if mount.Type == "cgroup" {
+		if m.Type == "cgroup" {
 			continue
 		}
 
-		dest := filepath.Join(rootfs, mount.Destination)
+		dest := filepath.Join(rootfs, m.Destination)
 
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {
@@ -32,14 +32,14 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		}
 
 		var flags uintptr
-		if mount.Type == "bind" {
+		if m.Type == "bind" {
 			flags |= unix.MS_BIND
 		}
 
 		var dataOptions []string
-		for _, opt := range mount.Options {
+		for _, opt := range m.Options {
 			if opt == "bind" || opt == "rbind" {
-				mount.Type = "bind"
+				m.Type = "bind"
 				flags |= unix.MS_BIND
 			}
 		}
@@ -50,17 +50,17 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		}
 
 		if err := syscall.Mount(
-			mount.Source,
+			m.Source,
 			dest,
-			mount.Type,
+			m.Type,
 			uintptr(flags),
 			data,
 		); err != nil {
 			return fmt.Errorf(
 				"mount spec mount (%s, %s, %s, %s, %s): %w",
-				mount.Source,
+				m.Source,
 				dest,
-				mount.Type,
+				m.Type,
 				flags,
 				data,
 				err,

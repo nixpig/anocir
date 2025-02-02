@@ -99,12 +99,6 @@ func MountDefaultDevices(rootfs string) error {
 		}
 		f.Close()
 
-		// added to satisfy 'docker run' issue
-		// TODO: figure out _why_
-		if d.Type == "cgroup" {
-			continue
-		}
-
 		if err := syscall.Mount(
 			d.Path,
 			absPath,

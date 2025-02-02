@@ -50,7 +50,7 @@ func Create(opts *CreateOpts) error {
 		return fmt.Errorf("create container: %w", err)
 	}
 
-	if err := cntr.Init(); err != nil {
+	if err := cntr.Init(os.Stdin, os.Stdout, os.Stderr); err != nil {
 		return fmt.Errorf("initialise container: %w", err)
 	}
 
