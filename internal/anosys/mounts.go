@@ -13,9 +13,8 @@ import (
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
-		// added to satisfy 'docker run' issue
-		// TODO: figure out _why_
-		if m.Type == "cgroup" {
+		// TODO: this doesn't seem right to me, but docker run doesn't work unless we skip; figure out _why_
+		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
 			continue
 		}
 

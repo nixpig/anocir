@@ -50,24 +50,16 @@ func DeleteV1CGroups(path string) error {
 	return nil
 }
 
-func linuxResourcesToCgroupsResources(resources *specs.LinuxResources) *cgroup2.Resources {
-	return &cgroup2.Resources{
-		// TODO: all the other types of resources - CPU, etc...
-		Devices: resources.Devices,
-	}
-}
-
 func AddV2CGroups(
 	containerID string,
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	cgResources := linuxResourcesToCgroupsResources(resources)
 	cg, err := cgroup2.NewSystemd(
 		"/",
 		fmt.Sprintf("%s.slice", containerID),
 		-1,
-		cgResources,
+		cgroup2.ToResources(resources),
 	)
 	if err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
