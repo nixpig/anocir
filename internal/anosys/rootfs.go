@@ -75,11 +75,7 @@ func MountRootfs(containerRootfs string) error {
 	return nil
 }
 
-func MountRootReadonly(ro bool) error {
-	if !ro {
-		return nil
-	}
-
+func MountRootReadonly() error {
 	if err := syscall.Mount(
 		"",
 		"/",
@@ -94,7 +90,8 @@ func MountRootReadonly(ro bool) error {
 }
 
 func SetRootfsMountPropagation(prop string) error {
-	if prop == "" {
+	p, ok := mountOptions[prop]
+	if !ok {
 		return nil
 	}
 
@@ -102,7 +99,7 @@ func SetRootfsMountPropagation(prop string) error {
 		"",
 		"/",
 		"",
-		mountOptions[prop].Flag,
+		p.Flag,
 		"",
 	); err != nil {
 		return fmt.Errorf("set rootfs mount propagation (%s): %w", prop, err)

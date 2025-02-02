@@ -491,10 +491,10 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	if err := anosys.MountRootReadonly(
-		c.Spec.Root.Readonly,
-	); err != nil {
-		return err
+	if c.Spec.Root.Readonly {
+		if err := anosys.MountRootReadonly(); err != nil {
+			return err
+		}
 	}
 
 	hasUTSNamespace := slices.ContainsFunc(
