@@ -5,6 +5,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -21,6 +22,9 @@ func RootCmd() *cobra.Command {
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			logfile, _ := cmd.Flags().GetString("log")
 			if _, err := os.Stat(logfile); os.IsNotExist(err) {
+				if err := os.MkdirAll(filepath.Dir(logfile), os.ModeDir); err != nil {
+					fmt.Printf("Warning: failed to create log directory %s.\n", logfile)
+				}
 				f, err := os.Create(logfile)
 				if err != nil && !os.IsExist(err) {
 					fmt.Printf("Warning: failed to create log file %s.\n", logfile)

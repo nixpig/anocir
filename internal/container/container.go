@@ -442,7 +442,7 @@ func (c *Container) Reexec() error {
 
 	containerConn, err := listener.Accept()
 	if err != nil {
-		logrus.Errorf("☠️ accept on container socket: %s", err)
+		logrus.Errorf("failed to accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
 
