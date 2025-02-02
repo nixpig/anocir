@@ -2,5 +2,5 @@
 
 docker run \
   --rm \
-  --runtime brownie \
+  --runtime anocir \
   hello-world
