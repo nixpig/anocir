@@ -16,12 +16,13 @@ Enter
 Sleep 2s
 Type "clear"
 Enter
+Sleep 1s
 Show
 Sleep 1s
 Type "docker run --runtime anocir hello-world"
 Sleep 1s
 Enter
-Sleep 3s
+Sleep 5s
 Type "clear"
 Sleep 0.5s
 Enter
@@ -31,11 +32,11 @@ Sleep 1s
 Enter
 Sleep 3s
 Type "apt update"
-Sleep 0.5s
+Sleep 3s
 Enter
-Sleep 6s
+Sleep 10s
 Type "exit"
-Sleep 0.5s
+Sleep 1s
 Enter
 Sleep 3s
 Hide
