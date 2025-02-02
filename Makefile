@@ -12,7 +12,7 @@ audit:
 
 .PHONY: build
 build:
-	CGO_ENABLED=1 go build -o tmp/bin/brownie main.go
+	CGO_ENABLED=1 go build -o tmp/bin/anocir main.go
 
 .PHONY: test
 test: 
@@ -30,16 +30,6 @@ coveralls:
 .PHONY: run
 run:
 	CGO_ENABLED=1 go run ./...
-
-.PHONY: watch
-watch:
-		CGO_ENABLED=1 go run github.com/cosmtrek/air@v1.43.0 \
-		--build.cmd "make build" \
-		--build.bin "tmp/bin/brownie" \
-		--build.delay "100" \
-		--build.exclude_dir "" \
-		--build.include_ext "go" \
-		--misc.clean_on_exit "true"
 
 .PHONY: clean
 clean:

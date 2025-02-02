@@ -18,7 +18,7 @@ Type "clear"
 Enter
 Show
 Sleep 1s
-Type "docker run --runtime brownie hello-world"
+Type "docker run --runtime anocir hello-world"
 Sleep 1s
 Enter
 Sleep 3s
@@ -26,7 +26,7 @@ Type "clear"
 Sleep 0.5s
 Enter
 Sleep 1s
-Type "docker run -it --runtime brownie ubuntu"
+Type "docker run -it --runtime anocir ubuntu"
 Sleep 1s
 Enter
 Sleep 3s
