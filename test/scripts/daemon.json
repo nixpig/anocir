@@ -1,0 +1,7 @@
+{
+  "runtimes": {
+    "anocir": {
+      "path": "/usr/bin/anocir"
+    }
+  }
+}
