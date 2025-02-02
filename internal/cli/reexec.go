@@ -1,5 +1,3 @@
-// internal/cli/reexec.go
-
 package cli
 
 import (
@@ -20,6 +18,7 @@ func reexecCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
+			// TODO: figure out a cleaner way of passing the console socket fd
 			var consoleSocketFD *int
 			if cmd.Flags().Changed("console-socket-fd") {
 				flag, _ := cmd.Flags().GetInt("console-socket-fd")

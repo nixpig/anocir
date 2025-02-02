@@ -9,8 +9,8 @@ import (
 )
 
 func MountMaskedPaths(paths []string) error {
-	for _, path := range paths {
-		f, err := os.Stat(path)
+	for _, p := range paths {
+		f, err := os.Stat(p)
 		if err != nil {
 			// if it's not there, there's nothing to mask; skip it
 			continue
@@ -19,7 +19,7 @@ func MountMaskedPaths(paths []string) error {
 		if f.IsDir() {
 			if err := syscall.Mount(
 				"tmpfs",
-				path,
+				p,
 				"tmpfs",
 				unix.MS_RDONLY,
 				"",
@@ -29,7 +29,7 @@ func MountMaskedPaths(paths []string) error {
 		} else {
 			if err := syscall.Mount(
 				"/dev/null",
-				path,
+				p,
 				"bind",
 				unix.MS_BIND,
 				"",

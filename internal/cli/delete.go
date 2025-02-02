@@ -1,12 +1,9 @@
-// internal/cli/delete.go
-
 package cli
 
 import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -26,7 +23,6 @@ func deleteCmd() *cobra.Command {
 				ID:    containerID,
 				Force: force,
 			}); err != nil {
-				logrus.Errorf("delete operation failed: %s", err)
 				return fmt.Errorf("delete: %w", err)
 			}
 

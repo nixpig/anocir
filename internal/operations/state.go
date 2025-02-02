@@ -1,5 +1,3 @@
-// internal/operations/state.go
-
 package operations
 
 import (

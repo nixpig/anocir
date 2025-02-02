@@ -1,5 +1,3 @@
-// internal/operations/start.go
-
 package operations
 
 import (

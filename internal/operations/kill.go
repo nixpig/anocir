@@ -1,5 +1,3 @@
-// internal/operations/kill.go
-
 package operations
 
 import (

@@ -1,5 +1,3 @@
-// internal/operations/delete.go
-
 package operations
 
 import (

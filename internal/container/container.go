@@ -15,12 +15,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/sirupsen/logrus"
-
 	"github.com/nixpig/anocir/internal/anosys"
 	"github.com/nixpig/anocir/internal/hooks"
 	"github.com/nixpig/anocir/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -144,16 +143,13 @@ func (c *Container) Init() error {
 	}
 
 	if c.ConsoleSocketFD != nil {
-		csfd := strconv.Itoa(*c.ConsoleSocketFD)
-		args = append(args, "--console-socket-fd", csfd)
+		fd := strconv.Itoa(*c.ConsoleSocketFD)
+		args = append(args, "--console-socket-fd", fd)
 	}
 
 	args = append(args, c.State.ID)
 
-	cmd := exec.Command(
-		"/proc/self/exe",
-		args...,
-	)
+	cmd := exec.Command("/proc/self/exe", args...)
 
 	listener, err := net.Listen(
 		"unix",
@@ -382,7 +378,7 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-
+		// TODO: move this out into function in terminal package?
 		target := filepath.Join(c.rootFS(), "dev/console")
 
 		if _, err := os.Stat(target); os.IsNotExist(err) {
@@ -407,6 +403,7 @@ func (c *Container) Reexec() error {
 	}
 
 	// wait a sec for init sock to be ready before dialing
+	// this is nasty - must be a better way
 	for i := 0; i < 10; i++ {
 		if _, err := os.Stat(filepath.Join(
 			containerRootDir,

@@ -1,5 +1,3 @@
-// internal/cli/start.go
-
 package cli
 
 import (

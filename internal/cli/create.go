@@ -1,5 +1,3 @@
-// internal/cli/create.go
-
 package cli
 
 import (

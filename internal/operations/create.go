@@ -1,5 +1,3 @@
-// internal/operations/create.go
-
 package operations
 
 import (

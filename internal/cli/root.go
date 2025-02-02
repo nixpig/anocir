@@ -1,5 +1,3 @@
-// internal/cli/root.go
-
 package cli
 
 import (
@@ -20,6 +18,7 @@ func RootCmd() *cobra.Command {
 		Version:      "0.0.1",
 		SilenceUsage: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			// TODO: move all this logging stuff out into separate
 			logfile, _ := cmd.Flags().GetString("log")
 			if _, err := os.Stat(logfile); os.IsNotExist(err) {
 				if err := os.MkdirAll(filepath.Dir(logfile), os.ModeDir); err != nil {
@@ -72,7 +71,7 @@ func RootCmd() *cobra.Command {
 		"/var/log/anocir/log.txt",
 		"Location of log file",
 	)
-	// cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
+	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 

@@ -1,5 +1,3 @@
-// internal/cli/state.go
-
 package cli
 
 import (

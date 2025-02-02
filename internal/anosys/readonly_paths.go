@@ -8,10 +8,10 @@ import (
 )
 
 func MountReadonlyPaths(paths []string) error {
-	for _, path := range paths {
+	for _, p := range paths {
 		if err := syscall.Mount(
-			path,
-			path,
+			p,
+			p,
 			"",
 			unix.MS_REC|unix.MS_BIND,
 			"",
@@ -20,8 +20,8 @@ func MountReadonlyPaths(paths []string) error {
 		}
 
 		if err := syscall.Mount(
-			path,
-			path,
+			p,
+			p,
 			"",
 			unix.MS_NOSUID|unix.MS_NODEV|unix.MS_NOEXEC|
 				unix.MS_BIND|unix.MS_REMOUNT|unix.MS_RDONLY,

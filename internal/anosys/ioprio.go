@@ -7,7 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var IOPrioClassMapping = map[specs.IOPriorityClass]int{
+var ioprioClassMapping = map[specs.IOPriorityClass]int{
 	specs.IOPRIO_CLASS_RT:   1,
 	specs.IOPRIO_CLASS_BE:   2,
 	specs.IOPRIO_CLASS_IDLE: 3,
@@ -27,7 +27,7 @@ func SetIOPriority(ioprio *specs.LinuxIOPriority) error {
 }
 
 func ioprioToInt(iop *specs.LinuxIOPriority) (int, error) {
-	class, ok := IOPrioClassMapping[iop.Class]
+	class, ok := ioprioClassMapping[iop.Class]
 	if !ok {
 		return 0, fmt.Errorf("unknown ioprio class: %s", iop.Class)
 	}
