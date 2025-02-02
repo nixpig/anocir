@@ -45,9 +45,6 @@ func Create(opts *CreateOpts) error {
 		Spec:          spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
-		Stdin:         os.Stdin,
-		Stdout:        os.Stdout,
-		Stderr:        os.Stderr,
 	})
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)

@@ -12,6 +12,7 @@ func MountMaskedPaths(paths []string) error {
 	for _, path := range paths {
 		f, err := os.Stat(path)
 		if err != nil {
+			// if it's not there, there's nothing to mask; skip it
 			continue
 		}
 

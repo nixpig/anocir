@@ -20,10 +20,18 @@ func RootCmd() *cobra.Command {
 		SilenceUsage: true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			logfile, _ := cmd.Flags().GetString("log")
-			logfile = "/var/log/anocir/log.txt"
+			if _, err := os.Stat(logfile); os.IsNotExist(err) {
+				f, err := os.Create(logfile)
+				if err != nil && !os.IsExist(err) {
+					fmt.Printf("Warning: failed to create log file %s.\n", logfile)
+				}
+				if f != nil {
+					f.Close()
+				}
+			}
 			if f, err := os.OpenFile(logfile, os.O_APPEND|os.O_WRONLY, os.ModeAppend); err != nil {
-				fmt.Printf("Warning: failed to open log file %s. Logging to stderr.\n", logfile)
-				logrus.SetOutput(os.Stderr)
+				fmt.Printf("Warning: failed to open log file %s. Logging to stdout.\n", logfile)
+				logrus.SetOutput(os.Stdout)
 			} else {
 				logrus.SetOutput(f)
 			}

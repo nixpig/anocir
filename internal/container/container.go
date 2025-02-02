@@ -45,9 +45,6 @@ type NewContainerOpts struct {
 	Spec          *specs.Spec
 	ConsoleSocket string
 	PIDFile       string
-	Stdin         *os.File
-	Stdout        *os.File
-	Stderr        *os.File
 }
 
 func New(opts *NewContainerOpts) (*Container, error) {
@@ -130,8 +127,6 @@ func (c *Container) Init() error {
 		c.ConsoleSocket != ""
 
 	if useTerminal {
-		logrus.Info("🥡 USING TERMINAL")
-		logrus.Infof("console socket: %s", c.ConsoleSocket)
 		var err error
 		if c.ConsoleSocketFD, err = terminal.Setup(
 			c.rootFS(),
@@ -139,7 +134,6 @@ func (c *Container) Init() error {
 		); err != nil {
 			return err
 		}
-		logrus.Infof("console socketfd: %d", *c.ConsoleSocketFD)
 	}
 
 	args := []string{"reexec"}
@@ -267,9 +261,9 @@ func (c *Container) Init() error {
 		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
 	}
 
-	cmd.Stdin = c.Opts.Stdin
-	cmd.Stdout = c.Opts.Stdout
-	cmd.Stderr = c.Opts.Stderr
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
 
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
@@ -282,7 +276,6 @@ func (c *Container) Init() error {
 
 	if c.Spec.Linux.Resources != nil {
 		if anosys.IsUnifiedCGroupsMode() {
-			logrus.Info("using cgroupsv2")
 			if err := anosys.AddV2CGroups(
 				c.State.ID,
 				c.Spec.Linux.Resources,
@@ -291,7 +284,6 @@ func (c *Container) Init() error {
 				return err
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
-			logrus.Info("using cgroupsv1")
 			if err := anosys.AddV1CGroups(
 				c.Spec.Linux.CgroupsPath,
 				c.Spec.Linux.Resources,
@@ -329,8 +321,6 @@ func (c *Container) Init() error {
 		return fmt.Errorf("save created state: %w", err)
 	}
 
-	logrus.Info("📦️ created")
-
 	return nil
 }
 
@@ -339,9 +329,7 @@ func (c *Container) Reexec() error {
 	defer runtime.UnlockOSThread()
 
 	var pty *terminal.Pty
-	logrus.Infof("👹 create a new terminal: %d", *c.ConsoleSocketFD)
 	if c.ConsoleSocketFD != nil {
-		logrus.Infof("👹 create a new terminal: %d", *c.ConsoleSocketFD)
 		var err error
 
 		pty, err = terminal.NewPty()
@@ -406,16 +394,6 @@ func (c *Container) Reexec() error {
 			}
 		}
 
-		f, err := os.Stat(target)
-		if err != nil {
-			logrus.Errorf("unable to stat %s: %s", target, err)
-			return err
-		}
-
-		logrus.Infof("fileinfo: %+v", f)
-
-		logrus.Infof("slave name: %s", pty.Slave.Name())
-
 		if err := syscall.Mount(
 			pty.Slave.Name(),
 			target,
@@ -461,26 +439,22 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
 
-	logrus.Info("🉑 accepting")
 	containerConn, err := listener.Accept()
 	if err != nil {
 		logrus.Errorf("☠️ accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
 
-	logrus.Info("🥪 read...")
 	b := make([]byte, 128)
 	n, err := containerConn.Read(b)
 	if err != nil {
 		return fmt.Errorf("read bytes from container sock: %w", err)
 	}
 
-	logrus.Info("⛳️ waiting for start")
 	msg := string(b[:n])
 	if msg != "start" {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
-	logrus.Info("🏌️ got start")
 
 	containerConn.Close()
 	listener.Close()
@@ -602,7 +576,6 @@ func (c *Container) Reexec() error {
 }
 
 func (c *Container) Start() error {
-	logrus.Info("🚀 START")
 	if c.Spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
@@ -626,7 +599,6 @@ func (c *Container) Start() error {
 		}
 	}
 
-	logrus.Info("💬 dial the container socket")
 	conn, err := net.Dial(
 		"unix",
 		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
@@ -636,7 +608,6 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
-	logrus.Info("✍️ write to container socke")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
