@@ -73,7 +73,7 @@ jobs:
       - name: run oci tests
         working-directory: test/runtime-tools
         run: |
-          sudo RUNTIME=/usr/bin/anocir ../oci-integration.sh
+          sudo RUNTIME=/usr/bin/anocir ../scripts/oci-integration.sh
 
       - name: set docker daemon
         run: |
