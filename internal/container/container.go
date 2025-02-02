@@ -97,7 +97,11 @@ func (c *Container) Save() error {
 			[]byte(strconv.Itoa(c.State.Pid)),
 			0666,
 		); err != nil {
-			return fmt.Errorf("write container PID to file (%s): %w", c.PIDFile, err)
+			return fmt.Errorf(
+				"write container PID to file (%s): %w",
+				c.PIDFile,
+				err,
+			)
 		}
 	}
 
@@ -161,7 +165,9 @@ func (c *Container) Init() error {
 	defer listener.Close()
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
-		if err := anosys.AdjustOOMScore(*c.Spec.Process.OOMScoreAdj); err != nil {
+		if err := anosys.AdjustOOMScore(
+			*c.Spec.Process.OOMScoreAdj,
+		); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
 		}
 	}
@@ -188,7 +194,9 @@ func (c *Container) Init() error {
 
 		if ns.Type == specs.TimeNamespace {
 			if c.Spec.Linux.TimeOffsets != nil {
-				if err := anosys.SetTimeOffsets(c.Spec.Linux.TimeOffsets); err != nil {
+				if err := anosys.SetTimeOffsets(
+					c.Spec.Linux.TimeOffsets,
+				); err != nil {
 					return fmt.Errorf("set timens offsets: %w", err)
 				}
 			}
@@ -203,7 +211,11 @@ func (c *Container) Init() error {
 			)
 			if !strings.HasSuffix(ns.Path, suffix) &&
 				ns.Type != specs.PIDNamespace {
-				return fmt.Errorf("namespace type (%s) and path (%s) do not match", ns.Type, ns.Path)
+				return fmt.Errorf(
+					"namespace type (%s) and path (%s) do not match",
+					ns.Type,
+					ns.Path,
+				)
 			}
 
 			if ns.Type == specs.MountNamespace {
@@ -335,10 +347,14 @@ func (c *Container) Reexec() error {
 		}
 
 		if c.Spec.Process.ConsoleSize != nil {
-			unix.IoctlSetWinsize(int(pty.Slave.Fd()), unix.TIOCSWINSZ, &unix.Winsize{
-				Row: uint16(c.Spec.Process.ConsoleSize.Height),
-				Col: uint16(c.Spec.Process.ConsoleSize.Width),
-			})
+			unix.IoctlSetWinsize(
+				int(pty.Slave.Fd()),
+				unix.TIOCSWINSZ,
+				&unix.Winsize{
+					Row: uint16(c.Spec.Process.ConsoleSize.Height),
+					Col: uint16(c.Spec.Process.ConsoleSize.Width),
+				},
+			)
 		}
 
 		if err := terminal.SendPty(
@@ -369,7 +385,10 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 
-	if err := anosys.CreateDeviceNodes(c.Spec.Linux.Devices, c.rootFS()); err != nil {
+	if err := anosys.CreateDeviceNodes(
+		c.Spec.Linux.Devices,
+		c.rootFS(),
+	); err != nil {
 		return fmt.Errorf("mount devices from spec: %w", err)
 	}
 
@@ -378,27 +397,9 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-		// TODO: move this out into function in terminal package?
 		target := filepath.Join(c.rootFS(), "dev/console")
-
-		if _, err := os.Stat(target); os.IsNotExist(err) {
-			f, err := os.Create(target)
-			if err != nil && !os.IsExist(err) {
-				return fmt.Errorf("create device target if not exists: %w", err)
-			}
-			if f != nil {
-				f.Close()
-			}
-		}
-
-		if err := syscall.Mount(
-			pty.Slave.Name(),
-			target,
-			"bind",
-			syscall.MS_BIND,
-			"",
-		); err != nil {
-			return fmt.Errorf("mount dev/console device: %w", err)
+		if err := pty.MountSlave(target); err != nil {
+			return err
 		}
 	}
 
@@ -426,7 +427,7 @@ func (c *Container) Reexec() error {
 	if _, err := initConn.Write([]byte("ready")); err != nil {
 		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
 	}
-	// close immediately, rather than defering
+	// close immediately, so it doesn't leak into the container
 	initConn.Close()
 
 	listener, err := net.Listen(
@@ -584,7 +585,10 @@ func (c *Container) Start() error {
 	}
 
 	if !c.canBeStarted() {
-		return fmt.Errorf("container cannot be started in current state (%s)", c.State.Status)
+		return fmt.Errorf(
+			"container cannot be started in current state (%s)",
+			c.State.Status,
+		)
 	}
 
 	if c.Spec.Hooks != nil {
@@ -630,7 +634,10 @@ func (c *Container) Start() error {
 
 func (c *Container) Delete(force bool) error {
 	if !force && !c.canBeDeleted() {
-		return fmt.Errorf("container cannot be deleted in current state (%s) try using '--force'", c.State.Status)
+		return fmt.Errorf(
+			"container cannot be deleted in current state (%s) try using '--force'",
+			c.State.Status,
+		)
 	}
 
 	process, err := os.FindProcess(c.State.Pid)
@@ -660,11 +667,19 @@ func (c *Container) Delete(force bool) error {
 
 func (c *Container) Kill(sig string) error {
 	if !c.canBeKilled() {
-		return fmt.Errorf("container cannot be killed in current state (%s)", c.State.Status)
+		return fmt.Errorf(
+			"container cannot be killed in current state (%s)",
+			c.State.Status,
+		)
 	}
 
 	if err := anosys.SendSignal(c.State.Pid, sig); err != nil {
-		return fmt.Errorf("send signal '%s' to process '%d': %w", sig, c.State.Pid, err)
+		return fmt.Errorf(
+			"send signal '%s' to process '%d': %w",
+			sig,
+			c.State.Pid,
+			err,
+		)
 	}
 
 	c.State.Status = specs.StateStopped

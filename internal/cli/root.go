@@ -65,6 +65,8 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "placeholder")
 	cmd.PersistentFlags().StringP("root", "", "", "placeholder")
 	cmd.PersistentFlags().StringP("log-format", "", "", "placeholder")
+	// ---
+
 	cmd.PersistentFlags().StringP(
 		"log",
 		"l",

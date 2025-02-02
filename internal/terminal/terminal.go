@@ -52,6 +52,30 @@ func (p *Pty) Connect() error {
 	return nil
 }
 
+func (p *Pty) MountSlave(target string) error {
+	if _, err := os.Stat(target); os.IsNotExist(err) {
+		f, err := os.Create(target)
+		if err != nil && !os.IsExist(err) {
+			return fmt.Errorf("create device target if not exists: %w", err)
+		}
+		if f != nil {
+			f.Close()
+		}
+	}
+
+	if err := syscall.Mount(
+		p.Slave.Name(),
+		target,
+		"bind",
+		syscall.MS_BIND,
+		"",
+	); err != nil {
+		return fmt.Errorf("mount pty slave device (%s) to target (%s): %w", p.Slave.Name(), target, err)
+	}
+
+	return nil
+}
+
 type PtySocket struct {
 	SocketFd int
 }
