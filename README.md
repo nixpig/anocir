@@ -2,7 +2,7 @@
 
 # 🍪 anocir
 
-[_an-oh-cheer_] **An**other **OCI** **R**untime.
+[_an-oh-cheer_] ***An***other ***OCI*** ***R***untime.
 
 **An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
 

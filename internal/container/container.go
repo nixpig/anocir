@@ -143,9 +143,10 @@ func (c *Container) Init() error {
 		args = append(args, "--debug")
 	}
 
-	csfd := strconv.Itoa(*c.ConsoleSocketFD)
-
-	args = append(args, "--console-socket-fd", csfd)
+	if c.ConsoleSocketFD != nil {
+		csfd := strconv.Itoa(*c.ConsoleSocketFD)
+		args = append(args, "--console-socket-fd", csfd)
+	}
 
 	args = append(args, c.State.ID)
 
@@ -329,7 +330,7 @@ func (c *Container) Reexec() error {
 	defer runtime.UnlockOSThread()
 
 	var pty *terminal.Pty
-	if c.ConsoleSocketFD != nil {
+	if c.ConsoleSocketFD != nil && *c.ConsoleSocketFD != 0 {
 		var err error
 
 		pty, err = terminal.NewPty()
