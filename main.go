@@ -20,16 +20,15 @@ func main() {
 		logrus.SetOutput(f)
 	}
 
-	logrus.Info(os.Args)
+	logrus.Infof("🤪: %s", os.Args)
 
 	if err := gons.Status(); err != nil {
-		os.Stderr.Write([]byte(
-			fmt.Sprintf("Error: failed to join namespaces: %s\n", err),
-		))
+		logrus.Errorf("failed to join namespaces: %s\n", err)
 		os.Exit(1)
 	}
 
 	if err := cli.RootCmd().Execute(); err != nil {
+		logrus.Errorf("failed to execute: %s\n", err)
 		os.Exit(1)
 	}
 }

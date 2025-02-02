@@ -36,6 +36,7 @@ type Container struct {
 	ConsoleSocket   string
 	ConsoleSocketFD *int
 	PIDFile         string
+	Opts            *NewContainerOpts
 }
 
 type NewContainerOpts struct {
@@ -44,6 +45,9 @@ type NewContainerOpts struct {
 	Spec          *specs.Spec
 	ConsoleSocket string
 	PIDFile       string
+	Stdin         *os.File
+	Stdout        *os.File
+	Stderr        *os.File
 }
 
 func New(opts *NewContainerOpts) (*Container, error) {
@@ -60,6 +64,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		Spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
+		Opts:          opts,
 	}
 
 	if err := c.Save(); err != nil {
@@ -103,10 +108,8 @@ func (c *Container) Save() error {
 	return nil
 }
 
-func (c *Container) Init(stdin, stdout, stderr *os.File) error {
+func (c *Container) Init() error {
 	if c.Spec.Hooks != nil {
-		logrus.Info("executing createruntime hooks")
-		logrus.Infof("HOOKS: %+v", c.Spec.Hooks)
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.CreateRuntime, c.State,
 		); err != nil {
@@ -115,7 +118,6 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 	}
 
 	if c.Spec.Hooks != nil {
-		logrus.Info("executing createcontainer hooks")
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.CreateContainer, c.State,
 		); err != nil {
@@ -128,6 +130,8 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 		c.ConsoleSocket != ""
 
 	if useTerminal {
+		logrus.Info("🥡 USING TERMINAL")
+		logrus.Infof("console socket: %s", c.ConsoleSocket)
 		var err error
 		if c.ConsoleSocketFD, err = terminal.Setup(
 			c.rootFS(),
@@ -135,23 +139,26 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 		); err != nil {
 			return err
 		}
+		logrus.Infof("console socketfd: %d", *c.ConsoleSocketFD)
 	}
 
-	args := []string{"reexec", c.State.ID}
+	args := []string{"reexec"}
 
 	logLevel := logrus.GetLevel()
 	if logLevel == logrus.DebugLevel {
 		args = append(args, "--debug")
 	}
 
+	csfd := strconv.Itoa(*c.ConsoleSocketFD)
+
+	args = append(args, "--console-socket-fd", csfd)
+
+	args = append(args, c.State.ID)
+
 	cmd := exec.Command(
 		"/proc/self/exe",
 		args...,
 	)
-
-	cmd.Stdin = stdin
-	cmd.Stdout = stdout
-	cmd.Stderr = stderr
 
 	listener, err := net.Listen(
 		"unix",
@@ -260,7 +267,10 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
 	}
 
-	logrus.Debug("about to reexec")
+	cmd.Stdin = c.Opts.Stdin
+	cmd.Stdout = c.Opts.Stdout
+	cmd.Stderr = c.Opts.Stderr
+
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
@@ -272,6 +282,7 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 
 	if c.Spec.Linux.Resources != nil {
 		if anosys.IsUnifiedCGroupsMode() {
+			logrus.Info("using cgroupsv2")
 			if err := anosys.AddV2CGroups(
 				c.State.ID,
 				c.Spec.Linux.Resources,
@@ -280,6 +291,7 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 				return err
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
+			logrus.Info("using cgroupsv1")
 			if err := anosys.AddV1CGroups(
 				c.Spec.Linux.CgroupsPath,
 				c.Spec.Linux.Resources,
@@ -291,6 +303,7 @@ func (c *Container) Init(stdin, stdout, stderr *os.File) error {
 	}
 
 	if err := cmd.Process.Release(); err != nil {
+		logrus.Errorf("failed to release container process: %s", err)
 		return fmt.Errorf("release container process: %w", err)
 	}
 
@@ -326,7 +339,9 @@ func (c *Container) Reexec() error {
 	defer runtime.UnlockOSThread()
 
 	var pty *terminal.Pty
+	logrus.Infof("👹 create a new terminal: %d", *c.ConsoleSocketFD)
 	if c.ConsoleSocketFD != nil {
+		logrus.Infof("👹 create a new terminal: %d", *c.ConsoleSocketFD)
 		var err error
 
 		pty, err = terminal.NewPty()
@@ -378,9 +393,32 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
+
+		target := filepath.Join(c.rootFS(), "dev/console")
+
+		if _, err := os.Stat(target); os.IsNotExist(err) {
+			f, err := os.Create(target)
+			if err != nil && !os.IsExist(err) {
+				return fmt.Errorf("create device target if not exists: %w", err)
+			}
+			if f != nil {
+				f.Close()
+			}
+		}
+
+		f, err := os.Stat(target)
+		if err != nil {
+			logrus.Errorf("unable to stat %s: %s", target, err)
+			return err
+		}
+
+		logrus.Infof("fileinfo: %+v", f)
+
+		logrus.Infof("slave name: %s", pty.Slave.Name())
+
 		if err := syscall.Mount(
 			pty.Slave.Name(),
-			filepath.Join(c.rootFS(), "dev/console"),
+			target,
 			"bind",
 			syscall.MS_BIND,
 			"",
@@ -409,7 +447,6 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("dial init sock: %w", err)
 	}
 
-	logrus.Info("write 'ready' to init sock")
 	if _, err := initConn.Write([]byte("ready")); err != nil {
 		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
 	}
@@ -424,24 +461,27 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
 
-	logrus.Info("waiting for start")
+	logrus.Info("🉑 accepting")
 	containerConn, err := listener.Accept()
 	if err != nil {
+		logrus.Errorf("☠️ accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
 
+	logrus.Info("🥪 read...")
 	b := make([]byte, 128)
 	n, err := containerConn.Read(b)
 	if err != nil {
 		return fmt.Errorf("read bytes from container sock: %w", err)
 	}
 
+	logrus.Info("⛳️ waiting for start")
 	msg := string(b[:n])
 	if msg != "start" {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
+	logrus.Info("🏌️ got start")
 
-	logrus.Info("received start")
 	containerConn.Close()
 	listener.Close()
 
@@ -577,7 +617,6 @@ func (c *Container) Start() error {
 	}
 
 	if c.Spec.Hooks != nil {
-		logrus.Info("executing prestart hooks")
 		if err := hooks.ExecHooks(
 			//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
 			c.Spec.Hooks.Prestart, c.State,
@@ -587,6 +626,7 @@ func (c *Container) Start() error {
 		}
 	}
 
+	logrus.Info("💬 dial the container socket")
 	conn, err := net.Dial(
 		"unix",
 		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
@@ -596,6 +636,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
+	logrus.Info("✍️ write to container socke")
 	if _, err := conn.Write([]byte("start")); err != nil {
 		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
@@ -608,7 +649,6 @@ func (c *Container) Start() error {
 	}
 
 	if c.Spec.Hooks != nil {
-		logrus.Info("executing poststart hooks")
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.Poststart, c.State,
 		); err != nil {

@@ -17,7 +17,6 @@ func startCmd() *cobra.Command {
 		Example: "  anocir start busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			logrus.Info("starting...")
 			containerID := args[0]
 
 			if err := operations.Start(&operations.StartOpts{
