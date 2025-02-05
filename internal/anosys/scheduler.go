@@ -7,16 +7,33 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var schedulerFlags = map[specs.LinuxSchedulerFlag]int{
+	specs.SchedFlagResetOnFork:  0x01,
+	specs.SchedFlagReclaim:      0x02,
+	specs.SchedFlagDLOverrun:    0x04,
+	specs.SchedFlagKeepPolicy:   0x08,
+	specs.SchedFlagKeepParams:   0x10,
+	specs.SchedFlagUtilClampMin: 0x20,
+	specs.SchedFlagUtilClampMax: 0x40,
+}
+
+var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
+	specs.SchedOther:    0,
+	specs.SchedFIFO:     1,
+	specs.SchedRR:       2,
+	specs.SchedBatch:    3,
+	specs.SchedISO:      4,
+	specs.SchedIdle:     5,
+	specs.SchedDeadline: 6,
+}
+
 func SetSchedAttrs(scheduler *specs.Scheduler) error {
-	policy, err := schedulerPolicyToInt(scheduler.Policy)
-	if err != nil {
-		return fmt.Errorf("scheduler policy to int: %w", err)
+	policy, ok := schedulerPolicies[scheduler.Policy]
+	if !ok {
+		return fmt.Errorf("unknown scheduler policy '%d'", policy)
 	}
 
-	flags, err := schedulerFlagsToInt(scheduler.Flags)
-	if err != nil {
-		return fmt.Errorf("scheduler flags to int: %w", err)
-	}
+	flags := schedulerFlagsToInt(scheduler.Flags)
 
 	schedAttr := unix.SchedAttr{
 		Deadline: scheduler.Deadline,
@@ -36,50 +53,12 @@ func SetSchedAttrs(scheduler *specs.Scheduler) error {
 	return nil
 }
 
-func schedulerPolicyToInt(policy specs.LinuxSchedulerPolicy) (int, error) {
-	switch policy {
-	case specs.SchedOther:
-		return 0, nil
-	case specs.SchedFIFO:
-		return 1, nil
-	case specs.SchedRR:
-		return 2, nil
-	case specs.SchedBatch:
-		return 3, nil
-	case specs.SchedISO:
-		return 4, nil
-	case specs.SchedIdle:
-		return 5, nil
-	case specs.SchedDeadline:
-		return 6, nil
-	default:
-		return -1, fmt.Errorf("unknown policy: %s", policy)
-	}
-}
-
-func schedulerFlagsToInt(flags []specs.LinuxSchedulerFlag) (int, error) {
+func schedulerFlagsToInt(flags []specs.LinuxSchedulerFlag) int {
 	var f int
 
 	for _, flag := range flags {
-		switch flag {
-		case specs.SchedFlagResetOnFork:
-			f |= 0x01
-		case specs.SchedFlagReclaim:
-			f |= 0x02
-		case specs.SchedFlagDLOverrun:
-			f |= 0x04
-		case specs.SchedFlagKeepPolicy:
-			f |= 0x08
-		case specs.SchedFlagKeepParams:
-			f |= 0x10
-		case specs.SchedFlagUtilClampMin:
-			f |= 0x20
-		case specs.SchedFlagUtilClampMax:
-			f |= 0x40
-		default:
-			return -1, fmt.Errorf("unknown flag: %s", flag)
-		}
+		f |= schedulerFlags[flag]
 	}
 
-	return f, nil
+	return f
 }

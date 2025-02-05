@@ -5,48 +5,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func NamespaceTypeToFlag(nsType specs.LinuxNamespaceType) uintptr {
-	switch nsType {
-	case specs.PIDNamespace:
-		return unix.CLONE_NEWPID
-	case specs.NetworkNamespace:
-		return unix.CLONE_NEWNET
-	case specs.MountNamespace:
-		return unix.CLONE_NEWNS
-	case specs.IPCNamespace:
-		return unix.CLONE_NEWIPC
-	case specs.UTSNamespace:
-		return unix.CLONE_NEWUTS
-	case specs.UserNamespace:
-		return unix.CLONE_NEWUSER
-	case specs.CgroupNamespace:
-		return unix.CLONE_NEWCGROUP
-	case specs.TimeNamespace:
-		return unix.CLONE_NEWTIME
-	default:
-		return 0
-	}
+var NamespaceFlags = map[specs.LinuxNamespaceType]uintptr{
+	specs.PIDNamespace:     unix.CLONE_NEWPID,
+	specs.NetworkNamespace: unix.CLONE_NEWNET,
+	specs.MountNamespace:   unix.CLONE_NEWNS,
+	specs.IPCNamespace:     unix.CLONE_NEWIPC,
+	specs.UTSNamespace:     unix.CLONE_NEWUTS,
+	specs.UserNamespace:    unix.CLONE_NEWUSER,
+	specs.CgroupNamespace:  unix.CLONE_NEWCGROUP,
+	specs.TimeNamespace:    unix.CLONE_NEWTIME,
 }
 
-func NamespaceTypeToEnv(nsType specs.LinuxNamespaceType) string {
-	switch nsType {
-	case specs.PIDNamespace:
-		return "pid"
-	case specs.NetworkNamespace:
-		return "net"
-	case specs.MountNamespace:
-		return "mnt"
-	case specs.IPCNamespace:
-		return "ipc"
-	case specs.UTSNamespace:
-		return "uts"
-	case specs.UserNamespace:
-		return "user"
-	case specs.CgroupNamespace:
-		return "cgroup"
-	case specs.TimeNamespace:
-		return "time"
-	default:
-		return ""
-	}
+var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
+	specs.PIDNamespace:     "pid",
+	specs.NetworkNamespace: "net",
+	specs.MountNamespace:   "mnt",
+	specs.IPCNamespace:     "ipc",
+	specs.UTSNamespace:     "uts",
+	specs.UserNamespace:    "user",
+	specs.CgroupNamespace:  "cgroup",
+	specs.TimeNamespace:    "time",
 }

@@ -203,11 +203,11 @@ func (c *Container) Init() error {
 		}
 
 		if ns.Path == "" {
-			cloneFlags |= anosys.NamespaceTypeToFlag(ns.Type)
+			cloneFlags |= anosys.NamespaceFlags[ns.Type]
 		} else {
 			suffix := fmt.Sprintf(
 				"/%s",
-				anosys.NamespaceTypeToEnv(ns.Type),
+				anosys.NamespaceEnvs[ns.Type],
 			)
 			if !strings.HasSuffix(ns.Path, suffix) &&
 				ns.Type != specs.PIDNamespace {
@@ -223,7 +223,7 @@ func (c *Container) Init() error {
 				// in single-threaded context in C before the reexec
 				gonsEnv := fmt.Sprintf(
 					"gons_%s=%s",
-					anosys.NamespaceTypeToEnv(ns.Type),
+					anosys.NamespaceEnvs[ns.Type],
 					ns.Path,
 				)
 				cmd.Env = append(cmd.Env, gonsEnv)
