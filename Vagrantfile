@@ -41,7 +41,7 @@ Vagrant.configure("2") do |config|
     if ! command -v go 2>&1 >/dev/null; then
       wget https://go.dev/dl/go1.23.4.linux-amd64.tar.gz -O go.tar.gz
       tar -C /usr/local -xzf go.tar.gz
-      echo "PATH=$PATH:/usr/local/go/bin" >> /etc/environment
+      export PATH=$PATH:/usr/local/go/bin
     fi
 
     # Clone runtime-tools repo
