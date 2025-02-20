@@ -31,18 +31,24 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		}
 
 		var flags uintptr
-		if m.Type == "bind" {
+		switch m.Type {
+		case "bind":
 			flags |= unix.MS_BIND
+		case "rbind":
+			flags |= unix.MS_BIND | unix.MS_REC
 		}
 
 		var dataOptions []string
 		for _, opt := range m.Options {
-			if opt == "bind" || opt == "rbind" {
-				m.Type = "bind"
+			switch opt {
+			case "bind":
 				flags |= unix.MS_BIND
+			case "rbind":
+				flags |= unix.MS_BIND | unix.MS_REC
 			}
 		}
 
+		// TODO: this should be from the m.Options but it freezes when set :/
 		var data string
 		if len(dataOptions) > 0 {
 			data = strings.Join(dataOptions, ",")
