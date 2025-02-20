@@ -173,6 +173,16 @@ Tests that 'pass' (seemingly) regardless of whether the feature has been impleme
 - [ ] ~~linux_process_apparmor_profile~~
 - [ ] ~~linux_seccomp~~
 
+### Run the OCI test suite
+
+1. `vagrant up --provision`
+1. `vagrant ssh`
+1. `cd /anocir`
+1. `make build`
+1. `cd /anocir/test/runtime-tools`
+1. `make runtimetest validation-executables`
+1. `sudo RUNTIME=../../tmp/bin/anocir ../scripts/oci-integration.sh`
+
 ## Contributing
 
 Feel free to leave any comments/suggestions/feedback in [issues](https://github.com/nixpig/anocir/issues).
