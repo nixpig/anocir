@@ -13,7 +13,7 @@ import (
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
-		// TODO: this doesn't seem right to me, but docker run doesn't work unless we skip; figure out _why_
+		// TODO: docker run doesn't work unless we skip; figure out _why_ and if it's the correct behaviour
 		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
 			continue
 		}
@@ -31,24 +31,23 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		}
 
 		var flags uintptr
-		switch m.Type {
-		case "bind":
-			flags |= unix.MS_BIND
-		case "rbind":
-			flags |= unix.MS_BIND | unix.MS_REC
-		}
 
 		var dataOptions []string
 		for _, opt := range m.Options {
-			switch opt {
-			case "bind":
-				flags |= unix.MS_BIND
-			case "rbind":
-				flags |= unix.MS_BIND | unix.MS_REC
+			if f, ok := mountOptions[opt]; ok {
+				if f.invert {
+					flags &= f.flag
+				} else {
+					flags |= f.flag
+				}
+
+				if f.recursive {
+					flags |= unix.MS_REC
+				}
 			}
+
 		}
 
-		// TODO: this should be from the m.Options but it freezes when set :/
 		var data string
 		if len(dataOptions) > 0 {
 			data = strings.Join(dataOptions, ",")
