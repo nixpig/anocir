@@ -32,7 +32,6 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		var flags uintptr
 
-		var dataOptions []string
 		for _, opt := range m.Options {
 			if f, ok := mountOptions[opt]; ok {
 				if f.invert {
@@ -45,9 +44,10 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 					flags |= unix.MS_REC
 				}
 			}
-
 		}
 
+		// FIXME: what is options supposed to contain??
+		var dataOptions []string
 		var data string
 		if len(dataOptions) > 0 {
 			data = strings.Join(dataOptions, ",")

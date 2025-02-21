@@ -13,7 +13,7 @@ type mountOption struct {
 	invert    bool
 }
 
-// FIXME: commented out ones cause the runtime to hang for some reason
+// FIXME: commented out ones cause the runtime to hang for some reason; seems like they're shared subtrees
 var mountOptions = map[string]mountOption{
 	"async":         {invert: true, recursive: false, flag: unix.MS_SYNCHRONOUS},
 	"atime":         {invert: true, recursive: true, flag: unix.MS_NOATIME},
@@ -36,19 +36,19 @@ var mountOptions = map[string]mountOption{
 	"nostrictatime": {invert: true, recursive: false, flag: unix.MS_STRICTATIME},
 	"nosuid":        {invert: false, recursive: true, flag: unix.MS_NOSUID},
 	"nosymfollow":   {invert: false, recursive: true, flag: unix.MS_NOSYMFOLLOW},
-	// "private":       {invert: false, rec: false, flag: unix.MS_PRIVATE},
+	// "private":       {invert: false, recursive: false, flag: unix.MS_PRIVATE},
 	"rbind":    {invert: false, recursive: true, flag: unix.MS_BIND},
 	"relatime": {invert: false, recursive: true, flag: unix.MS_RELATIME},
 	"remount":  {invert: false, recursive: false, flag: unix.MS_REMOUNT},
 	"ro":       {invert: false, recursive: true, flag: unix.MS_RDONLY},
-	// "rprivate":      {invert: false, rec: true, flag: unix.MS_PRIVATE},
-	"rshared":     {invert: false, recursive: true, flag: unix.MS_SHARED},
+	// "rprivate":      {invert: false, recursive: true, flag: unix.MS_PRIVATE},
+	"rshared":     {invert: false, recursive: true, flag: unix.MS_SHARED | unix.MS_BIND},
 	"rslave":      {invert: false, recursive: true, flag: unix.MS_SLAVE},
 	"runbindable": {invert: false, recursive: true, flag: unix.MS_UNBINDABLE},
 	"rw":          {invert: true, recursive: false, flag: unix.MS_RDONLY},
-	// "shared":        {invert: false, rec: false, flag: unix.MS_SHARED},
+	// "shared":      {invert: false, recursive: false, flag: unix.MS_SHARED},
 	"silent": {invert: false, recursive: false, flag: unix.MS_SILENT},
-	// "slave":       {invert: false, rec: false, flag: unix.MS_SLAVE},
+	// "slave":       {invert: false, recursive: false, flag: unix.MS_SLAVE},
 	"strictatime": {invert: false, recursive: true, flag: unix.MS_STRICTATIME},
 	"suid":        {invert: true, recursive: false, flag: unix.MS_NOSUID},
 	"sync":        {invert: false, recursive: false, flag: unix.MS_SYNCHRONOUS},
