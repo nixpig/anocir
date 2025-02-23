@@ -8,11 +8,20 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
+	f, _ := os.Create("/var/log/anocir/log.txt")
+	logrus.SetOutput(f)
+
 	for _, m := range mounts {
+		logrus.Info("----------------------------------")
+		logrus.Info("mounting: ", m)
+
+		var flags uintptr
+
 		// TODO: docker run doesn't work unless we skip; figure out _why_ and if it's the correct behaviour
 		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
 			continue
@@ -30,35 +39,41 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			}
 		}
 
-		var flags uintptr
+		var dataOptions []string
 
 		for _, opt := range m.Options {
+			// TODO: should this be setting the group id of the mount?
+			switch o := opt; {
+			case strings.HasPrefix(o, "gid"):
+				continue
+			}
+
 			if f, ok := mountOptions[opt]; ok {
-				if f.invert {
-					flags &= f.flag
-				} else {
-					flags |= f.flag
+				// bind mount propagation
+				if opt != "private" && opt != "rprivate" && opt != "shared" && opt != "rshared" && opt != "slave" && opt != "rslave" {
+					if f.invert {
+						flags &= f.flag
+					} else {
+						flags |= f.flag
+					}
 				}
 
 				if f.recursive {
 					flags |= unix.MS_REC
 				}
+			} else if strings.Index(opt, "=") != -1 {
+				dataOptions = append(dataOptions, opt)
 			}
 		}
 
-		// FIXME: what is options supposed to contain??
-		var dataOptions []string
-		var data string
-		if len(dataOptions) > 0 {
-			data = strings.Join(dataOptions, ",")
-		}
+		logrus.Info("data: ", dataOptions)
 
 		if err := syscall.Mount(
 			m.Source,
 			dest,
 			m.Type,
 			uintptr(flags),
-			data,
+			strings.Join(dataOptions, ","),
 		); err != nil {
 			return fmt.Errorf("mount spec mount: %w", err)
 		}
