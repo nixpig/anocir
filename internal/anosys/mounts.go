@@ -13,16 +13,16 @@ import (
 )
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
-	f, _ := os.Create("/var/log/anocir/log.txt")
-	logrus.SetOutput(f)
-
 	for _, m := range mounts {
-		logrus.Info("----------------------------------")
-		logrus.Info("mounting: ", m)
+		logrus.Debug("mounting: ", m)
 
 		var flags uintptr
 
-		// TODO: docker run doesn't work unless we skip; figure out _why_ and if it's the correct behaviour
+		/*
+			TODO: in Docker trying to mount cgroup mountpoint if cgroupv2 is enabled doesn't work
+						the call to `mount` results in an 'invalid argument' error
+						need to find out if that's the expected behaviour or not
+		*/
 		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
 			continue
 		}
@@ -61,12 +61,12 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 				if f.recursive {
 					flags |= unix.MS_REC
 				}
-			} else if strings.Index(opt, "=") != -1 {
+			} else if strings.Contains(opt, "=") {
 				dataOptions = append(dataOptions, opt)
 			}
 		}
 
-		logrus.Info("data: ", dataOptions)
+		logrus.Debug("data: ", dataOptions)
 
 		if err := syscall.Mount(
 			m.Source,
