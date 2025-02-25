@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -14,7 +15,8 @@ import (
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
-		logrus.Debug("mounting: ", m)
+		logrus.Info("---")
+		logrus.Info("mounting: ", m)
 
 		var flags uintptr
 
@@ -31,11 +33,11 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("exists (%s): %w", dest, err)
+				return fmt.Errorf("stat mount destination (%s): %w", dest, err)
 			}
 
 			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
-				return fmt.Errorf("make dir (%s): %w", dest, err)
+				return fmt.Errorf("create mount destination dir (%s): %w", dest, err)
 			}
 		}
 
@@ -50,12 +52,16 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 			if f, ok := mountOptions[opt]; ok {
 				// bind mount propagation
-				if opt != "private" && opt != "rprivate" && opt != "shared" && opt != "rshared" && opt != "slave" && opt != "rslave" {
-					if f.invert {
-						flags &= f.flag
-					} else {
-						flags |= f.flag
-					}
+				if opt == "private" || opt == "shared" || opt == "slave" {
+					flags |= unix.MS_BIND
+				} else if opt == "rprivate" || opt == "rshared" || opt == "rslave" {
+					flags |= unix.MS_BIND | unix.MS_REC
+				}
+
+				if f.invert {
+					flags &= ^f.flag
+				} else {
+					flags |= f.flag
 				}
 
 				if f.recursive {
@@ -63,10 +69,26 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 				}
 			} else if strings.Contains(opt, "=") {
 				dataOptions = append(dataOptions, opt)
+
+				optParts := strings.Split(opt, "=")
+				if len(optParts) > 1 && optParts[0] == "mode" {
+					mode, err := strconv.ParseUint(optParts[1], 8, 32)
+					if err != nil {
+						return fmt.Errorf("parse mount destination mode from data opts: %w", err)
+					}
+
+					if err := os.Chmod(dest, os.FileMode(mode)); err != nil {
+						return fmt.Errorf("set mount destination mode from data opts: %w", err)
+					}
+				}
 			}
 		}
 
-		logrus.Debug("data: ", dataOptions)
+		logrus.Info("source: ", m.Source)
+		logrus.Info("dest: ", dest)
+		logrus.Info("type: ", m.Type)
+		logrus.Info("data: ", dataOptions)
+		logrus.Info("---")
 
 		if err := syscall.Mount(
 			m.Source,

@@ -13,7 +13,6 @@ type mountOption struct {
 	invert    bool
 }
 
-// FIXME: commented out ones cause the runtime to hang for some reason; seems like they're shared subtrees
 var mountOptions = map[string]mountOption{
 	"async":         {invert: true, recursive: false, flag: unix.MS_SYNCHRONOUS},
 	"atime":         {invert: true, recursive: true, flag: unix.MS_NOATIME},
