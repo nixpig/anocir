@@ -86,9 +86,10 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			}
 		}
 
-		// FIXME: don't know why tmpfs doesn't work; gives a 'no such file or directory' error
-		if m.Source == "tmpfs" &&
-			m.Type == "tmpfs" &&
+		// FIXME: don't know why tmpfs with shared, slave or private doesn't work;
+		//				gives a 'no such file or directory' error when trying to mount
+		//				skip these until we figure it out
+		if m.Source == "tmpfs" && m.Type == "tmpfs" &&
 			(slices.Contains(m.Options, "shared") || slices.Contains(m.Options, "slave") || slices.Contains(m.Options, "private")) {
 			continue
 		}
