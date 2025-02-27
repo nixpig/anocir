@@ -48,7 +48,7 @@ var mountOptions = map[string]mountOption{
 	"shared":        {invert: false, recursive: false, flag: unix.MS_SHARED},
 	"silent":        {invert: false, recursive: false, flag: unix.MS_SILENT},
 	"slave":         {invert: false, recursive: false, flag: unix.MS_SLAVE},
-	"strictatime":   {invert: false, recursive: true, flag: unix.MS_STRICTATIME},
+	"strictatime":   {invert: false, recursive: false, flag: unix.MS_STRICTATIME},
 	"suid":          {invert: true, recursive: false, flag: unix.MS_NOSUID},
 	"sync":          {invert: false, recursive: false, flag: unix.MS_SYNCHRONOUS},
 	"unbindable":    {invert: false, recursive: false, flag: unix.MS_UNBINDABLE},

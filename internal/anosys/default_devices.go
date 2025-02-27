@@ -8,6 +8,7 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -106,6 +107,7 @@ func MountDefaultDevices(rootfs string) error {
 			unix.MS_BIND,
 			"",
 		); err != nil {
+			logrus.Infof("DEVICE (%s): %+v", absPath, d)
 			return fmt.Errorf("bind mount device: %w", err)
 		}
 	}

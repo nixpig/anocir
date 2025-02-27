@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -15,9 +16,6 @@ import (
 
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
-		logrus.Info("---")
-		logrus.Info("mounting: ", m)
-
 		var flags uintptr
 
 		/*
@@ -81,14 +79,19 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 						return fmt.Errorf("set mount destination mode from data opts: %w", err)
 					}
 				}
+			} else if opt == "newinstance" {
+				dataOptions = append(dataOptions, "newinstance")
+			} else {
+				logrus.Warn("mount option not captured: ", opt)
 			}
 		}
 
-		logrus.Info("source: ", m.Source)
-		logrus.Info("dest: ", dest)
-		logrus.Info("type: ", m.Type)
-		logrus.Info("data: ", dataOptions)
-		logrus.Info("---")
+		// FIXME: don't know why tmpfs doesn't work; gives a 'no such file or directory' error
+		if m.Source == "tmpfs" &&
+			m.Type == "tmpfs" &&
+			(slices.Contains(m.Options, "shared") || slices.Contains(m.Options, "slave") || slices.Contains(m.Options, "private")) {
+			continue
+		}
 
 		if err := syscall.Mount(
 			m.Source,
@@ -97,7 +100,11 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			uintptr(flags),
 			strings.Join(dataOptions, ","),
 		); err != nil {
-			return fmt.Errorf("mount spec mount: %w", err)
+			logrus.Error("mount source: ", m.Source)
+			logrus.Error("mount dest: ", dest)
+			logrus.Error("mount type: ", m.Type)
+			logrus.Error("mount data: ", dataOptions)
+			return fmt.Errorf("mount spec mount (%s): %w", dest, err)
 		}
 	}
 
