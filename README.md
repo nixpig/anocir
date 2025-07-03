@@ -10,28 +10,32 @@
 
 The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/).
 
-This is a personal project for me to explore and better understand the OCI Runtime Spec. It's not production-ready, and it probably never will be, but feel free to look around! If you're looking for a production-ready alternative to `runc`, take a look at [`youki`](https://github.com/containers/youki), which I think is pretty cool.
+> [!NOTE]
+> 
+> This is a personal project for me to explore how container runtimes work. It's not production-ready (and probably never will be).
+> 
+> If you're looking for a production-ready alternative to `runc`, I think [`youki`](https://github.com/containers/youki) is pretty cool.
 
 ### 📈 Progress
 
-- [x] Pass all tests in the [opencontainers OCI Runtime Spec test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes)
-- [ ] Pass all tests in the [Kubernetes CRI valiidation test suite](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/validation.md)
-- [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp)
-- [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process)
+- [x] Pass all tests in the [opencontainers OCI Runtime Spec test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+- [ ] Pass all tests in the [Kubernetes CRI valiidation test suite](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/validation.md).
+- [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp).
+- [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process).
 
 ## 🚀 Quick start
 
-1. Download the tarball for your architecture from [Releases](https://github.com/nixpig/anocir/releases/)
-1. Extract the `anocir` binary from the tarball into somewhere in `$PATH`, e.g. `~/.local/bin`
-1. View docs by running `anocir --help` or `anocir COMMAND --help`
+1. Download the tarball for your architecture from [Releases](https://github.com/nixpig/anocir/releases/).
+1. Extract the `anocir` binary from the tarball into somewhere in `$PATH`, e.g. `~/.local/bin`.
+1. View docs by running `anocir --help` or `anocir COMMAND --help`.
+
+## 👩‍💻 Usage
 
 > [!CAUTION]
 >
 > Some features may require `sudo` and make changes to your system.
 >
 > Given this is an experimental project, take appropriate precautions.
-
-## 👩‍💻 Usage
 
 ### 🐋 Docker
 
@@ -53,13 +57,13 @@ docker run -it --runtime anocir busybox sh
 
 ### 💻️ CLI
 
-The `anocir` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec.
+The `anocir` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec. You can view the docs by running `anocir --help` or `anocir [COMMAND] --help`.
 
 ## 🤝 Contributing
 
-Feel free to leave any comments/suggestions/feedback in [issues](https://github.com/nixpig/anocir/issues).
+**Feel free to leave any comments/suggestions/feedback in [issues](https://github.com/nixpig/anocir/issues).**
 
-### Build from source
+### ⚒️ Build from source
 
 **Prerequisite:** Compiler for Go installed ([instructions](https://go.dev/doc/install)).
 
@@ -76,7 +80,7 @@ I'm developing `anocir` on the following environment. Even with the same set up,
 
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
-### Run the OCI test suite
+### 🎯 Run the OCI test suite
 
 See [OCI.md](OCI.md) for details of tests.
 
