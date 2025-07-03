@@ -91,7 +91,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		//				skip these until we figure it out
 		if m.Source == "tmpfs" && m.Type == "tmpfs" &&
 			(slices.Contains(m.Options, "shared") || slices.Contains(m.Options, "slave") || slices.Contains(m.Options, "private")) {
-			continue
+			dataOptions = []string{}
 		}
 
 		if err := syscall.Mount(
