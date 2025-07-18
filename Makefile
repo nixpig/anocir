@@ -12,7 +12,7 @@ audit:
 
 .PHONY: build
 build:
-	CGO_ENABLED=1 go build -o tmp/bin/anocir main.go
+	CGO_ENABLED=1 go build -o tmp/bin/anocir cmd/anocir/main.go
 
 .PHONY: test
 test: 
