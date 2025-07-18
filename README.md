@@ -75,7 +75,7 @@ The `anocir` CLI implements the [OCI Runtime Command Line Interface](https://git
 I'm developing `anocir` on the following environment. Even with the same set up, YMMV. 
 
 - `Linux vagrant 6.8.0-31-generic #31-Ubuntu SMP PREEMPT_DYNAMIC Sat Apr 20 00:40:06 UTC 2024 x86_64 x86_64 x86_64 GNU/Linux`
-- `go version go1.23.4 linux/amd64`
+- `go version go1.23.10 linux/amd64`
 - `Docker version 27.3.1, build ce12230`
 
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
