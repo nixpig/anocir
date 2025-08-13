@@ -377,6 +377,20 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
+	c.Spec.Mounts = append(c.Spec.Mounts, specs.Mount{
+		Destination: "/dev/pts",
+		Type:        "devpts",
+		Source:      "devpts",
+		Options: []string{
+			"nosuid",
+			"noexec",
+			"newinstance",
+			"ptmxmode=0666",
+			"mode=0620",
+			"gid=5",
+		},
+	})
+
 	if err := anosys.MountSpecMounts(c.Spec.Mounts, c.rootFS()); err != nil {
 		return fmt.Errorf("mount spec: %w", err)
 	}
@@ -397,15 +411,17 @@ func (c *Container) Reexec() error {
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-		target := filepath.Join(c.rootFS(), "dev/console")
-		if err := pty.MountSlave(target); err != nil {
+		if err := pty.MountSlave(filepath.Join(c.rootFS(), "dev/pts/0")); err != nil {
 			return err
+		}
+		if err := os.Symlink("/dev/pts/0", filepath.Join(c.rootFS(), "dev/console")); err != nil {
+			return fmt.Errorf("create console symlink: %w", err)
 		}
 	}
 
 	// wait a sec for init sock to be ready before dialing
 	// this is nasty - must be a better way
-	for i := 0; i < 10; i++ {
+	for range 10 {
 		if _, err := os.Stat(filepath.Join(
 			containerRootDir,
 			c.State.ID,
