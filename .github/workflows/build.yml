@@ -25,8 +25,8 @@ jobs:
       - name: audit code
         run: make audit
 
-      - name: run unit tests
-        run: make test
+      - name: run unit tests (coverage)
+        run: make coverage
 
       - name: build artifact
         run: make build
