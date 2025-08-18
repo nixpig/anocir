@@ -9,10 +9,12 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// IsUnifiedCGroupsMode checks if the system is running in cgroup v2 unified mode.
 func IsUnifiedCGroupsMode() bool {
 	return cgroups.Mode() == cgroups.Unified
 }
 
+// AddV1CGroups adds a process to a cgroup v1 hierarchy.
 func AddV1CGroups(
 	path string,
 	resources *specs.LinuxResources,
@@ -35,6 +37,7 @@ func AddV1CGroups(
 	return nil
 }
 
+// DeleteV1CGroups deletes a cgroup v1 hierarchy.
 func DeleteV1CGroups(path string) error {
 	staticPath := cgroup1.StaticPath(path)
 
@@ -50,6 +53,7 @@ func DeleteV1CGroups(path string) error {
 	return nil
 }
 
+// AddV2CGroups adds a process to a cgroup v2 hierarchy.
 func AddV2CGroups(
 	containerID string,
 	resources *specs.LinuxResources,
@@ -72,6 +76,7 @@ func AddV2CGroups(
 	return nil
 }
 
+// DeleteV2CGroups deletes a cgroup v2 hierarchy.
 func DeleteV2CGroups(containerID string) error {
 	cg, err := cgroup2.LoadSystemd("/", fmt.Sprintf("%s.slice", containerID))
 	if err != nil {

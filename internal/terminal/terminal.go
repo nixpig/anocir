@@ -1,3 +1,5 @@
+// Package terminal provides functionality for managing pseudo-terminals (PTYs)
+// and console sockets for container processes.
 package terminal
 
 import (
@@ -11,11 +13,14 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// Pty represents a pseudo-terminal pair, consisting of a master and a slave
+// file.
 type Pty struct {
 	Master *os.File
 	Slave  *os.File
 }
 
+// NewPty creates a new Pty pseudo-terminal pair.
 func NewPty() (*Pty, error) {
 	pty, err := term.OpenPTY()
 	if err != nil {
@@ -28,6 +33,8 @@ func NewPty() (*Pty, error) {
 	}, nil
 }
 
+// Connect sets up the Pty slave as the controlling terminal and redirects
+// stdin, stdout, and stderr to it.
 func (p *Pty) Connect() error {
 	if _, err := unix.Setsid(); err != nil {
 		return fmt.Errorf("setsid: %w", err)
@@ -52,6 +59,7 @@ func (p *Pty) Connect() error {
 	return nil
 }
 
+// MountSlave mounts the Pty slave device to the specified target path.
 func (p *Pty) MountSlave(target string) error {
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		f, err := os.Create(target)
@@ -70,16 +78,23 @@ func (p *Pty) MountSlave(target string) error {
 		syscall.MS_BIND,
 		"",
 	); err != nil {
-		return fmt.Errorf("mount pty slave device (%s) to target (%s): %w", p.Slave.Name(), target, err)
+		return fmt.Errorf(
+			"mount pty slave device (%s) to target (%s): %w",
+			p.Slave.Name(),
+			target,
+			err,
+		)
 	}
 
 	return nil
 }
 
+// PtySocket represents a Unix domain socket used for communicating with a Pty.
 type PtySocket struct {
 	SocketFd int
 }
 
+// NewPtySocket creates a new PtySocket and connects it at the specified path.
 func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 	fd, err := syscall.Socket(
 		unix.AF_UNIX,
@@ -104,6 +119,7 @@ func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 	}, nil
 }
 
+// Close closes the PtySocket.
 func (ps *PtySocket) Close() error {
 	if err := syscall.Close(ps.SocketFd); err != nil {
 		return fmt.Errorf("close console socket: %w", err)
@@ -112,6 +128,7 @@ func (ps *PtySocket) Close() error {
 	return nil
 }
 
+// SendPty sends the master file descriptor of a Pty over a Unix domain socket.
 func SendPty(consoleSocket int, pty *Pty) error {
 	masterFds := []int{int(pty.Master.Fd())}
 	cmsg := syscall.UnixRights(masterFds...)
@@ -140,6 +157,9 @@ func SendPty(consoleSocket int, pty *Pty) error {
 	return nil
 }
 
+// Setup prepares the console for the container process. It changes the current
+// working directory to the rootfs, creates a symlink for the console socket,
+// and returns the file descriptor of the console socket.
 func Setup(rootfs, consoleSocketPath string) (*int, error) {
 	prev, err := os.Getwd()
 	if err != nil {

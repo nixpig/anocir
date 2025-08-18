@@ -7,6 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// SendSignal sends a signal to the specified process ID.
 func SendSignal(pid int, sig string) error {
 	if err := syscall.Kill(
 		pid,

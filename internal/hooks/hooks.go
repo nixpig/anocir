@@ -1,3 +1,4 @@
+// Package hooks provides functionality for executing OCI container hooks.
 package hooks
 
 import (
@@ -12,6 +13,8 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// ExecHooks executes a list of OCI hooks, serialising the container state
+// and passing it to each hook as standard input.
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	s, err := json.Marshal(state)
 	if err != nil {

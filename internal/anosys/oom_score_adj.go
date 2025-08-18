@@ -6,6 +6,7 @@ import (
 	"strconv"
 )
 
+// AdjustOOMScore adjusts the OOM score of the current (container) process.
 func AdjustOOMScore(oomScoreAdj int) error {
 	if err := os.WriteFile(
 		"/proc/self/oom_score_adj",

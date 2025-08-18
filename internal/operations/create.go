@@ -10,6 +10,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// CreateOpts holds the options for the Create operation.
 type CreateOpts struct {
 	ID            string
 	Bundle        string
@@ -17,6 +18,8 @@ type CreateOpts struct {
 	PIDFile       string
 }
 
+// Create creates a new container. It takes CreateOpts as input, which includes
+// the container ID, bundle path, console socket path, and PID file path.
 func Create(opts *CreateOpts) error {
 	if container.Exists(opts.ID) {
 		return fmt.Errorf("container '%s' exists", opts.ID)

@@ -27,6 +27,8 @@ var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
 	specs.SchedDeadline: 6,
 }
 
+// SetSchedAttrs sets the scheduler attributes for the current (container)
+// process.
 func SetSchedAttrs(scheduler *specs.Scheduler) error {
 	policy, ok := schedulerPolicies[scheduler.Policy]
 	if !ok {

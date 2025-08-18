@@ -6,10 +6,13 @@ import (
 	"github.com/nixpig/anocir/internal/container"
 )
 
+// StartOpts holds the options for the Start operation.
 type StartOpts struct {
 	ID string
 }
 
+// Start starts a container. It takes StartOpts as input, which include the
+// container ID.
 func Start(opts *StartOpts) error {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {

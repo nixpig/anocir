@@ -7,6 +7,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// SetUser sets the user and group IDs for the current (container) process.
 func SetUser(user *specs.User) error {
 	if err := syscall.Setuid(int(user.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)

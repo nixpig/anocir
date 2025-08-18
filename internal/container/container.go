@@ -1,3 +1,5 @@
+// Package container provides functionality for creating, running, and managing
+// OCI-compliant containers.
 package container
 
 import (
@@ -30,10 +32,13 @@ const (
 	containerSockFilename = "container.sock"
 )
 
+// SetContainerRootDir sets the root directory for the container on disk.
 func SetContainerRootDir(path string) {
 	containerRootDir = path
 }
 
+// Container represents an OCI container, including its state, specification,
+// and other runtime details.
 type Container struct {
 	State           *specs.State
 	Spec            *specs.Spec
@@ -43,6 +48,7 @@ type Container struct {
 	Opts            *NewContainerOpts
 }
 
+// NewContainerOpts holds the options for creating a new container.
 type NewContainerOpts struct {
 	ID            string
 	Bundle        string
@@ -51,6 +57,7 @@ type NewContainerOpts struct {
 	PIDFile       string
 }
 
+// New creates a new container instance based on the provided options.
 func New(opts *NewContainerOpts) (*Container, error) {
 	state := &specs.State{
 		Version:     specs.Version,
@@ -75,6 +82,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 	return c, nil
 }
 
+// Save persists the container's state.
 func (c *Container) Save() error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootDir, c.State.ID),
@@ -113,6 +121,9 @@ func (c *Container) Save() error {
 	return nil
 }
 
+// Init prepares the container for execution. It executes hooks,
+// sets up the terminal if necessary, and re-execs the runtime binary to
+// containerise the process.
 func (c *Container) Init() error {
 	if c.Spec.Hooks != nil {
 		if err := hooks.ExecHooks(
@@ -338,6 +349,9 @@ func (c *Container) Init() error {
 	return nil
 }
 
+// Reexec is the entry point for the containerised process. It is responsible
+// for setting up the container's environment, including namespaces, mounts,
+// and security settings, before executing the user-specified process.
 func (c *Container) Reexec() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -595,6 +609,8 @@ func (c *Container) Reexec() error {
 	panic("if you got here then something went horribly wrong")
 }
 
+// Start begins the execution of the container. It executes pre-start and
+// post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
 	if c.Spec.Process == nil {
 		c.State.Status = specs.StateStopped
@@ -653,6 +669,8 @@ func (c *Container) Start() error {
 	return nil
 }
 
+// Delete removes the container from the system. If force is true then it will
+// delete the container, regardless of the container's state.
 func (c *Container) Delete(force bool) error {
 	if !force && !c.canBeDeleted() {
 		return fmt.Errorf(
@@ -686,6 +704,7 @@ func (c *Container) Delete(force bool) error {
 	return nil
 }
 
+// Kill sends a signal to the container's process and executes post-stop hooks.
 func (c *Container) Kill(sig string) error {
 	if !c.canBeKilled() {
 		return fmt.Errorf(
@@ -740,6 +759,7 @@ func (c *Container) canBeKilled() bool {
 		c.State.Status == specs.StateCreated
 }
 
+// Load retrieves a container's state and specification, based on its ID.
 func Load(id string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
 	if err != nil {
@@ -773,6 +793,7 @@ func Load(id string) (*Container, error) {
 	return c, nil
 }
 
+// Exists checks if a container with the given ID exists.
 func Exists(containerID string) bool {
 	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
 

@@ -13,6 +13,7 @@ var ioprioClassMapping = map[specs.IOPriorityClass]int{
 	specs.IOPRIO_CLASS_IDLE: 3,
 }
 
+// SetIOPriority sets the I/O priority for the current (container) process.
 func SetIOPriority(ioprio *specs.LinuxIOPriority) error {
 	i, err := ioprioToInt(ioprio)
 	if err != nil {

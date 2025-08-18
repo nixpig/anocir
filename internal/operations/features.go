@@ -2,6 +2,7 @@ package operations
 
 import "github.com/opencontainers/runtime-spec/specs-go"
 
+// GetFeatures returns the supported features of the runtime.
 func GetFeatures() *Features {
 	return &Features{
 		OCIVersionMin: specs.Version,
@@ -130,6 +131,7 @@ func GetFeatures() *Features {
 	}
 }
 
+// Features represents the supported features of anocir.
 type Features struct {
 	OCIVersionMin string            `json:"ociVersionMin"`
 	OCIVersionMax string            `json:"ociVersionMax"`
@@ -139,6 +141,7 @@ type Features struct {
 	Annotations   map[string]string `json:"annotations,omitempty"`
 }
 
+// LinuxFeatures represents Linux-specific features supported by anocir.
 type LinuxFeatures struct {
 	Namespaces      []string                 `json:"namespaces,omitempty"`
 	Capabilities    []string                 `json:"capabilities,omitempty"`
@@ -150,6 +153,7 @@ type LinuxFeatures struct {
 	MountEntensions *MountExtensionsFeatures `json:"mountExtensions,omitempty"`
 }
 
+// CGroupFeatures represents cgroup-related features supported by anocir.
 type CGroupFeatures struct {
 	V1          bool `json:"v1"`
 	V2          bool `json:"v2"`
@@ -158,6 +162,7 @@ type CGroupFeatures struct {
 	RDMA        bool `json:"rdma"`
 }
 
+// SeccompFeatures represents seccomp-related features supported by anocir.
 type SeccompFeatures struct {
 	Enabled        bool     `json:"enabled"`
 	Actions        []string `json:"actions,omitempty"`
@@ -167,22 +172,27 @@ type SeccompFeatures struct {
 	SupportedFlags []string `json:"supportedFlags,omitempty"`
 }
 
+// AppArmorFeatures represents AppArmor-related features supported by anocir.
 type AppArmorFeatures struct {
 	Enabled bool `json:"enabled"`
 }
 
+// SELinuxFeatures represents SELinux-related features supported by anocir.
 type SELinuxFeatures struct {
 	Enabled bool `json:"enabled"`
 }
 
+// IntelRDTFeatures represents Intel RDT-related features supported by anocir.
 type IntelRDTFeatures struct {
 	Enabled bool `json:"enabled"`
 }
 
+// MountExtensionsFeatures represents mount extension features supported by anocir.
 type MountExtensionsFeatures struct {
 	IDMap *IDMapFeatures `json:"idmap,omitempty"`
 }
 
+// IDMapFeatures represents ID mapping features supported by anocir.
 type IDMapFeatures struct {
 	Enabled bool `json:"enabled"`
 }

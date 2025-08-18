@@ -10,10 +10,13 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// StateOpts holds the options for the State operation.
 type StateOpts struct {
 	ID string
 }
 
+// State returns the state of a container. It takes StateOpts as input,
+// which include the container ID.
 func State(opts *StateOpts) (string, error) {
 	cntr, err := container.Load(opts.ID)
 	if err != nil {

@@ -8,6 +8,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// SetTimeOffsets sets the time offsets for the time namespace.
 func SetTimeOffsets(offsets map[string]specs.LinuxTimeOffset) error {
 	var tos bytes.Buffer
 

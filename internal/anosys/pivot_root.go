@@ -11,6 +11,8 @@ import (
 
 const oldroot = ".oldroot"
 
+// PivotRoot changes the root filesystem of the calling process to the
+// specified container rootfs path.
 func PivotRoot(containerRootfs string) error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootfs, oldroot),

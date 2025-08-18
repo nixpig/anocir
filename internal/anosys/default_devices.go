@@ -12,11 +12,20 @@ import (
 )
 
 var (
-	AllDevices           = "a"
-	BlockDevice          = "b"
-	CharDevice           = "c"
+	// AllDevices represents all device types.
+	AllDevices = "a"
+
+	// BlockDevice represents a block device.
+	BlockDevice = "b"
+
+	// CharDevice represents a character device.
+	CharDevice = "c"
+
+	// UnbufferedCharDevice represents an unbuffered character device.
 	UnbufferedCharDevice = "u"
-	FifoDevice           = "p"
+
+	// FifoDevice represents a FIFO (named pipe) device.
+	FifoDevice = "p"
 )
 
 var deviceType = map[string]uint32{
@@ -89,6 +98,8 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 }
 
+// MountDefaultDevices mounts the default set of devices into the container's
+// root filesystem.
 func MountDefaultDevices(rootfs string) error {
 	for _, d := range defaultDevices {
 		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
@@ -113,6 +124,8 @@ func MountDefaultDevices(rootfs string) error {
 	return nil
 }
 
+// CreateDeviceNodes creates device nodes in the container's root filesystem
+// based on the provided LinuxDevice specs.
 func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 	for _, d := range devices {
 		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))

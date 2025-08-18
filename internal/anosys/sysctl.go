@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// SetSysctl sets the kernel parameters (sysctls) for the container process.
 func SetSysctl(sc map[string]string) error {
 	for k, v := range sc {
 		kp := strings.ReplaceAll(k, ".", "/")

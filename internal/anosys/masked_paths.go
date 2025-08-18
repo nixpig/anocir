@@ -8,6 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// MountMaskedPaths mounts over the specified paths to mask them.
 func MountMaskedPaths(paths []string) error {
 	for _, p := range paths {
 		f, err := os.Stat(p)

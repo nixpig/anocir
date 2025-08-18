@@ -7,6 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// MountReadonlyPaths bind mounts and then remounts the specified paths as read-only.
 func MountReadonlyPaths(paths []string) error {
 	for _, p := range paths {
 		if err := syscall.Mount(

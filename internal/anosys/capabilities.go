@@ -51,6 +51,7 @@ var capabilities = map[string]capability.Cap{
 	"CAP_WAKE_ALARM":         capability.CAP_WAKE_ALARM,
 }
 
+// SetCapabilities sets the process capabilities based on the provided LinuxCapabilities.
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	c, err := capability.NewPid2(0)
 	if err != nil {
