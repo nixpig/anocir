@@ -23,11 +23,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+var containerRootDir = "/var/lib/anocir/containers"
+
 const (
-	containerRootDir      = "/var/lib/anocir/containers"
 	initSockFilename      = "init.sock"
 	containerSockFilename = "container.sock"
 )
+
+func SetContainerRootDir(path string) {
+	containerRootDir = path
+}
 
 type Container struct {
 	State           *specs.State
