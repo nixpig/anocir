@@ -121,10 +121,16 @@ func (c *Container) Save() error {
 	return nil
 }
 
+type Initialiser func(spec *specs.Spec, rootfs string) error
+
 // Init prepares the container for execution. It executes hooks,
 // sets up the terminal if necessary, and re-execs the runtime binary to
 // containerise the process.
 func (c *Container) Init() error {
+	return c.init()
+}
+
+func (c *Container) init() error {
 	if c.Spec.Hooks != nil {
 		if err := hooks.ExecHooks(
 			c.Spec.Hooks.CreateRuntime, c.State,
@@ -353,145 +359,47 @@ func (c *Container) Init() error {
 // for setting up the container's environment, including namespaces, mounts,
 // and security settings, before executing the user-specified process.
 func (c *Container) Reexec() error {
+	return c.reexec(
+		[]Initialiser{prePivotInitialisers},
+		[]Initialiser{postPivotInitialiser},
+	)
+}
+
+func (c *Container) reexec(
+	prePivotIntialisers,
+	postPivotInitialisers []Initialiser,
+) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	var err error
 	var pty *terminal.Pty
 	if c.ConsoleSocketFD != nil {
-		var err error
-
-		pty, err = terminal.NewPty()
+		pty, err = connectConsole(c.Spec, *c.ConsoleSocketFD)
 		if err != nil {
-			return fmt.Errorf("new pty: %w", err)
-		}
-
-		if c.Spec.Process.ConsoleSize != nil {
-			unix.IoctlSetWinsize(
-				int(pty.Slave.Fd()),
-				unix.TIOCSWINSZ,
-				&unix.Winsize{
-					Row: uint16(c.Spec.Process.ConsoleSize.Height),
-					Col: uint16(c.Spec.Process.ConsoleSize.Width),
-				},
-			)
-		}
-
-		if err := terminal.SendPty(
-			*c.ConsoleSocketFD,
-			pty,
-		); err != nil {
-			return fmt.Errorf("connect pty and socket: %w", err)
-		}
-
-		if err := pty.Connect(); err != nil {
-			return fmt.Errorf("connect pty: %w", err)
+			return err
 		}
 	}
 
-	if err := anosys.MountRootfs(c.rootFS()); err != nil {
-		return fmt.Errorf("mount rootfs: %w", err)
-	}
-
-	if err := anosys.MountProc(c.rootFS()); err != nil {
-		return fmt.Errorf("mount proc: %w", err)
-	}
-
-	c.Spec.Mounts = append(c.Spec.Mounts, specs.Mount{
-		Destination: "/dev/pts",
-		Type:        "devpts",
-		Source:      "devpts",
-		Options: []string{
-			"nosuid",
-			"noexec",
-			"newinstance",
-			"ptmxmode=0666",
-			"mode=0620",
-			"gid=5",
-		},
-	})
-
-	if err := anosys.MountSpecMounts(c.Spec.Mounts, c.rootFS()); err != nil {
-		return fmt.Errorf("mount spec: %w", err)
-	}
-
-	if err := anosys.MountDefaultDevices(c.rootFS()); err != nil {
-		return fmt.Errorf("mount default devices: %w", err)
-	}
-
-	if err := anosys.CreateDeviceNodes(
-		c.Spec.Linux.Devices,
-		c.rootFS(),
-	); err != nil {
-		return fmt.Errorf("mount devices from spec: %w", err)
-	}
-
-	if err := anosys.CreateDefaultSymlinks(c.rootFS()); err != nil {
-		return fmt.Errorf("create default symlinks: %w", err)
+	for _, initialiser := range prePivotIntialisers {
+		if err := initialiser(c.Spec, c.rootFS()); err != nil {
+			return err
+		}
 	}
 
 	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-		if err := pty.MountSlave(filepath.Join(c.rootFS(), "dev/pts/0")); err != nil {
+		if err := mountConsole(c.rootFS(), pty); err != nil {
 			return err
 		}
-		if err := os.Symlink("/dev/pts/0", filepath.Join(c.rootFS(), "dev/console")); err != nil {
-			return fmt.Errorf("create console symlink: %w", err)
-		}
 	}
 
-	// wait a sec for init sock to be ready before dialing
-	// this is nasty - must be a better way
-	for range 10 {
-		if _, err := os.Stat(filepath.Join(
-			containerRootDir,
-			c.State.ID,
-			initSockFilename,
-		)); errors.Is(err, os.ErrNotExist) {
-			time.Sleep(time.Millisecond * 100)
-			continue
-		}
+	if err := notifyReady(c.State.ID); err != nil {
+		return err
 	}
 
-	initConn, err := net.Dial(
-		"unix",
-		filepath.Join(containerRootDir, c.State.ID, initSockFilename),
-	)
-	if err != nil {
-		return fmt.Errorf("dial init sock: %w", err)
+	if err := waitStart(c.State.ID); err != nil {
+		return err
 	}
-
-	if _, err := initConn.Write([]byte("ready")); err != nil {
-		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
-	}
-	// close immediately, so it doesn't leak into the container
-	initConn.Close()
-
-	listener, err := net.Listen(
-		"unix",
-		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
-	)
-	if err != nil {
-		return fmt.Errorf("listen on container sock: %w", err)
-	}
-
-	containerConn, err := listener.Accept()
-	if err != nil {
-		logrus.Errorf("failed to accept on container socket: %s", err)
-		return fmt.Errorf("accept on container sock: %w", err)
-	}
-
-	b := make([]byte, 128)
-	n, err := containerConn.Read(b)
-	if err != nil {
-		return fmt.Errorf("read bytes from container sock: %w", err)
-	}
-
-	msg := string(b[:n])
-	if msg != "start" {
-		return fmt.Errorf("expecting 'start' but received '%s'", msg)
-	}
-
-	containerConn.Close()
-	listener.Close()
 
 	if c.Spec.Process == nil {
 		return errors.New("process is required")
@@ -503,83 +411,10 @@ func (c *Container) Reexec() error {
 	}
 	logrus.Debug("pivoted root!")
 
-	if c.Spec.Linux.Sysctl != nil {
-		if err := anosys.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
-			return fmt.Errorf("set sysctl: %w", err)
-		}
-	}
-
-	if err := anosys.MountMaskedPaths(
-		c.Spec.Linux.MaskedPaths,
-	); err != nil {
-		return err
-	}
-
-	if err := anosys.MountReadonlyPaths(
-		c.Spec.Linux.ReadonlyPaths,
-	); err != nil {
-		return err
-	}
-
-	if err := anosys.SetRootfsMountPropagation(
-		c.Spec.Linux.RootfsPropagation,
-	); err != nil {
-		return err
-	}
-
-	if c.Spec.Root.Readonly {
-		if err := anosys.MountRootReadonly(); err != nil {
+	for _, initialiser := range postPivotInitialisers {
+		if err := initialiser(c.Spec, c.rootFS()); err != nil {
 			return err
 		}
-	}
-
-	hasUTSNamespace := slices.ContainsFunc(
-		c.Spec.Linux.Namespaces,
-		func(n specs.LinuxNamespace) bool {
-			return n.Type == specs.UTSNamespace
-		},
-	)
-
-	if hasUTSNamespace {
-		if err := syscall.Sethostname([]byte(c.Spec.Hostname)); err != nil {
-			return err
-		}
-
-		if err := syscall.Setdomainname([]byte(c.Spec.Domainname)); err != nil {
-			return err
-		}
-	}
-
-	if err := anosys.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-		return fmt.Errorf("set rlimits: %w", err)
-	}
-
-	if c.Spec.Process.Capabilities != nil {
-		if err := anosys.SetCapabilities(c.Spec.Process.Capabilities); err != nil {
-			return fmt.Errorf("set capabilities: %w", err)
-		}
-	}
-
-	if c.Spec.Process.NoNewPrivileges {
-		if err := anosys.SetNoNewPrivs(); err != nil {
-			return fmt.Errorf("set no new privileges: %w", err)
-		}
-	}
-
-	if c.Spec.Process.Scheduler != nil {
-		if err := anosys.SetSchedAttrs(c.Spec.Process.Scheduler); err != nil {
-			return fmt.Errorf("set sched attrs: %w", err)
-		}
-	}
-
-	if c.Spec.Process.IOPriority != nil {
-		if err := anosys.SetIOPriority(c.Spec.Process.IOPriority); err != nil {
-			return fmt.Errorf("set ioprio: %w", err)
-		}
-	}
-
-	if err := anosys.SetUser(&c.Spec.Process.User); err != nil {
-		return fmt.Errorf("set user: %w", err)
 	}
 
 	if c.Spec.Hooks != nil {
@@ -590,20 +425,8 @@ func (c *Container) Reexec() error {
 		}
 	}
 
-	if err := os.Chdir(c.Spec.Process.Cwd); err != nil {
-		return fmt.Errorf("set working directory: %w", err)
-	}
-
-	bin, err := exec.LookPath(c.Spec.Process.Args[0])
-	if err != nil {
-		return fmt.Errorf("find path of user process binary: %w", err)
-	}
-
-	args := c.Spec.Process.Args
-	env := os.Environ()
-
-	if err := syscall.Exec(bin, args, env); err != nil {
-		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
+	if err := execUserProcess(c.Spec); err != nil {
+		return err
 	}
 
 	panic("if you got here then something went horribly wrong")
@@ -798,4 +621,258 @@ func Exists(containerID string) bool {
 	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
 
 	return err == nil
+}
+
+func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
+	if err := anosys.MountRootfs(rootfs); err != nil {
+		return fmt.Errorf("mount rootfs: %w", err)
+	}
+
+	if err := anosys.MountProc(rootfs); err != nil {
+		return fmt.Errorf("mount proc: %w", err)
+	}
+
+	spec.Mounts = append(spec.Mounts, specs.Mount{
+		Destination: "/dev/pts",
+		Type:        "devpts",
+		Source:      "devpts",
+		Options: []string{
+			"nosuid",
+			"noexec",
+			"newinstance",
+			"ptmxmode=0666",
+			"mode=0620",
+			"gid=5",
+		},
+	})
+
+	if err := anosys.MountSpecMounts(spec.Mounts, rootfs); err != nil {
+		return fmt.Errorf("mount spec: %w", err)
+	}
+
+	if err := anosys.MountDefaultDevices(rootfs); err != nil {
+		return fmt.Errorf("mount default devices: %w", err)
+	}
+
+	if err := anosys.CreateDeviceNodes(
+		spec.Linux.Devices,
+		rootfs,
+	); err != nil {
+		return fmt.Errorf("mount devices from spec: %w", err)
+	}
+
+	if err := anosys.CreateDefaultSymlinks(rootfs); err != nil {
+		return fmt.Errorf("create default symlinks: %w", err)
+	}
+
+	return nil
+}
+
+func postPivotInitialiser(spec *specs.Spec, rootfs string) error {
+	if spec.Linux.Sysctl != nil {
+		if err := anosys.SetSysctl(spec.Linux.Sysctl); err != nil {
+			return fmt.Errorf("set sysctl: %w", err)
+		}
+	}
+
+	if err := anosys.MountMaskedPaths(
+		spec.Linux.MaskedPaths,
+	); err != nil {
+		return err
+	}
+
+	if err := anosys.MountReadonlyPaths(
+		spec.Linux.ReadonlyPaths,
+	); err != nil {
+		return err
+	}
+
+	if err := anosys.SetRootfsMountPropagation(
+		spec.Linux.RootfsPropagation,
+	); err != nil {
+		return err
+	}
+
+	if spec.Root.Readonly {
+		if err := anosys.MountRootReadonly(); err != nil {
+			return err
+		}
+	}
+
+	hasUTSNamespace := slices.ContainsFunc(
+		spec.Linux.Namespaces,
+		func(n specs.LinuxNamespace) bool {
+			return n.Type == specs.UTSNamespace
+		},
+	)
+
+	if hasUTSNamespace {
+		if err := syscall.Sethostname([]byte(spec.Hostname)); err != nil {
+			return err
+		}
+
+		if err := syscall.Setdomainname([]byte(spec.Domainname)); err != nil {
+			return err
+		}
+	}
+
+	if err := anosys.SetRlimits(spec.Process.Rlimits); err != nil {
+		return fmt.Errorf("set rlimits: %w", err)
+	}
+
+	if spec.Process.Capabilities != nil {
+		if err := anosys.SetCapabilities(spec.Process.Capabilities); err != nil {
+			return fmt.Errorf("set capabilities: %w", err)
+		}
+	}
+
+	if spec.Process.NoNewPrivileges {
+		if err := anosys.SetNoNewPrivs(); err != nil {
+			return fmt.Errorf("set no new privileges: %w", err)
+		}
+	}
+
+	if spec.Process.Scheduler != nil {
+		if err := anosys.SetSchedAttrs(spec.Process.Scheduler); err != nil {
+			return fmt.Errorf("set sched attrs: %w", err)
+		}
+	}
+
+	if spec.Process.IOPriority != nil {
+		if err := anosys.SetIOPriority(spec.Process.IOPriority); err != nil {
+			return fmt.Errorf("set ioprio: %w", err)
+		}
+	}
+
+	if err := anosys.SetUser(&spec.Process.User); err != nil {
+		return fmt.Errorf("set user: %w", err)
+	}
+
+	return nil
+}
+
+func connectConsole(spec *specs.Spec, fd int) (*terminal.Pty, error) {
+	pty, err := terminal.NewPty()
+	if err != nil {
+		return nil, fmt.Errorf("new pty: %w", err)
+	}
+
+	if spec.Process.ConsoleSize != nil {
+		unix.IoctlSetWinsize(
+			int(pty.Slave.Fd()),
+			unix.TIOCSWINSZ,
+			&unix.Winsize{
+				Row: uint16(spec.Process.ConsoleSize.Height),
+				Col: uint16(spec.Process.ConsoleSize.Width),
+			},
+		)
+	}
+
+	if err := terminal.SendPty(
+		fd,
+		pty,
+	); err != nil {
+		return nil, fmt.Errorf("connect pty and socket: %w", err)
+	}
+
+	if err := pty.Connect(); err != nil {
+		return nil, fmt.Errorf("connect pty: %w", err)
+	}
+
+	return pty, nil
+}
+
+func mountConsole(rootfs string, pty *terminal.Pty) error {
+	if err := pty.MountSlave(filepath.Join(rootfs, "dev/pts/0")); err != nil {
+		return err
+	}
+	if err := os.Symlink("/dev/pts/0", filepath.Join(rootfs, "dev/console")); err != nil {
+		return fmt.Errorf("create console symlink: %w", err)
+	}
+
+	return nil
+}
+
+func notifyReady(id string) error {
+	// wait a sec for init sock to be ready before dialing
+	// this is nasty - must be a better way
+	for range 10 {
+		if _, err := os.Stat(filepath.Join(
+			containerRootDir,
+			id,
+			initSockFilename,
+		)); errors.Is(err, os.ErrNotExist) {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+	}
+
+	initConn, err := net.Dial(
+		"unix",
+		filepath.Join(containerRootDir, id, initSockFilename),
+	)
+	if err != nil {
+		return fmt.Errorf("dial init sock: %w", err)
+	}
+
+	if _, err := initConn.Write([]byte("ready")); err != nil {
+		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
+	}
+	// close immediately, to be 100% sure it doesn't leak into the container
+	initConn.Close()
+
+	return nil
+}
+
+func waitStart(id string) error {
+	listener, err := net.Listen(
+		"unix",
+		filepath.Join(containerRootDir, id, containerSockFilename),
+	)
+	if err != nil {
+		return fmt.Errorf("listen on container sock: %w", err)
+	}
+
+	containerConn, err := listener.Accept()
+	if err != nil {
+		logrus.Errorf("failed to accept on container socket: %s", err)
+		return fmt.Errorf("accept on container sock: %w", err)
+	}
+
+	b := make([]byte, 128)
+	n, err := containerConn.Read(b)
+	if err != nil {
+		return fmt.Errorf("read bytes from container sock: %w", err)
+	}
+
+	msg := string(b[:n])
+	if msg != "start" {
+		return fmt.Errorf("expecting 'start' but received '%s'", msg)
+	}
+
+	// close immediately so we're sure no potential for leakage
+	containerConn.Close()
+	listener.Close()
+
+	return nil
+}
+
+func execUserProcess(spec *specs.Spec) error {
+	if err := os.Chdir(spec.Process.Cwd); err != nil {
+		return fmt.Errorf("set working directory: %w", err)
+	}
+
+	bin, err := exec.LookPath(spec.Process.Args[0])
+	if err != nil {
+		return fmt.Errorf("find path of user process binary: %w", err)
+	}
+
+	args := spec.Process.Args
+	env := os.Environ()
+
+	if err := syscall.Exec(bin, args, env); err != nil {
+		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
+	}
+
+	return nil
 }
