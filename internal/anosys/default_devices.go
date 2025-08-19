@@ -12,20 +12,11 @@ import (
 )
 
 var (
-	// AllDevices represents all device types.
-	AllDevices = "a"
-
-	// BlockDevice represents a block device.
-	BlockDevice = "b"
-
-	// CharDevice represents a character device.
-	CharDevice = "c"
-
-	// UnbufferedCharDevice represents an unbuffered character device.
+	AllDevices           = "a"
+	BlockDevice          = "b"
+	CharDevice           = "c"
 	UnbufferedCharDevice = "u"
-
-	// FifoDevice represents a FIFO (named pipe) device.
-	FifoDevice = "p"
+	FifoDevice           = "p"
 )
 
 var deviceType = map[string]uint32{
