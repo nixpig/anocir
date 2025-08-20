@@ -25,6 +25,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// TODO: make this configuration-driven
 var containerRootDir = "/var/lib/anocir/containers"
 
 const (
@@ -32,10 +33,16 @@ const (
 	containerSockFilename = "container.sock"
 )
 
-// SetContainerRootDir sets the root directory for the container on disk.
-func SetContainerRootDir(path string) {
-	containerRootDir = path
-}
+type Lifecycle string
+
+const (
+	LifecycleCreateRuntime   Lifecycle = "createRuntime"
+	LifecycleCreateContainer Lifecycle = "createContainer"
+	LifecycleStartContainer  Lifecycle = "startContainer"
+	LifecyclePrestart        Lifecycle = "prestart"
+	LifecyclePoststart       Lifecycle = "poststart"
+	LifecyclePoststop        Lifecycle = "poststop"
+)
 
 // Container represents an OCI container, including its state, specification,
 // and other runtime details.
@@ -56,6 +63,10 @@ type NewContainerOpts struct {
 	ConsoleSocket string
 	PIDFile       string
 }
+
+// Initialiser functions are passed to init and reexec functions of a
+// Container, typically to perform syscalls and other initialisation tasks.
+type Initialiser func(spec *specs.Spec, rootfs string) error
 
 // New creates a new container instance based on the provided options.
 func New(opts *NewContainerOpts) (*Container, error) {
@@ -121,8 +132,6 @@ func (c *Container) Save() error {
 	return nil
 }
 
-type Initialiser func(spec *specs.Spec, rootfs string) error
-
 // Init prepares the container for execution. It executes hooks,
 // sets up the terminal if necessary, and re-execs the runtime binary to
 // containerise the process.
@@ -131,20 +140,12 @@ func (c *Container) Init() error {
 }
 
 func (c *Container) init() error {
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.CreateRuntime, c.State,
-		); err != nil {
-			return fmt.Errorf("exec createruntime hooks: %w", err)
-		}
+	if err := c.execHook(LifecycleCreateRuntime); err != nil {
+		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.CreateContainer, c.State,
-		); err != nil {
-			return fmt.Errorf("exec createcontainer hooks: %w", err)
-		}
+	if err := c.execHook(LifecycleCreateContainer); err != nil {
+		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
 
 	useTerminal := c.Spec.Process != nil &&
@@ -361,7 +362,7 @@ func (c *Container) init() error {
 func (c *Container) Reexec() error {
 	return c.reexec(
 		[]Initialiser{prePivotInitialisers},
-		[]Initialiser{postPivotInitialiser},
+		[]Initialiser{postPivotInitialisers},
 	)
 }
 
@@ -369,6 +370,7 @@ func (c *Container) reexec(
 	prePivotIntialisers,
 	postPivotInitialisers []Initialiser,
 ) error {
+	// subsequent syscalls need to happen in a single-threaded context
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -401,15 +403,9 @@ func (c *Container) reexec(
 		return err
 	}
 
-	if c.Spec.Process == nil {
-		return errors.New("process is required")
-	}
-
-	logrus.Debug("pivot root")
-	if err := anosys.PivotRoot(c.rootFS()); err != nil {
+	if err := c.pivotRoot(); err != nil {
 		return err
 	}
-	logrus.Debug("pivoted root!")
 
 	for _, initialiser := range postPivotInitialisers {
 		if err := initialiser(c.Spec, c.rootFS()); err != nil {
@@ -417,12 +413,8 @@ func (c *Container) reexec(
 		}
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.StartContainer, c.State,
-		); err != nil {
-			return fmt.Errorf("exec startcontainer hooks: %w", err)
-		}
+	if err := c.execHook(LifecycleStartContainer); err != nil {
+		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
 	if err := execUserProcess(c.Spec); err != nil {
@@ -451,14 +443,9 @@ func (c *Container) Start() error {
 		)
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
-			c.Spec.Hooks.Prestart, c.State,
-		); err != nil {
-			logrus.Errorf("failed to exec prestart hooks: %s", err)
-			return fmt.Errorf("execute prestart hooks: %w", err)
-		}
+	if err := c.execHook(LifecyclePrestart); err != nil {
+		logrus.Errorf("failed to exec prestart hooks: %s", err)
+		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
 	conn, err := net.Dial(
@@ -481,12 +468,8 @@ func (c *Container) Start() error {
 		return fmt.Errorf("save state running: %w", err)
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.Poststart, c.State,
-		); err != nil {
-			return fmt.Errorf("exec poststart hooks: %w", err)
-		}
+	if err := c.execHook(LifecyclePoststart); err != nil {
+		return fmt.Errorf("exec poststart hooks: %w", err)
 	}
 
 	return nil
@@ -516,12 +499,8 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.Poststop, c.State,
-		); err != nil {
-			fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
-		}
+	if err := c.execHook(LifecyclePoststop); err != nil {
+		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
 	}
 
 	return nil
@@ -550,11 +529,39 @@ func (c *Container) Kill(sig string) error {
 		return fmt.Errorf("save stopped state: %w", err)
 	}
 
-	if c.Spec.Hooks != nil {
-		if err := hooks.ExecHooks(
-			c.Spec.Hooks.Poststop, c.State,
-		); err != nil {
-			fmt.Println("Warning: failed to execute poststop hooks")
+	if err := c.execHook(LifecyclePoststop); err != nil {
+		fmt.Println("Warning: failed to execute poststop hooks")
+	}
+
+	return nil
+}
+
+func (c *Container) execHook(phase Lifecycle) error {
+	if c.Spec.Hooks == nil {
+		return nil
+	}
+
+	var h []specs.Hook
+
+	switch phase {
+	case LifecycleCreateRuntime:
+		h = append(h, c.Spec.Hooks.CreateRuntime...)
+	case LifecycleCreateContainer:
+		h = append(h, c.Spec.Hooks.CreateContainer...)
+	case LifecycleStartContainer:
+		h = append(h, c.Spec.Hooks.StartContainer...)
+	case LifecyclePrestart:
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
+		h = append(h, c.Spec.Hooks.Prestart...)
+	case LifecyclePoststart:
+		h = append(h, c.Spec.Hooks.Poststart...)
+	case LifecyclePoststop:
+		h = append(h, c.Spec.Hooks.Poststop...)
+	}
+
+	if len(h) > 0 {
+		if err := hooks.ExecHooks(h, c.State); err != nil {
+			return err
 		}
 	}
 
@@ -580,6 +587,20 @@ func (c *Container) canBeStarted() bool {
 func (c *Container) canBeKilled() bool {
 	return c.State.Status == specs.StateRunning ||
 		c.State.Status == specs.StateCreated
+}
+
+func (c *Container) pivotRoot() error {
+	if c.Spec.Process == nil {
+		return errors.New("process is required")
+	}
+
+	logrus.Debug("pivot root")
+	if err := anosys.PivotRoot(c.rootFS()); err != nil {
+		return err
+	}
+	logrus.Debug("pivoted root!")
+
+	return nil
 }
 
 // Load retrieves a container's state and specification, based on its ID.
@@ -668,7 +689,7 @@ func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
 	return nil
 }
 
-func postPivotInitialiser(spec *specs.Spec, rootfs string) error {
+func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 	if spec.Linux.Sysctl != nil {
 		if err := anosys.SetSysctl(spec.Linux.Sysctl); err != nil {
 			return fmt.Errorf("set sysctl: %w", err)
@@ -794,8 +815,8 @@ func mountConsole(rootfs string, pty *terminal.Pty) error {
 }
 
 func notifyReady(id string) error {
-	// wait a sec for init sock to be ready before dialing
-	// this is nasty - must be a better way
+	// wait a sec for init sock to be ready before dialing - this is nasty
+	// TODO: use file lock to synchronise
 	for range 10 {
 		if _, err := os.Stat(filepath.Join(
 			containerRootDir,
