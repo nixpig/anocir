@@ -140,6 +140,8 @@ func (c *Container) Init() error {
 	return c.init()
 }
 
+// TODO: split up the into (at least) pre/post process fork but probably
+// factor out pre-init tasks into Initialiser functions
 func (c *Container) init() error {
 	if err := c.execHook(LifecycleCreateRuntime); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
@@ -243,8 +245,10 @@ func (c *Container) init() error {
 			}
 
 			if ns.Type == specs.MountNamespace {
-				// mount namespaces do not work across threads, so this needs to be done
-				// in single-threaded context in C before the reexec
+				// mount namespaces do not work across OS threads and Go cannot
+				// guarantee what thread any newly spawned goroutines will land on,
+				// so this needs to be done in single-threaded context in C before the
+				// reexec
 				gonsEnv := fmt.Sprintf(
 					"gons_%s=%s",
 					anosys.NamespaceEnvs[ns.Type],
