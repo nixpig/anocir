@@ -51,6 +51,7 @@ type Container struct {
 	Spec            *specs.Spec
 	ConsoleSocket   string
 	ConsoleSocketFD *int
+	Pty             *terminal.Pty
 	PIDFile         string
 	Opts            *NewContainerOpts
 }
@@ -374,13 +375,8 @@ func (c *Container) reexec(
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	var err error
-	var pty *terminal.Pty
-	if c.ConsoleSocketFD != nil {
-		pty, err = connectConsole(c.Spec, *c.ConsoleSocketFD)
-		if err != nil {
-			return err
-		}
+	if err := c.connectConsole(); err != nil {
+		return err
 	}
 
 	for _, initialiser := range prePivotIntialisers {
@@ -389,17 +385,15 @@ func (c *Container) reexec(
 		}
 	}
 
-	if c.ConsoleSocketFD != nil && c.Spec.Process.Terminal {
-		if err := mountConsole(c.rootFS(), pty); err != nil {
-			return err
-		}
-	}
-
-	if err := notifyReady(c.State.ID); err != nil {
+	if err := c.mountConsole(); err != nil {
 		return err
 	}
 
-	if err := waitStart(c.State.ID); err != nil {
+	if err := c.notifyReady(); err != nil {
+		return err
+	}
+
+	if err := c.waitStart(); err != nil {
 		return err
 	}
 
@@ -417,7 +411,7 @@ func (c *Container) reexec(
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
-	if err := execUserProcess(c.Spec); err != nil {
+	if err := c.execUserProcess(); err != nil {
 		return err
 	}
 
@@ -603,6 +597,143 @@ func (c *Container) pivotRoot() error {
 	return nil
 }
 
+func (c *Container) connectConsole() error {
+	if c.ConsoleSocketFD == nil {
+		return nil
+	}
+
+	pty, err := terminal.NewPty()
+	if err != nil {
+		return fmt.Errorf("new pty: %w", err)
+	}
+
+	if c.Spec.Process.ConsoleSize != nil {
+		unix.IoctlSetWinsize(
+			int(pty.Slave.Fd()),
+			unix.TIOCSWINSZ,
+			&unix.Winsize{
+				Row: uint16(c.Spec.Process.ConsoleSize.Height),
+				Col: uint16(c.Spec.Process.ConsoleSize.Width),
+			},
+		)
+	}
+
+	if err := terminal.SendPty(
+		*c.ConsoleSocketFD,
+		pty,
+	); err != nil {
+		return fmt.Errorf("connect pty and socket: %w", err)
+	}
+
+	if err := pty.Connect(); err != nil {
+		return fmt.Errorf("connect pty: %w", err)
+	}
+
+	c.Pty = pty
+
+	return nil
+}
+
+func (c *Container) mountConsole() error {
+	if c.ConsoleSocketFD == nil || !c.Spec.Process.Terminal {
+		return nil
+	}
+
+	if err := c.Pty.MountSlave(filepath.Join(c.rootFS(), "dev/pts/0")); err != nil {
+		return err
+	}
+
+	if err := os.Symlink("/dev/pts/0", filepath.Join(c.rootFS(), "dev/console")); err != nil {
+		return fmt.Errorf("create console symlink: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) notifyReady() error {
+	// wait a sec for init sock to be ready before dialing - this is nasty
+	// TODO: use file lock to synchronise
+	for range 10 {
+		if _, err := os.Stat(filepath.Join(
+			containerRootDir,
+			c.State.ID,
+			initSockFilename,
+		)); errors.Is(err, os.ErrNotExist) {
+			time.Sleep(time.Millisecond * 100)
+			continue
+		}
+	}
+
+	initConn, err := net.Dial(
+		"unix",
+		filepath.Join(containerRootDir, c.State.ID, initSockFilename),
+	)
+	if err != nil {
+		return fmt.Errorf("dial init sock: %w", err)
+	}
+
+	if _, err := initConn.Write([]byte("ready")); err != nil {
+		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
+	}
+	// close immediately, to be 100% sure it doesn't leak into the container
+	initConn.Close()
+
+	return nil
+}
+
+func (c *Container) waitStart() error {
+	listener, err := net.Listen(
+		"unix",
+		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
+	)
+	if err != nil {
+		return fmt.Errorf("listen on container sock: %w", err)
+	}
+
+	containerConn, err := listener.Accept()
+	if err != nil {
+		logrus.Errorf("failed to accept on container socket: %s", err)
+		return fmt.Errorf("accept on container sock: %w", err)
+	}
+
+	b := make([]byte, 128)
+	n, err := containerConn.Read(b)
+	if err != nil {
+		return fmt.Errorf("read bytes from container sock: %w", err)
+	}
+
+	msg := string(b[:n])
+	if msg != "start" {
+		return fmt.Errorf("expecting 'start' but received '%s'", msg)
+	}
+
+	// close immediately so we're sure no potential for leakage
+	containerConn.Close()
+	listener.Close()
+
+	return nil
+}
+
+func (c *Container) execUserProcess() error {
+	if err := os.Chdir(c.Spec.Process.Cwd); err != nil {
+		return fmt.Errorf("set working directory: %w", err)
+	}
+
+	bin, err := exec.LookPath(c.Spec.Process.Args[0])
+	if err != nil {
+		return fmt.Errorf("find path of user process binary: %w", err)
+	}
+
+	args := c.Spec.Process.Args
+	env := os.Environ()
+
+	if err := syscall.Exec(bin, args, env); err != nil {
+		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
+	}
+
+	return nil
+}
+
 // Load retrieves a container's state and specification, based on its ID.
 func Load(id string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
@@ -644,6 +775,8 @@ func Exists(containerID string) bool {
 	return err == nil
 }
 
+// TODO: change the anosys functions to implement Inititaliser interface
+// and pass them in the postPivotInitialisers slice individually?
 func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
 	if err := anosys.MountRootfs(rootfs); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
@@ -689,6 +822,8 @@ func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
 	return nil
 }
 
+// TODO: change the anosys functions to implement the Inititaliser interface
+// and pass them in the postPivotInitialisers slice individually?
 func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 	if spec.Linux.Sysctl != nil {
 		if err := anosys.SetSysctl(spec.Linux.Sysctl); err != nil {
@@ -767,132 +902,6 @@ func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 
 	if err := anosys.SetUser(&spec.Process.User); err != nil {
 		return fmt.Errorf("set user: %w", err)
-	}
-
-	return nil
-}
-
-func connectConsole(spec *specs.Spec, fd int) (*terminal.Pty, error) {
-	pty, err := terminal.NewPty()
-	if err != nil {
-		return nil, fmt.Errorf("new pty: %w", err)
-	}
-
-	if spec.Process.ConsoleSize != nil {
-		unix.IoctlSetWinsize(
-			int(pty.Slave.Fd()),
-			unix.TIOCSWINSZ,
-			&unix.Winsize{
-				Row: uint16(spec.Process.ConsoleSize.Height),
-				Col: uint16(spec.Process.ConsoleSize.Width),
-			},
-		)
-	}
-
-	if err := terminal.SendPty(
-		fd,
-		pty,
-	); err != nil {
-		return nil, fmt.Errorf("connect pty and socket: %w", err)
-	}
-
-	if err := pty.Connect(); err != nil {
-		return nil, fmt.Errorf("connect pty: %w", err)
-	}
-
-	return pty, nil
-}
-
-func mountConsole(rootfs string, pty *terminal.Pty) error {
-	if err := pty.MountSlave(filepath.Join(rootfs, "dev/pts/0")); err != nil {
-		return err
-	}
-	if err := os.Symlink("/dev/pts/0", filepath.Join(rootfs, "dev/console")); err != nil {
-		return fmt.Errorf("create console symlink: %w", err)
-	}
-
-	return nil
-}
-
-func notifyReady(id string) error {
-	// wait a sec for init sock to be ready before dialing - this is nasty
-	// TODO: use file lock to synchronise
-	for range 10 {
-		if _, err := os.Stat(filepath.Join(
-			containerRootDir,
-			id,
-			initSockFilename,
-		)); errors.Is(err, os.ErrNotExist) {
-			time.Sleep(time.Millisecond * 100)
-			continue
-		}
-	}
-
-	initConn, err := net.Dial(
-		"unix",
-		filepath.Join(containerRootDir, id, initSockFilename),
-	)
-	if err != nil {
-		return fmt.Errorf("dial init sock: %w", err)
-	}
-
-	if _, err := initConn.Write([]byte("ready")); err != nil {
-		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
-	}
-	// close immediately, to be 100% sure it doesn't leak into the container
-	initConn.Close()
-
-	return nil
-}
-
-func waitStart(id string) error {
-	listener, err := net.Listen(
-		"unix",
-		filepath.Join(containerRootDir, id, containerSockFilename),
-	)
-	if err != nil {
-		return fmt.Errorf("listen on container sock: %w", err)
-	}
-
-	containerConn, err := listener.Accept()
-	if err != nil {
-		logrus.Errorf("failed to accept on container socket: %s", err)
-		return fmt.Errorf("accept on container sock: %w", err)
-	}
-
-	b := make([]byte, 128)
-	n, err := containerConn.Read(b)
-	if err != nil {
-		return fmt.Errorf("read bytes from container sock: %w", err)
-	}
-
-	msg := string(b[:n])
-	if msg != "start" {
-		return fmt.Errorf("expecting 'start' but received '%s'", msg)
-	}
-
-	// close immediately so we're sure no potential for leakage
-	containerConn.Close()
-	listener.Close()
-
-	return nil
-}
-
-func execUserProcess(spec *specs.Spec) error {
-	if err := os.Chdir(spec.Process.Cwd); err != nil {
-		return fmt.Errorf("set working directory: %w", err)
-	}
-
-	bin, err := exec.LookPath(spec.Process.Args[0])
-	if err != nil {
-		return fmt.Errorf("find path of user process binary: %w", err)
-	}
-
-	args := spec.Process.Args
-	env := os.Environ()
-
-	if err := syscall.Exec(bin, args, env); err != nil {
-		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
 	}
 
 	return nil
