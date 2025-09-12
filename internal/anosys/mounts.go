@@ -52,10 +52,13 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 			if f, ok := mountOptions[opt]; ok {
 				// bind mount propagation
-				if opt != "private" && opt != "rprivate" && opt != "shared" &&
+				propagate := opt != "private" && opt != "rprivate" &&
+					opt != "shared" &&
 					opt != "rshared" &&
 					opt != "slave" &&
-					opt != "rslave" {
+					opt != "rslave"
+
+				if propagate {
 					if f.invert {
 						flags &= f.flag
 					} else {

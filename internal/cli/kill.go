@@ -11,6 +11,7 @@ func killCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "kill [flags] CONTAINER_ID SIGNAL",
 		Short:   "Send signal to a container",
+		Long:    "Send a signal to the container process",
 		Example: "  anocir kill busybox 9",
 		Args:    cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {

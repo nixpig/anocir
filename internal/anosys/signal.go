@@ -9,10 +9,7 @@ import (
 
 // SendSignal sends a signal to the specified process ID.
 func SendSignal(pid int, sig string) error {
-	if err := syscall.Kill(
-		pid,
-		signalArgToSignal(sig),
-	); err != nil {
+	if err := syscall.Kill(pid, signalArgToSignal(sig)); err != nil {
 		return fmt.Errorf("kill: %w", err)
 	}
 

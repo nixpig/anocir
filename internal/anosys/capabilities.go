@@ -104,13 +104,13 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		}
 	}
 
-	if err := c.Apply(
-		capability.INHERITABLE |
-			capability.EFFECTIVE |
-			capability.BOUNDING |
-			capability.PERMITTED |
-			capability.AMBIENT,
-	); err != nil {
+	capType := capability.INHERITABLE |
+		capability.EFFECTIVE |
+		capability.BOUNDING |
+		capability.PERMITTED |
+		capability.AMBIENT
+
+	if err := c.Apply(capType); err != nil {
 		return fmt.Errorf("apply capabilities: %w", err)
 	}
 

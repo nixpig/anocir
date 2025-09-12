@@ -12,6 +12,7 @@ func startCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "start [flags] CONTAINER_ID",
 		Short:   "Start a container",
+		Long:    "Start the user-specified code from process for container",
 		Example: "  anocir start busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

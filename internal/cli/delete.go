@@ -9,8 +9,10 @@ import (
 
 func deleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:  "delete [flags] CONTAINER_ID",
-		Args: cobra.ExactArgs(1),
+		Use:   "delete [flags] CONTAINER_ID",
+		Short: "Delete a container",
+		Long:  "Release container resources after the container process has exited",
+		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
@@ -30,7 +32,8 @@ func deleteCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP("force", "f", false, "Delete container regardless of state")
+	cmd.Flags().
+		BoolP("force", "f", false, "Delete container regardless of state")
 
 	return cmd
 }

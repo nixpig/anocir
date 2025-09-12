@@ -25,23 +25,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// TODO: make this configuration-driven
-var containerRootDir = "/var/lib/anocir/containers"
-
 const (
 	initSockFilename      = "init.sock"
 	containerSockFilename = "container.sock"
-)
 
-type Lifecycle string
+	// IPC socket messages
+	readyMsg = "ready"
+	startMsg = "start"
 
-const (
-	LifecycleCreateRuntime   Lifecycle = "createRuntime"
-	LifecycleCreateContainer Lifecycle = "createContainer"
-	LifecycleStartContainer  Lifecycle = "startContainer"
-	LifecyclePrestart        Lifecycle = "prestart"
-	LifecyclePoststart       Lifecycle = "poststart"
-	LifecyclePoststop        Lifecycle = "poststop"
+	// TODO: make this configurable?
+	containerRootDir = "/var/lib/anocir/containers"
 )
 
 // Container represents an OCI container, including its state, specification,
@@ -349,7 +342,7 @@ func (c *Container) init() error {
 	}
 
 	msg := string(b[:n])
-	if msg != "ready" {
+	if msg != readyMsg {
 		return fmt.Errorf("expecting 'ready' but received '%s'", msg)
 	}
 
@@ -455,7 +448,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
-	if _, err := conn.Write([]byte("start")); err != nil {
+	if _, err := conn.Write([]byte(startMsg)); err != nil {
 		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
 	}
@@ -622,10 +615,7 @@ func (c *Container) connectConsole() error {
 		)
 	}
 
-	if err := terminal.SendPty(
-		*c.ConsoleSocketFD,
-		pty,
-	); err != nil {
+	if err := terminal.SendPty(*c.ConsoleSocketFD, pty); err != nil {
 		return fmt.Errorf("connect pty and socket: %w", err)
 	}
 
@@ -643,12 +633,10 @@ func (c *Container) mountConsole() error {
 		return nil
 	}
 
-	if err := c.Pty.MountSlave(filepath.Join(c.rootFS(), "dev/pts/0")); err != nil {
-		return err
-	}
+	target := filepath.Join(c.rootFS(), "dev/console")
 
-	if err := os.Symlink("/dev/pts/0", filepath.Join(c.rootFS(), "dev/console")); err != nil {
-		return fmt.Errorf("create console symlink: %w", err)
+	if err := c.Pty.MountSlave(target); err != nil {
+		return err
 	}
 
 	return nil
@@ -656,7 +644,7 @@ func (c *Container) mountConsole() error {
 
 func (c *Container) notifyReady() error {
 	// wait a sec for init sock to be ready before dialing - this is nasty
-	// TODO: use file lock to synchronise
+	// TODO: use file lock to synchronise?
 	for range 10 {
 		if _, err := os.Stat(filepath.Join(
 			containerRootDir,
@@ -676,7 +664,7 @@ func (c *Container) notifyReady() error {
 		return fmt.Errorf("dial init sock: %w", err)
 	}
 
-	if _, err := initConn.Write([]byte("ready")); err != nil {
+	if _, err := initConn.Write([]byte(readyMsg)); err != nil {
 		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
 	}
 	// close immediately, to be 100% sure it doesn't leak into the container
@@ -707,7 +695,7 @@ func (c *Container) waitStart() error {
 	}
 
 	msg := string(b[:n])
-	if msg != "start" {
+	if msg != startMsg {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
 
@@ -812,10 +800,7 @@ func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 
-	if err := anosys.CreateDeviceNodes(
-		spec.Linux.Devices,
-		rootfs,
-	); err != nil {
+	if err := anosys.CreateDeviceNodes(spec.Linux.Devices, rootfs); err != nil {
 		return fmt.Errorf("mount devices from spec: %w", err)
 	}
 
@@ -835,15 +820,11 @@ func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 		}
 	}
 
-	if err := anosys.MountMaskedPaths(
-		spec.Linux.MaskedPaths,
-	); err != nil {
+	if err := anosys.MountMaskedPaths(spec.Linux.MaskedPaths); err != nil {
 		return err
 	}
 
-	if err := anosys.MountReadonlyPaths(
-		spec.Linux.ReadonlyPaths,
-	); err != nil {
+	if err := anosys.MountReadonlyPaths(spec.Linux.ReadonlyPaths); err != nil {
 		return err
 	}
 

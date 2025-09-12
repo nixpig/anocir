@@ -96,11 +96,7 @@ type PtySocket struct {
 
 // NewPtySocket creates a new PtySocket and connects it at the specified path.
 func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
-	fd, err := syscall.Socket(
-		unix.AF_UNIX,
-		unix.SOCK_STREAM,
-		0,
-	)
+	fd, err := syscall.Socket(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, fmt.Errorf("create console socket: %w", err)
 	}
@@ -144,13 +140,7 @@ func SendPty(consoleSocket int, pty *Pty) error {
 		return fmt.Errorf("unsupported architecture (%d)", size*8)
 	}
 
-	if err := syscall.Sendmsg(
-		consoleSocket,
-		buf,
-		cmsg,
-		nil,
-		0,
-	); err != nil {
+	if err := syscall.Sendmsg(consoleSocket, buf, cmsg, nil, 0); err != nil {
 		return fmt.Errorf("terminal sendmsg: %w", err)
 	}
 
@@ -174,9 +164,7 @@ func Setup(rootfs, consoleSocketPath string) (*int, error) {
 		return nil, fmt.Errorf("symlink console socket: %w", err)
 	}
 
-	consoleSocket, err := NewPtySocket(
-		"./console-socket",
-	)
+	consoleSocket, err := NewPtySocket("./console-socket")
 	if err != nil {
 		return nil, fmt.Errorf("create terminal socket: %w", err)
 	}

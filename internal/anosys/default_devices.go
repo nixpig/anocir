@@ -134,11 +134,7 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 		}
 
 		if d.UID != nil && d.GID != nil {
-			if err := os.Chown(
-				absPath,
-				int(*d.UID),
-				int(*d.GID),
-			); err != nil {
+			if err := os.Chown(absPath, int(*d.UID), int(*d.GID)); err != nil {
 				return err
 			}
 		}

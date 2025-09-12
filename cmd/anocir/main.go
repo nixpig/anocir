@@ -1,5 +1,3 @@
-// main.go
-
 package main
 
 import (
@@ -12,12 +10,14 @@ import (
 
 func main() {
 	if err := gons.Status(); err != nil {
-		os.Stderr.Write([]byte(fmt.Sprintf("failed to join namespaces: %s\n", err)))
+		os.Stderr.Write(
+			fmt.Appendf(nil, "failed to join namespaces: %s\n", err),
+		)
 		os.Exit(1)
 	}
 
 	if err := cli.RootCmd().Execute(); err != nil {
-		os.Stderr.Write([]byte(fmt.Sprintf("failed to execute: %s\n", err)))
+		os.Stderr.Write(fmt.Appendf(nil, "failed to execute: %s\n", err))
 		os.Exit(1)
 	}
 }

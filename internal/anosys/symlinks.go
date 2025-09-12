@@ -21,10 +21,7 @@ func CreateDefaultSymlinks(rootfs string) error {
 
 func createSymlinks(symlinks map[string]string, rootfs string) error {
 	for src, dest := range symlinks {
-		if err := os.Symlink(
-			src,
-			filepath.Join(rootfs, dest),
-		); err != nil {
+		if err := os.Symlink(src, filepath.Join(rootfs, dest)); err != nil {
 			return err
 		}
 	}

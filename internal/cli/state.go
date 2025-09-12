@@ -10,7 +10,8 @@ import (
 func stateCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "state [flags] CONTAINER_ID",
-		Short:   "Query state of a container",
+		Short:   "Get container state",
+		Long:    "Request the state of the container",
 		Example: "  anocir state busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -23,9 +24,7 @@ func stateCmd() *cobra.Command {
 				return err
 			}
 
-			if _, err := cmd.OutOrStdout().Write(
-				[]byte(state),
-			); err != nil {
+			if _, err := cmd.OutOrStdout().Write([]byte(state)); err != nil {
 				return fmt.Errorf("write state to stdout: %w", err)
 			}
 

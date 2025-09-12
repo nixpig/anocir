@@ -22,10 +22,7 @@ func AddV1CGroups(
 ) error {
 	staticPath := cgroup1.StaticPath(path)
 
-	cg, err := cgroup1.New(
-		staticPath,
-		resources,
-	)
+	cg, err := cgroup1.New(staticPath, resources)
 	if err != nil {
 		return fmt.Errorf("create cgroups (path: %s): %w", path, err)
 	}
@@ -59,12 +56,10 @@ func AddV2CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	cg, err := cgroup2.NewSystemd(
-		"/",
-		fmt.Sprintf("%s.slice", containerID),
-		-1,
-		cgroup2.ToResources(resources),
-	)
+	systemdGroup := fmt.Sprintf("%s.slice", containerID)
+	cgResources := cgroup2.ToResources(resources)
+
+	cg, err := cgroup2.NewSystemd("/", systemdGroup, -1, cgResources)
 	if err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
 	}
@@ -78,13 +73,19 @@ func AddV2CGroups(
 
 // DeleteV2CGroups deletes a cgroup v2 hierarchy.
 func DeleteV2CGroups(containerID string) error {
-	cg, err := cgroup2.LoadSystemd("/", fmt.Sprintf("%s.slice", containerID))
+	systemdGroup := fmt.Sprintf("%s.slice", containerID)
+
+	cg, err := cgroup2.LoadSystemd("/", systemdGroup)
 	if err != nil {
 		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
 	}
 
 	if err := cg.Kill(); err != nil {
-		return fmt.Errorf("kill cgroups processes (id: %s): %w", containerID, err)
+		return fmt.Errorf(
+			"kill cgroups processes (id: %s): %w",
+			containerID,
+			err,
+		)
 	}
 
 	if err := cg.DeleteSystemd(); err != nil {
