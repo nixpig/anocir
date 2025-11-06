@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"github.com/sirupsen/logrus"
 	"github.com/syndtr/gocapability/capability"
 )
 
@@ -68,6 +69,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Ambient {
 			if v, ok := capabilities[e]; ok {
 				c.Set(capability.AMBIENT, capability.Cap(v))
+			} else {
+				logrus.Warnf("ambient capability %s cannot be mapped", e)
 			}
 		}
 	}
@@ -76,6 +79,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Bounding {
 			if v, ok := capabilities[e]; ok {
 				c.Set(capability.BOUNDING, capability.Cap(v))
+			} else {
+				logrus.Warnf("bounding capability %s cannot be mapped", e)
 			}
 		}
 	}
@@ -84,6 +89,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Effective {
 			if v, ok := capabilities[e]; ok {
 				c.Set(capability.EFFECTIVE, capability.Cap(v))
+			} else {
+				logrus.Warnf("effective capability %s cannot be mapped", e)
 			}
 		}
 	}
@@ -92,6 +99,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Permitted {
 			if v, ok := capabilities[e]; ok {
 				c.Set(capability.PERMITTED, capability.Cap(v))
+			} else {
+				logrus.Warnf("permitted capability %s cannot be mapped", e)
 			}
 		}
 	}
@@ -100,6 +109,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		for _, e := range caps.Inheritable {
 			if v, ok := capabilities[e]; ok {
 				c.Set(capability.INHERITABLE, capability.Cap(v))
+			} else {
+				logrus.Warnf("inheritable capability %s cannot be mapped", e)
 			}
 		}
 	}
