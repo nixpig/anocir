@@ -264,7 +264,6 @@ func (c *Container) init() error {
 		}
 	}
 
-	// TODO: return a 'not implemented' error?
 	// FIXME: needed to run 'linux_uid_mappings'
 	// for _, m := range c.Spec.Linux.UIDMappings {
 	// 	uidMappings = append(uidMappings, syscall.SysProcIDMap{
@@ -413,7 +412,6 @@ func (c *Container) reexec(
 		return err
 	}
 
-	// TODO: Should we really panic here or just log an error??
 	panic("if you got here then something went horribly wrong")
 }
 
@@ -478,13 +476,13 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if err := syscall.Kill(c.State.Pid, syscall.SIGKILL); err != nil {
-		if errors.Is(err, syscall.ESRCH) {
-			logrus.Debugf("kill container process: %s", err)
-		}
+	process, err := os.FindProcess(c.State.Pid)
+	if err != nil {
+		return fmt.Errorf("find container process to delete: %w", err)
 	}
-
-	// TODO: wait for process to exit
+	if process != nil {
+		process.Signal(unix.SIGKILL)
+	}
 
 	// TODO: clean up cgroups - anosys.DeleteV1CGroups / anosys.DeleteV2CGroups
 
