@@ -755,10 +755,6 @@ func Load(id string) (*Container, error) {
 		Spec:  spec,
 	}
 
-	if err := c.Save(); err != nil {
-		return nil, fmt.Errorf("save state: %w", err)
-	}
-
 	return c, nil
 }
 
