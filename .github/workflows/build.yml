@@ -17,7 +17,7 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.24.5"
+          go-version: "1.25.3"
 
       - name: download dependencies
         run: make install
@@ -83,4 +83,3 @@ jobs:
       - name: run docker hello-world
         run: |
           ./test/scripts/docker-integration.sh
-
