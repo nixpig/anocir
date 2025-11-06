@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
@@ -29,8 +28,6 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 			return fmt.Errorf("find path of hook binary: %w", err)
 		}
 
-		path := filepath.Dir(h.Path)
-
 		if err := func() error {
 			if h.Timeout != nil {
 				var cancel context.CancelFunc
@@ -41,9 +38,9 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 				defer cancel()
 			}
 
-			cmd := exec.CommandContext(ctx, binary, path)
+			cmd := exec.CommandContext(ctx, binary)
 
-			cmd.Args = append(h.Args, string(s))
+			cmd.Args = h.Args
 			cmd.Env = h.Env
 			cmd.Stdin = strings.NewReader(string(s))
 
