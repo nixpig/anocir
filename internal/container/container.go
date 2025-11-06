@@ -484,7 +484,17 @@ func (c *Container) Delete(force bool) error {
 		process.Signal(unix.SIGKILL)
 	}
 
-	// TODO: clean up cgroups - anosys.DeleteV1CGroups / anosys.DeleteV2CGroups
+	if c.Spec.Linux.Resources != nil {
+		if anosys.IsUnifiedCGroupsMode() {
+			if err := anosys.DeleteV2CGroups(c.State.ID); err != nil {
+				return err
+			}
+		} else if c.Spec.Linux.CgroupsPath != "" {
+			if err := anosys.DeleteV1CGroups(c.Spec.Linux.CgroupsPath); err != nil {
+				return err
+			}
+		}
+	}
 
 	if err := os.RemoveAll(
 		filepath.Join(containerRootDir, c.State.ID),
