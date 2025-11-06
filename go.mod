@@ -1,6 +1,6 @@
 module github.com/nixpig/anocir
 
-go 1.24.5
+go 1.25.3
 
 require (
 	github.com/containerd/cgroups/v3 v3.0.5
