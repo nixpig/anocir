@@ -40,6 +40,8 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 
 		path := filepath.Dir(h.Path)
 
+		// FIXME: binary and path should be h.Path and h.Args?
+
 		cmd := exec.CommandContext(ctx, binary, path)
 
 		cmd.Args = append(h.Args, string(s))
