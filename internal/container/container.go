@@ -486,6 +486,8 @@ func (c *Container) Delete(force bool) error {
 
 	// TODO: wait for process to exit
 
+	// TODO: clean up cgroups - anosys.DeleteV1CGroups / anosys.DeleteV2CGroups
+
 	if err := os.RemoveAll(
 		filepath.Join(containerRootDir, c.State.ID),
 	); err != nil {
@@ -523,7 +525,7 @@ func (c *Container) Kill(sig string) error {
 	}
 
 	if err := c.execHook(LifecyclePoststop); err != nil {
-		fmt.Println("Warning: failed to execute poststop hooks")
+		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
 	}
 
 	return nil
