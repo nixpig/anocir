@@ -487,8 +487,11 @@ func (c *Container) Delete(force bool) error {
 				return err
 			}
 		}
-	} else {
-		if err := syscall.Kill(c.State.Pid, syscall.SIGKILL); err != nil {
+	} else if c.State.Pid != 0 {
+		if err := syscall.Kill(
+			c.State.Pid,
+			syscall.SIGKILL,
+		); err != nil && !errors.Is(err, syscall.ESRCH) {
 			return fmt.Errorf("send kill signal to process: %w", err)
 		}
 	}
@@ -551,7 +554,7 @@ func (c *Container) execHook(phase Lifecycle) error {
 	case LifecycleStartContainer:
 		h = append(h, c.Spec.Hooks.StartContainer...)
 	case LifecyclePrestart:
-		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker
+		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker.
 		h = append(h, c.Spec.Hooks.Prestart...)
 	case LifecyclePoststart:
 		h = append(h, c.Spec.Hooks.Poststart...)
@@ -665,8 +668,8 @@ func (c *Container) notifyReady() error {
 		select {
 		case <-ctx.Done():
 			return fmt.Errorf(
-				"failed to connect to init sock after %f seconds",
-				timeout.Seconds(),
+				"failed to connect to init sock after %v",
+				timeout,
 			)
 		case <-ticker.C:
 			initConn, err := net.Dial(
