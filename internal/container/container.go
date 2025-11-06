@@ -659,7 +659,8 @@ func (c *Container) mountConsole() error {
 func (c *Container) notifyReady() error {
 	// wait a sec for init sock to be ready before dialing - this is nasty
 	// TODO: use file lock to synchronise?
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	timeout := 1 * time.Second
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	ticker := time.NewTicker(100 * time.Millisecond)
@@ -668,7 +669,10 @@ func (c *Container) notifyReady() error {
 	for {
 		select {
 		case <-ctx.Done():
-			return errors.New("failed to connect to init sock")
+			return fmt.Errorf(
+				"failed to connect to init sock after %f seconds",
+				timeout.Seconds(),
+			)
 		case <-ticker.C:
 			initConn, err := net.Dial(
 				"unix",
