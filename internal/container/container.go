@@ -477,15 +477,6 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	// FIXME: potential race on PID
-	process, err := os.FindProcess(c.State.Pid)
-	if err != nil {
-		return fmt.Errorf("find container process to delete: %w", err)
-	}
-	if process != nil {
-		process.Signal(unix.SIGKILL)
-	}
-
 	if c.Spec.Linux.Resources != nil {
 		if anosys.IsUnifiedCGroupsMode() {
 			if err := anosys.DeleteV2CGroups(c.State.ID); err != nil {
@@ -495,6 +486,10 @@ func (c *Container) Delete(force bool) error {
 			if err := anosys.DeleteV1CGroups(c.Spec.Linux.CgroupsPath); err != nil {
 				return err
 			}
+		}
+	} else {
+		if err := syscall.Kill(c.State.Pid, syscall.SIGKILL); err != nil {
+			return fmt.Errorf("send kill signal to process: %w", err)
 		}
 	}
 
