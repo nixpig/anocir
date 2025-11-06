@@ -3,6 +3,7 @@
 package container
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -476,6 +477,7 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
+	// FIXME: potential race on PID
 	process, err := os.FindProcess(c.State.Pid)
 	if err != nil {
 		return fmt.Errorf("find container process to delete: %w", err)
@@ -657,32 +659,34 @@ func (c *Container) mountConsole() error {
 func (c *Container) notifyReady() error {
 	// wait a sec for init sock to be ready before dialing - this is nasty
 	// TODO: use file lock to synchronise?
-	for range 10 {
-		if _, err := os.Stat(filepath.Join(
-			containerRootDir,
-			c.State.ID,
-			initSockFilename,
-		)); errors.Is(err, os.ErrNotExist) {
-			time.Sleep(time.Millisecond * 100)
-			continue
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	defer cancel()
+
+	ticker := time.NewTicker(100 * time.Millisecond)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return errors.New("failed to connect to init sock")
+		case <-ticker.C:
+			initConn, err := net.Dial(
+				"unix",
+				filepath.Join(containerRootDir, c.State.ID, initSockFilename),
+			)
+			if err != nil {
+				continue
+			}
+
+			if _, err := initConn.Write([]byte(readyMsg)); err != nil {
+				return fmt.Errorf("write 'ready' msg to init sock: %w", err)
+			}
+			// close immediately, to be 100% sure it doesn't leak into the container
+			initConn.Close()
+
+			return nil
 		}
 	}
-
-	initConn, err := net.Dial(
-		"unix",
-		filepath.Join(containerRootDir, c.State.ID, initSockFilename),
-	)
-	if err != nil {
-		return fmt.Errorf("dial init sock: %w", err)
-	}
-
-	if _, err := initConn.Write([]byte(readyMsg)); err != nil {
-		return fmt.Errorf("write 'ready' msg to init sock: %w", err)
-	}
-	// close immediately, to be 100% sure it doesn't leak into the container
-	initConn.Close()
-
-	return nil
 }
 
 func (c *Container) waitStart() error {
