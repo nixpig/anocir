@@ -91,7 +91,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 func (c *Container) Save() error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootDir, c.State.ID),
-		0666,
+		0o755,
 	); err != nil {
 		return fmt.Errorf("create container directory: %w", err)
 	}
@@ -104,7 +104,7 @@ func (c *Container) Save() error {
 	if err := os.WriteFile(
 		filepath.Join(containerRootDir, c.State.ID, "state.json"),
 		state,
-		0666,
+		0o644,
 	); err != nil {
 		return fmt.Errorf("write container state: %w", err)
 	}
@@ -113,7 +113,7 @@ func (c *Container) Save() error {
 		if err := os.WriteFile(
 			c.PIDFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
-			0666,
+			0o644,
 		); err != nil {
 			return fmt.Errorf(
 				"write container PID to file (%s): %w",
@@ -249,7 +249,7 @@ func (c *Container) init() error {
 				)
 				cmd.Env = append(cmd.Env, gonsEnv)
 			} else {
-				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0666)
+				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0o666)
 				if err != nil {
 					return fmt.Errorf("open ns path: %w", err)
 				}
