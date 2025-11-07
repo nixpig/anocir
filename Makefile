@@ -16,7 +16,7 @@ build:
 
 .PHONY: test
 test: 
-	go run gotest.tools/gotestsum@latest ./...
+	go test -v -race ./...
 
 .PHONY: coverage
 coverage:
