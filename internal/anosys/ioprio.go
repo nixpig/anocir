@@ -1,13 +1,14 @@
 package anosys
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
 
-var ErrIOPrioMapping error
+var ErrIOPrioMapping = errors.New("ioprio mapping failed")
 
 var ioprioClassMapping = map[specs.IOPriorityClass]int{
 	specs.IOPRIO_CLASS_RT:   1,
@@ -32,7 +33,11 @@ func SetIOPriority(ioprio *specs.LinuxIOPriority) error {
 func ioprioToInt(iop *specs.LinuxIOPriority) (int, error) {
 	class, ok := ioprioClassMapping[iop.Class]
 	if !ok {
-		return 0, ErrIOPrioMapping
+		return 0, fmt.Errorf(
+			"%w: unknown class %s",
+			ErrIOPrioMapping,
+			iop.Class,
+		)
 	}
 
 	ioprio := (class << 13) | iop.Priority
