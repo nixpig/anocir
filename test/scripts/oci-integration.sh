@@ -17,7 +17,6 @@ mkdir -p $logdir
 tests=(
     # "misc_props" # ❗️ (flaky due to test suite trying to delete container before process has exiting and status updated to stopped)
 
-    # "linux_uid_mappings" # ❌ should be fixable
 
     # ✅ passing!
     "default"
@@ -39,6 +38,7 @@ tests=(
     "linux_readonly_paths"
     "linux_rootfs_propagation"
     "linux_sysctl"
+    "linux_uid_mappings"
     "mounts"
     "poststart"
     "poststop"

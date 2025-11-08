@@ -194,22 +194,13 @@ func (c *Container) init() error {
 
 	cloneFlags := uintptr(0)
 
+	var hasUserNamespace bool
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
 
 	for _, ns := range c.Spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
-			uidMappings = append(uidMappings, syscall.SysProcIDMap{
-				ContainerID: 0,
-				HostID:      os.Getuid(),
-				Size:        1,
-			})
-
-			gidMappings = append(gidMappings, syscall.SysProcIDMap{
-				ContainerID: 0,
-				HostID:      os.Getgid(),
-				Size:        1,
-			})
+			hasUserNamespace = true
 		}
 
 		if ns.Type == specs.TimeNamespace {
@@ -265,22 +256,37 @@ func (c *Container) init() error {
 		}
 	}
 
-	// FIXME: needed to run 'linux_uid_mappings'
-	// for _, m := range c.Spec.Linux.UIDMappings {
-	// 	uidMappings = append(uidMappings, syscall.SysProcIDMap{
-	// 		ContainerID: int(m.ContainerID),
-	// 		HostID:      int(m.HostID),
-	// 		Size:        int(m.Size),
-	// 	})
-	// }
-	//
-	// for _, m := range c.Spec.Linux.GIDMappings {
-	// 	gidMappings = append(gidMappings, syscall.SysProcIDMap{
-	// 		ContainerID: int(m.ContainerID),
-	// 		HostID:      int(m.HostID),
-	// 		Size:        int(m.Size),
-	// 	})
-	// }
+	if len(c.Spec.Linux.UIDMappings) > 0 {
+		for _, m := range c.Spec.Linux.UIDMappings {
+			uidMappings = append(uidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
+		}
+	} else if hasUserNamespace {
+		uidMappings = append(uidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getuid(),
+			Size:        1,
+		})
+	}
+
+	if len(c.Spec.Linux.GIDMappings) > 0 {
+		for _, m := range c.Spec.Linux.GIDMappings {
+			gidMappings = append(gidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
+		}
+	} else if hasUserNamespace {
+		gidMappings = append(gidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getgid(),
+			Size:        1,
+		})
+	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:  cloneFlags,
