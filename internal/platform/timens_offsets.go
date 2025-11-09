@@ -1,4 +1,4 @@
-package anosys
+package platform
 
 import (
 	"bytes"

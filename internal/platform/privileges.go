@@ -1,4 +1,4 @@
-package anosys
+package platform
 
 import (
 	"golang.org/x/sys/unix"

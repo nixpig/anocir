@@ -1,4 +1,4 @@
-package anosys
+package platform
 
 import (
 	"github.com/opencontainers/runtime-spec/specs-go"

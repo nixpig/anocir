@@ -18,8 +18,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/nixpig/anocir/internal/anosys"
 	"github.com/nixpig/anocir/internal/hooks"
+	"github.com/nixpig/anocir/internal/platform"
 	"github.com/nixpig/anocir/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/sirupsen/logrus"
@@ -217,7 +217,7 @@ func (c *Container) init() error {
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
-		if err := anosys.AdjustOOMScore(
+		if err := platform.AdjustOOMScore(
 			*c.Spec.Process.OOMScoreAdj,
 		); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
@@ -266,7 +266,7 @@ func (c *Container) init() error {
 
 		if ns.Type == specs.TimeNamespace {
 			if c.Spec.Linux.TimeOffsets != nil {
-				if err := anosys.SetTimeOffsets(
+				if err := platform.SetTimeOffsets(
 					c.Spec.Linux.TimeOffsets,
 				); err != nil {
 					return fmt.Errorf("set timens offsets: %w", err)
@@ -275,11 +275,11 @@ func (c *Container) init() error {
 		}
 
 		if ns.Path == "" {
-			cloneFlags |= anosys.NamespaceFlags[ns.Type]
+			cloneFlags |= platform.NamespaceFlags[ns.Type]
 		} else {
 			suffix := fmt.Sprintf(
 				"/%s",
-				anosys.NamespaceEnvs[ns.Type],
+				platform.NamespaceEnvs[ns.Type],
 			)
 			if !strings.HasSuffix(ns.Path, suffix) &&
 				ns.Type != specs.PIDNamespace {
@@ -297,7 +297,7 @@ func (c *Container) init() error {
 				// reexec
 				gonsEnv := fmt.Sprintf(
 					"gons_%s=%s",
-					anosys.NamespaceEnvs[ns.Type],
+					platform.NamespaceEnvs[ns.Type],
 					ns.Path,
 				)
 				cmd.Env = append(cmd.Env, gonsEnv)
@@ -350,8 +350,8 @@ func (c *Container) init() error {
 	}
 
 	if c.Spec.Linux.Resources != nil {
-		if anosys.IsUnifiedCGroupsMode() {
-			if err := anosys.AddV2CGroups(
+		if platform.IsUnifiedCGroupsMode() {
+			if err := platform.AddV2CGroups(
 				c.State.ID,
 				c.Spec.Linux.Resources,
 				c.State.Pid,
@@ -359,7 +359,7 @@ func (c *Container) init() error {
 				return err
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
-			if err := anosys.AddV1CGroups(
+			if err := platform.AddV1CGroups(
 				c.Spec.Linux.CgroupsPath,
 				c.Spec.Linux.Resources,
 				c.State.Pid,
@@ -522,12 +522,12 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if c.Spec.Linux.Resources != nil {
-		if anosys.IsUnifiedCGroupsMode() {
-			if err := anosys.DeleteV2CGroups(c.State.ID); err != nil {
+		if platform.IsUnifiedCGroupsMode() {
+			if err := platform.DeleteV2CGroups(c.State.ID); err != nil {
 				return err
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
-			if err := anosys.DeleteV1CGroups(c.Spec.Linux.CgroupsPath); err != nil {
+			if err := platform.DeleteV1CGroups(c.Spec.Linux.CgroupsPath); err != nil {
 				return err
 			}
 		}
@@ -562,7 +562,7 @@ func (c *Container) Kill(sig string) error {
 		)
 	}
 
-	if err := anosys.SendSignal(c.State.Pid, sig); err != nil {
+	if err := platform.SendSignal(c.State.Pid, sig); err != nil {
 		return fmt.Errorf(
 			"send signal '%s' to process '%d': %w",
 			sig,
@@ -642,7 +642,7 @@ func (c *Container) pivotRoot() error {
 	}
 
 	logrus.Debug("pivot root")
-	if err := anosys.PivotRoot(c.rootFS()); err != nil {
+	if err := platform.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}
 	logrus.Debug("pivoted root!")
@@ -825,14 +825,14 @@ func Exists(containerID string) bool {
 	return err == nil
 }
 
-// TODO: change the anosys functions to implement Inititaliser interface
+// TODO: change the platform functions to implement Inititaliser interface
 // and pass them in the postPivotInitialisers slice individually?
 func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
-	if err := anosys.MountRootfs(rootfs); err != nil {
+	if err := platform.MountRootfs(rootfs); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
 	}
 
-	if err := anosys.MountProc(rootfs); err != nil {
+	if err := platform.MountProc(rootfs); err != nil {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
@@ -850,50 +850,50 @@ func prePivotInitialisers(spec *specs.Spec, rootfs string) error {
 		},
 	})
 
-	if err := anosys.MountSpecMounts(spec.Mounts, rootfs); err != nil {
+	if err := platform.MountSpecMounts(spec.Mounts, rootfs); err != nil {
 		return fmt.Errorf("mount spec: %w", err)
 	}
 
-	if err := anosys.MountDefaultDevices(rootfs); err != nil {
+	if err := platform.MountDefaultDevices(rootfs); err != nil {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 
-	if err := anosys.CreateDeviceNodes(spec.Linux.Devices, rootfs); err != nil {
+	if err := platform.CreateDeviceNodes(spec.Linux.Devices, rootfs); err != nil {
 		return fmt.Errorf("mount devices from spec: %w", err)
 	}
 
-	if err := anosys.CreateDefaultSymlinks(rootfs); err != nil {
+	if err := platform.CreateDefaultSymlinks(rootfs); err != nil {
 		return fmt.Errorf("create default symlinks: %w", err)
 	}
 
 	return nil
 }
 
-// TODO: change the anosys functions to implement the Inititaliser interface
+// TODO: change the platform functions to implement the Inititaliser interface
 // and pass them in the postPivotInitialisers slice individually?
 func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 	if spec.Linux.Sysctl != nil {
-		if err := anosys.SetSysctl(spec.Linux.Sysctl); err != nil {
+		if err := platform.SetSysctl(spec.Linux.Sysctl); err != nil {
 			return fmt.Errorf("set sysctl: %w", err)
 		}
 	}
 
-	if err := anosys.MountMaskedPaths(spec.Linux.MaskedPaths); err != nil {
+	if err := platform.MountMaskedPaths(spec.Linux.MaskedPaths); err != nil {
 		return err
 	}
 
-	if err := anosys.MountReadonlyPaths(spec.Linux.ReadonlyPaths); err != nil {
+	if err := platform.MountReadonlyPaths(spec.Linux.ReadonlyPaths); err != nil {
 		return err
 	}
 
-	if err := anosys.SetRootfsMountPropagation(
+	if err := platform.SetRootfsMountPropagation(
 		spec.Linux.RootfsPropagation,
 	); err != nil {
 		return err
 	}
 
 	if spec.Root.Readonly {
-		if err := anosys.MountRootReadonly(); err != nil {
+		if err := platform.MountRootReadonly(); err != nil {
 			return err
 		}
 	}
@@ -915,35 +915,35 @@ func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 		}
 	}
 
-	if err := anosys.SetRlimits(spec.Process.Rlimits); err != nil {
+	if err := platform.SetRlimits(spec.Process.Rlimits); err != nil {
 		return fmt.Errorf("set rlimits: %w", err)
 	}
 
 	if spec.Process.Capabilities != nil {
-		if err := anosys.SetCapabilities(spec.Process.Capabilities); err != nil {
+		if err := platform.SetCapabilities(spec.Process.Capabilities); err != nil {
 			return fmt.Errorf("set capabilities: %w", err)
 		}
 	}
 
 	if spec.Process.NoNewPrivileges {
-		if err := anosys.SetNoNewPrivs(); err != nil {
+		if err := platform.SetNoNewPrivs(); err != nil {
 			return fmt.Errorf("set no new privileges: %w", err)
 		}
 	}
 
 	if spec.Process.Scheduler != nil {
-		if err := anosys.SetSchedAttrs(spec.Process.Scheduler); err != nil {
+		if err := platform.SetSchedAttrs(spec.Process.Scheduler); err != nil {
 			return fmt.Errorf("set sched attrs: %w", err)
 		}
 	}
 
 	if spec.Process.IOPriority != nil {
-		if err := anosys.SetIOPriority(spec.Process.IOPriority); err != nil {
+		if err := platform.SetIOPriority(spec.Process.IOPriority); err != nil {
 			return fmt.Errorf("set ioprio: %w", err)
 		}
 	}
 
-	if err := anosys.SetUser(&spec.Process.User); err != nil {
+	if err := platform.SetUser(&spec.Process.User); err != nil {
 		return fmt.Errorf("set user: %w", err)
 	}
 

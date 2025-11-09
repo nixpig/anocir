@@ -1,4 +1,4 @@
-package anosys_test
+package platform_test
 
 import (
 	"testing"

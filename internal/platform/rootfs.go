@@ -1,4 +1,4 @@
-package anosys
+package platform
 
 import (
 	"fmt"
@@ -13,8 +13,6 @@ type mountOption struct {
 	invert    bool
 }
 
-// FIXME: commented out ones cause the runtime to hang for some reason;
-// seems like they're shared subtrees
 var mountOptions = map[string]mountOption{
 	"async": {
 		invert:    true,

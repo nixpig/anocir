@@ -1,4 +1,4 @@
-package anosys
+package platform
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ const oldroot = ".oldroot"
 func PivotRoot(containerRootfs string) error {
 	if err := os.MkdirAll(
 		filepath.Join(containerRootfs, oldroot),
-		0700,
+		0o700,
 	); err != nil {
 		return fmt.Errorf("make old root dir: %w", err)
 	}
