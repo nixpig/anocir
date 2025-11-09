@@ -13,16 +13,16 @@ func Initialise(logfile string, debug bool) {
 		fmt.Printf("Warning: failed to create log directory: %v\n", err)
 	}
 
-	// if f, err := os.OpenFile(
-	// 	logfile,
-	// 	os.O_CREATE|os.O_APPEND|os.O_WRONLY,
-	// 	0o644,
-	// ); err != nil {
-	// 	fmt.Printf("Warning: failed to open log file: %v\n", err)
-	// 	fmt.Println("Logging to stdout...")
-	// } else {
-	// 	logrus.SetOutput(f)
-	// }
+	if f, err := os.OpenFile(
+		logfile,
+		os.O_CREATE|os.O_APPEND|os.O_WRONLY,
+		0o644,
+	); err != nil {
+		fmt.Printf("Warning: failed to open log file: %v\n", err)
+		fmt.Println("Logging to stdout...")
+	} else {
+		logrus.SetOutput(f)
+	}
 
 	if debug {
 		logrus.SetLevel(logrus.DebugLevel)
