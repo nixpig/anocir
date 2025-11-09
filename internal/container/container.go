@@ -99,12 +99,6 @@ func (c *Container) Save() error {
 	//
 	//  - 0o755 required for traversable
 	//  - 0o777 required to create socket files
-	//
-	// Don't really like this, since there's a time between the reexec and
-	// pivot_root that the container could hypothetically read/write state data
-	// about other containers on the system.
-	//
-	// TODO: Review whether that's actually an issue.
 
 	if err := os.Chmod(filepath.Dir(containerRootDir), 0o755); err != nil {
 		return fmt.Errorf("chmod container root parent directory: %w", err)

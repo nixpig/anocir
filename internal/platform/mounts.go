@@ -20,12 +20,18 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		var flags uintptr
 
-		/*
-			TODO: in Docker trying to mount cgroup mountpoint if cgroupv2 is enabled doesn't work
-						the call to `mount` results in an 'invalid argument' error
-						need to find out if that's the expected behaviour or not
-		*/
+		// For cgroupv2 bind mount the cgroup hierarchy.
 		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
+			if err := syscall.Mount(
+				"/sys/fs/cgroup",
+				filepath.Join(rootfs, m.Destination),
+				"",
+				syscall.MS_BIND|syscall.MS_REC,
+				"",
+			); err != nil {
+				return fmt.Errorf("bind mount cgroup2: %w", err)
+			}
+
 			continue
 		}
 
