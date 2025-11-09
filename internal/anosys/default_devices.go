@@ -27,7 +27,7 @@ var deviceType = map[string]uint32{
 }
 
 var (
-	defaultFileMode        = os.FileMode(0666)
+	defaultFileMode        = os.FileMode(0o666)
 	defaultUID      uint32 = 0
 	defaultGID      uint32 = 0
 )

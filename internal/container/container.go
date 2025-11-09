@@ -90,11 +90,34 @@ func New(opts *NewContainerOpts) (*Container, error) {
 
 // Save persists the container's state.
 func (c *Container) Save() error {
-	if err := os.MkdirAll(
-		filepath.Join(containerRootDir, c.State.ID),
-		0o755,
-	); err != nil {
+	if err := os.MkdirAll(containerRootDir, 0o755); err != nil {
+		return fmt.Errorf("create container root directory: %w", err)
+	}
+
+	// chmod parent directories so that when non-root UID mappings applied to
+	// container it can still access them.
+	//
+	//  - 0o755 required for traversable
+	//  - 0o777 required to create socket files
+	//
+	// Don't really like this, since there's a time between the reexec and
+	// pivot_root that the container could hypothetically read/write state data
+	// about other containers on the system.
+	//
+	// TODO: Review whether that's actually an issue.
+
+	if err := os.Chmod(filepath.Dir(containerRootDir), 0o755); err != nil {
+		return fmt.Errorf("chmod container root parent directory: %w", err)
+	}
+
+	containerDir := filepath.Join(containerRootDir, c.State.ID)
+
+	if err := os.MkdirAll(containerDir, 0o755); err != nil {
 		return fmt.Errorf("create container directory: %w", err)
+	}
+
+	if err := os.Chmod(containerDir, 0o777); err != nil {
+		return fmt.Errorf("chmod container directory: %w", err)
 	}
 
 	state, err := json.Marshal(c.State)
@@ -102,12 +125,14 @@ func (c *Container) Save() error {
 		return fmt.Errorf("serialise container state: %w", err)
 	}
 
-	if err := os.WriteFile(
-		filepath.Join(containerRootDir, c.State.ID, "state.json"),
-		state,
-		0o644,
-	); err != nil {
+	stateFile := filepath.Join(containerDir, "state.json")
+
+	if err := os.WriteFile(stateFile, state, 0o644); err != nil {
 		return fmt.Errorf("write container state: %w", err)
+	}
+
+	if err := os.Chmod(stateFile, 0o644); err != nil {
+		return fmt.Errorf("chmod state file: %w", err)
 	}
 
 	if c.PIDFile != "" {
@@ -184,6 +209,13 @@ func (c *Container) init() error {
 	}
 	defer listener.Close()
 
+	sockPath := filepath.Join(containerRootDir, c.State.ID, initSockFilename)
+
+	// Ensure socket accessible from user namespace in container
+	if err := os.Chmod(sockPath, 0o777); err != nil {
+		logrus.Warnf("Failed to chmod init socket: %v", err)
+	}
+
 	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
 		if err := anosys.AdjustOOMScore(
 			*c.Spec.Process.OOMScoreAdj,
@@ -194,13 +226,42 @@ func (c *Container) init() error {
 
 	cloneFlags := uintptr(0)
 
-	var hasUserNamespace bool
 	var uidMappings []syscall.SysProcIDMap
 	var gidMappings []syscall.SysProcIDMap
 
 	for _, ns := range c.Spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
-			hasUserNamespace = true
+			if len(c.Spec.Linux.UIDMappings) > 0 {
+				for _, m := range c.Spec.Linux.UIDMappings {
+					uidMappings = append(uidMappings, syscall.SysProcIDMap{
+						ContainerID: int(m.ContainerID),
+						HostID:      int(m.HostID),
+						Size:        int(m.Size),
+					})
+				}
+			} else {
+				uidMappings = append(uidMappings, syscall.SysProcIDMap{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				})
+			}
+
+			if len(c.Spec.Linux.GIDMappings) > 0 {
+				for _, m := range c.Spec.Linux.GIDMappings {
+					gidMappings = append(gidMappings, syscall.SysProcIDMap{
+						ContainerID: int(m.ContainerID),
+						HostID:      int(m.HostID),
+						Size:        int(m.Size),
+					})
+				}
+			} else {
+				gidMappings = append(gidMappings, syscall.SysProcIDMap{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				})
+			}
 		}
 
 		if ns.Type == specs.TimeNamespace {
@@ -256,42 +317,19 @@ func (c *Container) init() error {
 		}
 	}
 
-	if len(c.Spec.Linux.UIDMappings) > 0 {
-		for _, m := range c.Spec.Linux.UIDMappings {
-			uidMappings = append(uidMappings, syscall.SysProcIDMap{
-				ContainerID: int(m.ContainerID),
-				HostID:      int(m.HostID),
-				Size:        int(m.Size),
-			})
-		}
-	} else if hasUserNamespace {
-		uidMappings = append(uidMappings, syscall.SysProcIDMap{
-			ContainerID: 0,
-			HostID:      os.Getuid(),
-			Size:        1,
-		})
-	}
-
-	if len(c.Spec.Linux.GIDMappings) > 0 {
-		for _, m := range c.Spec.Linux.GIDMappings {
-			gidMappings = append(gidMappings, syscall.SysProcIDMap{
-				ContainerID: int(m.ContainerID),
-				HostID:      int(m.HostID),
-				Size:        int(m.Size),
-			})
-		}
-	} else if hasUserNamespace {
-		gidMappings = append(gidMappings, syscall.SysProcIDMap{
-			ContainerID: 0,
-			HostID:      os.Getgid(),
-			Size:        1,
-		})
-	}
-
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Cloneflags:  cloneFlags,
 		UidMappings: uidMappings,
 		GidMappings: gidMappings,
+	}
+
+	if len(uidMappings) > 0 || len(gidMappings) > 0 {
+		cmd.SysProcAttr.GidMappingsEnableSetgroups = false
+
+		// Explicitly set child to UID/GID 0 so it has necessary permissions to
+		// pick up the mapped credentials and capabilities from /proc/<pid>/uid_map
+		// and /proc/<pid>/gid_map
+		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 	}
 
 	if c.Spec.Process != nil && c.Spec.Process.Env != nil {

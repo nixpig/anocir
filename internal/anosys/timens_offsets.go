@@ -23,7 +23,7 @@ func SetTimeOffsets(offsets map[string]specs.LinuxTimeOffset) error {
 	if err := os.WriteFile(
 		"/proc/self/timens_offsets",
 		tos.Bytes(),
-		0644,
+		0o644,
 	); err != nil {
 		return fmt.Errorf("write timens offsets: %w", err)
 	}

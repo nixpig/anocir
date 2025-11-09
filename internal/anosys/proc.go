@@ -11,7 +11,7 @@ import (
 // filesystem.
 func MountProc(containerRootfs string) error {
 	containerProc := filepath.Join(containerRootfs, "proc")
-	if err := os.MkdirAll(containerProc, 0666); err != nil {
+	if err := os.MkdirAll(containerProc, 0o666); err != nil {
 		return fmt.Errorf("create proc dir: %w", err)
 	}
 

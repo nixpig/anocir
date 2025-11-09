@@ -18,7 +18,7 @@ func TestExecHooks(t *testing.T) {
 	script := `#!/bin/sh
 echo "hook called" > ` + outputFile + `
 `
-	err := os.WriteFile(hookPath, []byte(script), 0755)
+	err := os.WriteFile(hookPath, []byte(script), 0o755)
 	assert.NoError(t, err)
 
 	hooks := []specs.Hook{
@@ -47,7 +47,7 @@ func TestExecHooks_Timeout(t *testing.T) {
 	script := `#!/bin/sh
 sleep 2
 `
-	err := os.WriteFile(hookPath, []byte(script), 0755)
+	err := os.WriteFile(hookPath, []byte(script), 0o755)
 	assert.NoError(t, err)
 
 	hooks := []specs.Hook{

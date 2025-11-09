@@ -15,7 +15,7 @@ func SetSysctl(sc map[string]string) error {
 		if err := os.WriteFile(
 			path.Join("/proc/sys", kp),
 			[]byte(v),
-			0644,
+			0o644,
 		); err != nil {
 			return fmt.Errorf("write sysctl (%s: %s): %w", kp, v, err)
 		}
