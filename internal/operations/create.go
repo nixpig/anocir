@@ -16,12 +16,13 @@ type CreateOpts struct {
 	Bundle        string
 	ConsoleSocket string
 	PIDFile       string
+	RootDir       string
 }
 
 // Create creates a new container. It takes CreateOpts as input, which includes
 // the container ID, bundle path, console socket path, and PID file path.
 func Create(opts *CreateOpts) error {
-	if container.Exists(opts.ID) {
+	if container.Exists(opts.ID, opts.RootDir) {
 		return fmt.Errorf("container '%s' exists", opts.ID)
 	}
 
@@ -46,6 +47,7 @@ func Create(opts *CreateOpts) error {
 		Spec:          spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
+		RootDir:       opts.RootDir,
 	})
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)

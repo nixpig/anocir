@@ -25,9 +25,15 @@ func reexecCmd() *cobra.Command {
 				consoleSocketFD = &flag
 			}
 
+			rootDir, err := cmd.Flags().GetString("root")
+			if err != nil {
+				return err
+			}
+
 			if err := operations.Reexec(&operations.ReexecOpts{
 				ID:              containerID,
 				ConsoleSocketFD: consoleSocketFD,
+				RootDir:         rootDir,
 			}); err != nil {
 				logrus.Errorf("reexec operation failed: %s", err)
 				return fmt.Errorf("reexec: %w", err)

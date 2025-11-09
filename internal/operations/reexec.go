@@ -10,12 +10,13 @@ import (
 type ReexecOpts struct {
 	ID              string
 	ConsoleSocketFD *int
+	RootDir         string
 }
 
 // Reexec re-executes the container process. It takes ReexecOpts as input,
 // which includes the container ID and a console socket file descriptor.
 func Reexec(opts *ReexecOpts) error {
-	cntr, err := container.Load(opts.ID)
+	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {
 		return fmt.Errorf("load container: %w", err)
 	}

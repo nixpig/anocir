@@ -34,11 +34,17 @@ func createCmd() *cobra.Command {
 				return err
 			}
 
+			rootDir, err := cmd.Flags().GetString("root")
+			if err != nil {
+				return err
+			}
+
 			if err := operations.Create(&operations.CreateOpts{
 				ID:            containerID,
 				Bundle:        bundle,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
+				RootDir:       rootDir,
 			}); err != nil {
 				logrus.Errorf("create operation failed: %s", err)
 				return fmt.Errorf("create: %w", err)

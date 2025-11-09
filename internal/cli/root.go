@@ -31,11 +31,17 @@ func RootCmd() *cobra.Command {
 		featuresCmd(),
 	)
 
-	// TODO: implement for Docker?
+	// Required by Docker
 	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "placeholder")
-	cmd.PersistentFlags().StringP("root", "", "", "placeholder")
 	cmd.PersistentFlags().StringP("log-format", "", "", "placeholder")
 	// ---
+
+	cmd.PersistentFlags().StringP(
+		"root",
+		"",
+		"/var/lib/anocir/containers",
+		"Root directory for container state",
+	)
 
 	cmd.PersistentFlags().StringP(
 		"log",
@@ -43,6 +49,7 @@ func RootCmd() *cobra.Command {
 		"/var/log/anocir/log.txt",
 		"Location of log file",
 	)
+
 	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true

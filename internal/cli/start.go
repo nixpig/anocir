@@ -18,8 +18,14 @@ func startCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
+			rootDir, err := cmd.Flags().GetString("root")
+			if err != nil {
+				return err
+			}
+
 			if err := operations.Start(&operations.StartOpts{
-				ID: containerID,
+				ID:      containerID,
+				RootDir: rootDir,
 			}); err != nil {
 				logrus.Errorf("start operation failed: %s", err)
 				return fmt.Errorf("start: %w", err)

@@ -21,9 +21,15 @@ func deleteCmd() *cobra.Command {
 				return err
 			}
 
+			rootDir, err := cmd.Flags().GetString("root")
+			if err != nil {
+				return err
+			}
+
 			if err := operations.Delete(&operations.DeleteOpts{
-				ID:    containerID,
-				Force: force,
+				ID:      containerID,
+				Force:   force,
+				RootDir: rootDir,
 			}); err != nil {
 				return fmt.Errorf("delete: %w", err)
 			}

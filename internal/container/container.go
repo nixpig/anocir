@@ -27,15 +27,15 @@ import (
 )
 
 const (
-	initSockFilename      = "init.sock"
-	containerSockFilename = "container.sock"
+	// TODO: These are named like this so the total path length doesn't exceed
+	// 108 characters. Probably should look at using abstract namespace sockets
+	// or using a different base directory to store them.
+	initSockFilename      = "i.sock"
+	containerSockFilename = "c.sock"
 
 	// IPC socket messages
 	readyMsg = "ready"
 	startMsg = "start"
-
-	// TODO: make this configurable?
-	containerRootDir = "/var/lib/anocir/containers"
 )
 
 // Container represents an OCI container, including its state, specification,
@@ -48,6 +48,7 @@ type Container struct {
 	Pty             *terminal.Pty
 	PIDFile         string
 	Opts            *NewContainerOpts
+	RootDir         string
 }
 
 // NewContainerOpts holds the options for creating a new container.
@@ -57,6 +58,7 @@ type NewContainerOpts struct {
 	Spec          *specs.Spec
 	ConsoleSocket string
 	PIDFile       string
+	RootDir       string
 }
 
 // Initialiser functions are passed to init and reexec functions of a
@@ -79,6 +81,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
 		Opts:          opts,
+		RootDir:       opts.RootDir,
 	}
 
 	if err := c.Save(); err != nil {
@@ -90,7 +93,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 
 // Save persists the container's state.
 func (c *Container) Save() error {
-	if err := os.MkdirAll(containerRootDir, 0o755); err != nil {
+	if err := os.MkdirAll(c.RootDir, 0o755); err != nil {
 		return fmt.Errorf("create container root directory: %w", err)
 	}
 
@@ -100,17 +103,21 @@ func (c *Container) Save() error {
 	//  - 0o755 required for traversable
 	//  - 0o777 required to create socket files
 
-	if err := os.Chmod(filepath.Dir(containerRootDir), 0o755); err != nil {
-		return fmt.Errorf("chmod container root parent directory: %w", err)
+	if err := os.Chmod(filepath.Dir(c.RootDir), 0o755); err != nil {
+		logrus.Debugf("chmod container root parent directory: %s", err)
 	}
 
-	containerDir := filepath.Join(containerRootDir, c.State.ID)
+	containerDir := filepath.Join(c.RootDir, c.State.ID)
 
 	if err := os.MkdirAll(containerDir, 0o755); err != nil {
 		return fmt.Errorf("create container directory: %w", err)
 	}
 
 	if err := os.Chmod(containerDir, 0o777); err != nil {
+		logrus.Errorf(
+			"CRITICAL: FAILED to chmod container dir to 0777: %v",
+			err,
+		)
 		return fmt.Errorf("chmod container directory: %w", err)
 	}
 
@@ -188,22 +195,20 @@ func (c *Container) init() error {
 	if c.ConsoleSocketFD != nil {
 		fd := strconv.Itoa(*c.ConsoleSocketFD)
 		args = append(args, "--console-socket-fd", fd)
+		args = append(args, "--root", c.RootDir)
 	}
 
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)
 
-	listener, err := net.Listen(
-		"unix",
-		filepath.Join(containerRootDir, c.State.ID, initSockFilename),
-	)
+	sockPath := filepath.Join(c.RootDir, c.State.ID, initSockFilename)
+
+	listener, err := net.Listen("unix", sockPath)
 	if err != nil {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
 	defer listener.Close()
-
-	sockPath := filepath.Join(containerRootDir, c.State.ID, initSockFilename)
 
 	// Ensure socket accessible from user namespace in container
 	if err := os.Chmod(sockPath, 0o777); err != nil {
@@ -480,7 +485,7 @@ func (c *Container) Start() error {
 
 	conn, err := net.Dial(
 		"unix",
-		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
+		filepath.Join(c.RootDir, c.State.ID, containerSockFilename),
 	)
 	if err != nil {
 		logrus.Errorf("failed to dial container sock: %s", err)
@@ -535,7 +540,7 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := os.RemoveAll(
-		filepath.Join(containerRootDir, c.State.ID),
+		filepath.Join(c.RootDir, c.State.ID),
 	); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
@@ -712,7 +717,7 @@ func (c *Container) notifyReady() error {
 		case <-ticker.C:
 			initConn, err := net.Dial(
 				"unix",
-				filepath.Join(containerRootDir, c.State.ID, initSockFilename),
+				filepath.Join(c.RootDir, c.State.ID, initSockFilename),
 			)
 			if err != nil {
 				continue
@@ -732,7 +737,7 @@ func (c *Container) notifyReady() error {
 func (c *Container) waitStart() error {
 	listener, err := net.Listen(
 		"unix",
-		filepath.Join(containerRootDir, c.State.ID, containerSockFilename),
+		filepath.Join(c.RootDir, c.State.ID, containerSockFilename),
 	)
 	if err != nil {
 		return fmt.Errorf("listen on container sock: %w", err)
@@ -783,8 +788,8 @@ func (c *Container) execUserProcess() error {
 }
 
 // Load retrieves a container's state and specification, based on its ID.
-func Load(id string) (*Container, error) {
-	s, err := os.ReadFile(filepath.Join(containerRootDir, id, "state.json"))
+func Load(id, rootDir string) (*Container, error) {
+	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
 	if err != nil {
 		return nil, fmt.Errorf("read state file: %w", err)
 	}
@@ -805,16 +810,17 @@ func Load(id string) (*Container, error) {
 	}
 
 	c := &Container{
-		State: state,
-		Spec:  spec,
+		State:   state,
+		Spec:    spec,
+		RootDir: rootDir,
 	}
 
 	return c, nil
 }
 
 // Exists checks if a container with the given ID exists.
-func Exists(containerID string) bool {
-	_, err := os.Stat(filepath.Join(containerRootDir, containerID))
+func Exists(containerID, rootDir string) bool {
+	_, err := os.Stat(filepath.Join(rootDir, containerID))
 
 	return err == nil
 }
