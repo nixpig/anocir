@@ -44,12 +44,6 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		var dataOptions []string
 
 		for _, opt := range m.Options {
-			// TODO: should this be setting the group id of the mount?
-			switch o := opt; {
-			case strings.HasPrefix(o, "gid"):
-				continue
-			}
-
 			if f, ok := mountOptions[opt]; ok {
 				// bind mount propagation
 				propagate := opt != "private" && opt != "rprivate" &&
