@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"path/filepath"
 	"syscall"
 	"unsafe"
 
@@ -152,13 +151,7 @@ func SendPty(consoleSocket int, pty *Pty) error {
 // working directory to the rootfs, creates a symlink for the console socket,
 // and returns the file descriptor of the console socket.
 func Setup(rootfs, consoleSocketPath string) (*int, error) {
-	consoleSocketSymlink := filepath.Join(rootfs, "console-socket")
-
-	if err := os.Symlink(consoleSocketPath, consoleSocketSymlink); err != nil {
-		return nil, fmt.Errorf("symlink console socket: %w", err)
-	}
-
-	consoleSocket, err := NewPtySocket(consoleSocketSymlink)
+	consoleSocket, err := NewPtySocket(consoleSocketPath)
 	if err != nil {
 		return nil, fmt.Errorf("create terminal socket: %w", err)
 	}
