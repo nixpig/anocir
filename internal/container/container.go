@@ -802,9 +802,11 @@ func Load(id, rootDir string) (*Container, error) {
 	}
 
 	c := &Container{
-		State:   state,
-		Spec:    spec,
-		rootDir: rootDir,
+		State:         state,
+		Spec:          spec,
+		rootDir:       rootDir,
+		initSock:      filepath.Join(rootDir, id, initSockFilename),
+		containerSock: filepath.Join(rootDir, id, containerSockFilename),
 	}
 
 	return c, nil
