@@ -27,14 +27,23 @@ import (
 )
 
 const (
-	// TODO: These are named like this so the total path length doesn't exceed
-	// 108 characters. Probably should look at using abstract namespace sockets
-	// or using a different base directory to store them.
-	initSockFilename      = "i.sock"
+	// TODO: initSockFilename and containerSockFilename are named as a single char
+	// so that the total path length doesn't exceed 108 characters.
+	// Probably should look at using abstract namespace sockets or using a
+	// different base directory to store them.
+
+	// initSockFilename is the filename of the socket used by the container to
+	// send messages to the runtime during initialisation.
+	initSockFilename = "i.sock"
+	// containerSockFilename is the filename of the socket used by the runtime to
+	// send messages to the container.
 	containerSockFilename = "c.sock"
 
-	// IPC socket messages
+	// readyMsg is the message sent on the init socket when the container is
+	// created and ready to receive commands.
 	readyMsg = "ready"
+	// startMsg is the message sent on the container socket to start the created
+	// container.
 	startMsg = "start"
 )
 
@@ -47,7 +56,10 @@ type Container struct {
 	ConsoleSocketFD *int
 	Pty             *terminal.Pty
 	PIDFile         string
-	RootDir         string
+
+	rootDir       string
+	initSock      string
+	containerSock string
 }
 
 // NewContainerOpts holds the options for creating a new container.
@@ -61,10 +73,11 @@ type NewContainerOpts struct {
 }
 
 // Initialiser functions are passed to init and reexec functions of a
-// Container, typically to perform syscalls and other initialisation tasks.
+// Container to perform syscalls and other initialisation tasks.
 type Initialiser func(spec *specs.Spec, rootfs string) error
 
-// New creates a new container instance based on the provided options.
+// New creates a container based on the provided opts and saves its state.
+// The container will be in the 'creating' state.
 func New(opts *NewContainerOpts) (*Container, error) {
 	state := &specs.State{
 		Version:     specs.Version,
@@ -79,7 +92,14 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		Spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
-		RootDir:       opts.RootDir,
+
+		rootDir:  opts.RootDir,
+		initSock: filepath.Join(opts.RootDir, opts.ID, initSockFilename),
+		containerSock: filepath.Join(
+			opts.RootDir,
+			opts.ID,
+			containerSockFilename,
+		),
 	}
 
 	if err := c.Save(); err != nil {
@@ -89,9 +109,10 @@ func New(opts *NewContainerOpts) (*Container, error) {
 	return c, nil
 }
 
-// Save persists the container's state.
+// Save persists the container's state to disk. It creates the required
+// directory hierarchy and sets permissions, if needed.
 func (c *Container) Save() error {
-	if err := os.MkdirAll(c.RootDir, 0o755); err != nil {
+	if err := os.MkdirAll(c.rootDir, 0o755); err != nil {
 		return fmt.Errorf("create container root directory: %w", err)
 	}
 
@@ -101,21 +122,17 @@ func (c *Container) Save() error {
 	//  - 0o755 required for traversable
 	//  - 0o777 required to create socket files
 
-	if err := os.Chmod(filepath.Dir(c.RootDir), 0o755); err != nil {
+	if err := os.Chmod(filepath.Dir(c.rootDir), 0o755); err != nil {
 		logrus.Debugf("chmod container root parent directory: %s", err)
 	}
 
-	containerDir := filepath.Join(c.RootDir, c.State.ID)
+	containerDir := filepath.Join(c.rootDir, c.State.ID)
 
 	if err := os.MkdirAll(containerDir, 0o755); err != nil {
 		return fmt.Errorf("create container directory: %w", err)
 	}
 
 	if err := os.Chmod(containerDir, 0o777); err != nil {
-		logrus.Errorf(
-			"CRITICAL: FAILED to chmod container dir to 0777: %v",
-			err,
-		)
 		return fmt.Errorf("chmod container directory: %w", err)
 	}
 
@@ -140,20 +157,16 @@ func (c *Container) Save() error {
 			[]byte(strconv.Itoa(c.State.Pid)),
 			0o644,
 		); err != nil {
-			return fmt.Errorf(
-				"write container PID to file (%s): %w",
-				c.PIDFile,
-				err,
-			)
+			return fmt.Errorf("write pid file (%s): %w", c.PIDFile, err)
 		}
 	}
 
 	return nil
 }
 
-// Init prepares the container for execution. It executes hooks,
-// sets up the terminal if necessary, and re-execs the runtime binary to
-// containerise the process.
+// Init prepares the container for execution. It executes hooks, sets up the
+// terminal if necessary, and re-execs the runtime binary to containerise the
+// process.
 func (c *Container) Init() error {
 	return c.init()
 }
@@ -185,8 +198,7 @@ func (c *Container) init() error {
 
 	args := []string{"reexec"}
 
-	logLevel := logrus.GetLevel()
-	if logLevel == logrus.DebugLevel {
+	if logrus.GetLevel() == logrus.DebugLevel {
 		args = append(args, "--debug")
 	}
 
@@ -195,21 +207,19 @@ func (c *Container) init() error {
 		args = append(args, "--console-socket-fd", fd)
 	}
 
-	args = append(args, "--root", c.RootDir)
+	args = append(args, "--root", c.rootDir)
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)
 
-	sockPath := filepath.Join(c.RootDir, c.State.ID, initSockFilename)
-
-	listener, err := net.Listen("unix", sockPath)
+	listener, err := net.Listen("unix", c.initSock)
 	if err != nil {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
 	defer listener.Close()
 
 	// Ensure socket accessible from user namespace in container
-	if err := os.Chmod(sockPath, 0o777); err != nil {
+	if err := os.Chmod(c.initSock, 0o777); err != nil {
 		logrus.Warnf("Failed to chmod init socket: %v", err)
 	}
 
@@ -223,12 +233,14 @@ func (c *Container) init() error {
 
 	cloneFlags := uintptr(0)
 
-	var uidMappings []syscall.SysProcIDMap
-	var gidMappings []syscall.SysProcIDMap
+	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
+	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
 
 	for _, ns := range c.Spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
-			if len(c.Spec.Linux.UIDMappings) > 0 {
+			if uidCount := len(c.Spec.Linux.UIDMappings); uidCount > 0 {
+				uidMappings = slices.Grow(uidMappings, uidCount-1)
+
 				for _, m := range c.Spec.Linux.UIDMappings {
 					uidMappings = append(uidMappings, syscall.SysProcIDMap{
 						ContainerID: int(m.ContainerID),
@@ -244,8 +256,10 @@ func (c *Container) init() error {
 				})
 			}
 
-			if len(c.Spec.Linux.GIDMappings) > 0 {
+			if gidCount := len(c.Spec.Linux.GIDMappings); gidCount > 0 {
 				for _, m := range c.Spec.Linux.GIDMappings {
+					gidMappings = slices.Grow(gidMappings, gidCount-1)
+
 					gidMappings = append(gidMappings, syscall.SysProcIDMap{
 						ContainerID: int(m.ContainerID),
 						HostID:      int(m.HostID),
@@ -261,23 +275,17 @@ func (c *Container) init() error {
 			}
 		}
 
-		if ns.Type == specs.TimeNamespace {
-			if c.Spec.Linux.TimeOffsets != nil {
-				if err := platform.SetTimeOffsets(
-					c.Spec.Linux.TimeOffsets,
-				); err != nil {
-					return fmt.Errorf("set timens offsets: %w", err)
-				}
+		if ns.Type == specs.TimeNamespace && c.Spec.Linux.TimeOffsets != nil {
+			if err := platform.SetTimeOffsets(c.Spec.Linux.TimeOffsets); err != nil {
+				return fmt.Errorf("set timens offsets: %w", err)
 			}
 		}
 
 		if ns.Path == "" {
 			cloneFlags |= platform.NamespaceFlags[ns.Type]
 		} else {
-			suffix := fmt.Sprintf(
-				"/%s",
-				platform.NamespaceEnvs[ns.Type],
-			)
+			suffix := fmt.Sprintf("/%s", platform.NamespaceEnvs[ns.Type])
+
 			if !strings.HasSuffix(ns.Path, suffix) &&
 				ns.Type != specs.PIDNamespace {
 				return fmt.Errorf(
@@ -288,10 +296,10 @@ func (c *Container) init() error {
 			}
 
 			if ns.Type == specs.MountNamespace {
-				// mount namespaces do not work across OS threads and Go cannot
+				// Mount namespaces do not work across OS threads and Go cannot
 				// guarantee what thread any newly spawned goroutines will land on,
 				// so this needs to be done in single-threaded context in C before the
-				// reexec
+				// reexec.
 				gonsEnv := fmt.Sprintf(
 					"gons_%s=%s",
 					platform.NamespaceEnvs[ns.Type],
@@ -315,17 +323,17 @@ func (c *Container) init() error {
 	}
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags:  cloneFlags,
-		UidMappings: uidMappings,
-		GidMappings: gidMappings,
+		Cloneflags: cloneFlags,
 	}
 
 	if len(uidMappings) > 0 || len(gidMappings) > 0 {
+		cmd.SysProcAttr.UidMappings = uidMappings
+		cmd.SysProcAttr.GidMappings = gidMappings
 		cmd.SysProcAttr.GidMappingsEnableSetgroups = false
 
 		// Explicitly set child to UID/GID 0 so it has necessary permissions to
 		// pick up the mapped credentials and capabilities from /proc/<pid>/uid_map
-		// and /proc/<pid>/gid_map
+		// and /proc/<pid>/gid_map.
 		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 	}
 
@@ -343,7 +351,7 @@ func (c *Container) init() error {
 
 	c.State.Pid = cmd.Process.Pid
 	if err := c.Save(); err != nil {
-		return fmt.Errorf("save container pid state: %w", err)
+		return fmt.Errorf("save container state: %w", err)
 	}
 
 	if c.Spec.Linux.Resources != nil {
@@ -353,7 +361,7 @@ func (c *Container) init() error {
 				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
-				return fmt.Errorf("add v2 cgroup: %w", err)
+				return fmt.Errorf("add to v2 cgroup: %w", err)
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
 			if err := platform.AddV1CGroups(
@@ -361,13 +369,12 @@ func (c *Container) init() error {
 				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
-				return fmt.Errorf("add v1 cgroup: %w", err)
+				return fmt.Errorf("add to v1 cgroup: %w", err)
 			}
 		}
 	}
 
 	if err := cmd.Process.Release(); err != nil {
-		logrus.Errorf("failed to release container process: %s", err)
 		return fmt.Errorf("release container process: %w", err)
 	}
 
@@ -380,7 +387,7 @@ func (c *Container) init() error {
 	b := make([]byte, 128)
 	n, err := conn.Read(b)
 	if err != nil {
-		return fmt.Errorf("read bytes from init sock connection: %w", err)
+		return fmt.Errorf("read from init sock: %w", err)
 	}
 
 	msg := string(b[:n])
@@ -481,10 +488,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
-	conn, err := net.Dial(
-		"unix",
-		filepath.Join(c.RootDir, c.State.ID, containerSockFilename),
-	)
+	conn, err := net.Dial("unix", c.containerSock)
 	if err != nil {
 		logrus.Errorf("failed to dial container sock: %s", err)
 		return fmt.Errorf("dial container sock: %w", err)
@@ -538,7 +542,7 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := os.RemoveAll(
-		filepath.Join(c.RootDir, c.State.ID),
+		filepath.Join(c.rootDir, c.State.ID),
 	); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
@@ -703,8 +707,6 @@ func (c *Container) notifyReady() error {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
-	sockPath := filepath.Join(c.RootDir, c.State.ID, initSockFilename)
-
 	for {
 		select {
 		case <-ctx.Done():
@@ -713,7 +715,7 @@ func (c *Container) notifyReady() error {
 				timeout,
 			)
 		case <-ticker.C:
-			initConn, err := net.Dial("unix", sockPath)
+			initConn, err := net.Dial("unix", c.initSock)
 			if err != nil {
 				continue
 			}
@@ -730,34 +732,29 @@ func (c *Container) notifyReady() error {
 }
 
 func (c *Container) waitStart() error {
-	listener, err := net.Listen(
-		"unix",
-		filepath.Join(c.RootDir, c.State.ID, containerSockFilename),
-	)
+	listener, err := net.Listen("unix", c.containerSock)
 	if err != nil {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
+	defer listener.Close()
 
 	containerConn, err := listener.Accept()
 	if err != nil {
 		logrus.Errorf("failed to accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
+	defer containerConn.Close()
 
 	b := make([]byte, 128)
 	n, err := containerConn.Read(b)
 	if err != nil {
-		return fmt.Errorf("read bytes from container sock: %w", err)
+		return fmt.Errorf("read from container sock: %w", err)
 	}
 
 	msg := string(b[:n])
 	if msg != startMsg {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
-
-	// close immediately so we're sure no potential for leakage
-	containerConn.Close()
-	listener.Close()
 
 	return nil
 }
@@ -807,7 +804,7 @@ func Load(id, rootDir string) (*Container, error) {
 	c := &Container{
 		State:   state,
 		Spec:    spec,
-		RootDir: rootDir,
+		rootDir: rootDir,
 	}
 
 	return c, nil
