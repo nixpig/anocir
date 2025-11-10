@@ -47,7 +47,6 @@ type Container struct {
 	ConsoleSocketFD *int
 	Pty             *terminal.Pty
 	PIDFile         string
-	Opts            *NewContainerOpts
 	RootDir         string
 }
 
@@ -80,7 +79,6 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		Spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
-		Opts:          opts,
 		RootDir:       opts.RootDir,
 	}
 
@@ -195,9 +193,9 @@ func (c *Container) init() error {
 	if c.ConsoleSocketFD != nil {
 		fd := strconv.Itoa(*c.ConsoleSocketFD)
 		args = append(args, "--console-socket-fd", fd)
-		args = append(args, "--root", c.RootDir)
 	}
 
+	args = append(args, "--root", c.RootDir)
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)
@@ -355,7 +353,7 @@ func (c *Container) init() error {
 				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
-				return err
+				return fmt.Errorf("add v2 cgroup: %w", err)
 			}
 		} else if c.Spec.Linux.CgroupsPath != "" {
 			if err := platform.AddV1CGroups(
@@ -363,7 +361,7 @@ func (c *Container) init() error {
 				c.Spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
-				return err
+				return fmt.Errorf("add v1 cgroup: %w", err)
 			}
 		}
 	}
@@ -640,11 +638,9 @@ func (c *Container) pivotRoot() error {
 		return errors.New("process is required")
 	}
 
-	logrus.Debug("pivot root")
 	if err := platform.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}
-	logrus.Debug("pivoted root!")
 
 	return nil
 }
@@ -707,6 +703,8 @@ func (c *Container) notifyReady() error {
 	ticker := time.NewTicker(100 * time.Millisecond)
 	defer ticker.Stop()
 
+	sockPath := filepath.Join(c.RootDir, c.State.ID, initSockFilename)
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -715,10 +713,7 @@ func (c *Container) notifyReady() error {
 				timeout,
 			)
 		case <-ticker.C:
-			initConn, err := net.Dial(
-				"unix",
-				filepath.Join(c.RootDir, c.State.ID, initSockFilename),
-			)
+			initConn, err := net.Dial("unix", sockPath)
 			if err != nil {
 				continue
 			}
