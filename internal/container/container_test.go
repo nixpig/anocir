@@ -1,11 +1,62 @@
 package container
 
 import (
+	"encoding/json"
+	"os"
+	"path/filepath"
 	"testing"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
 )
+
+func TestContainerLifecycle(t *testing.T) {
+	opts := &ContainerOpts{
+		ID:      "test-container",
+		Bundle:  t.TempDir(),
+		Spec:    &specs.Spec{},
+		RootDir: t.TempDir(),
+		PIDFile: filepath.Join(t.TempDir(), "pid"),
+	}
+
+	config, err := json.Marshal(&specs.Spec{})
+	assert.NoError(t, err, "Spec should marshal to JSON")
+
+	os.WriteFile(filepath.Join(opts.Bundle, "config.json"), config, 0o644)
+
+	c, err := New(opts)
+	assert.NoError(t, err)
+	assert.NotNil(t, c)
+
+	stateFileInfo, err := os.Stat(
+		filepath.Join(opts.RootDir, opts.ID, "state.json"),
+	)
+	assert.NoError(t, err)
+	assert.Equal(t, os.FileMode(0o644), stateFileInfo.Mode().Perm())
+
+	exists := Exists(opts.ID, opts.RootDir)
+	assert.True(t, exists, "Exists should confirm container exists")
+
+	loaded, err := Load(opts.ID, opts.RootDir)
+	assert.NoError(t, err, "Load should load container")
+
+	assert.Equal(t, &Container{
+		State: &specs.State{
+			Version: "1.2.0",
+			ID:      opts.ID,
+			Status:  "creating",
+			Bundle:  opts.Bundle,
+		},
+		Spec:     opts.Spec,
+		rootDir:  opts.RootDir,
+		initSock: filepath.Join(opts.RootDir, opts.ID, initSockFilename),
+		containerSock: filepath.Join(
+			opts.RootDir,
+			opts.ID,
+			containerSockFilename,
+		),
+	}, loaded)
+}
 
 func TestRootFS(t *testing.T) {
 	scenarios := map[string]struct {
@@ -23,6 +74,11 @@ func TestRootFS(t *testing.T) {
 		},
 		"test rootfs with empty path": {
 			rootPath:   "",
+			bundlePath: "/bundle",
+			rootFS:     "/bundle",
+		},
+		"test rootfs with dot path": {
+			rootPath:   ".",
 			bundlePath: "/bundle",
 			rootFS:     "/bundle",
 		},

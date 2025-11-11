@@ -41,7 +41,7 @@ func Create(opts *CreateOpts) error {
 		return fmt.Errorf("unmarshall config: %w", err)
 	}
 
-	cntr, err := container.New(&container.NewContainerOpts{
+	cntr, err := container.New(&container.ContainerOpts{
 		ID:            opts.ID,
 		Bundle:        bundle,
 		Spec:          spec,

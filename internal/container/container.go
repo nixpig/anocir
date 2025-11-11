@@ -55,15 +55,15 @@ type Container struct {
 	ConsoleSocket   string
 	ConsoleSocketFD *int
 	Pty             *terminal.Pty
-	PIDFile         string
 
+	pidFile       string
 	rootDir       string
 	initSock      string
 	containerSock string
 }
 
-// NewContainerOpts holds the options for creating a new container.
-type NewContainerOpts struct {
+// ContainerOpts holds the options for creating a new container.
+type ContainerOpts struct {
 	ID            string
 	Bundle        string
 	Spec          *specs.Spec
@@ -78,7 +78,7 @@ type Initialiser func(spec *specs.Spec, rootfs string) error
 
 // New creates a container based on the provided opts and saves its state.
 // The container will be in the 'creating' state.
-func New(opts *NewContainerOpts) (*Container, error) {
+func New(opts *ContainerOpts) (*Container, error) {
 	state := &specs.State{
 		Version:     specs.Version,
 		ID:          opts.ID,
@@ -91,7 +91,7 @@ func New(opts *NewContainerOpts) (*Container, error) {
 		State:         state,
 		Spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
-		PIDFile:       opts.PIDFile,
+		pidFile:       opts.PIDFile,
 
 		rootDir:  opts.RootDir,
 		initSock: filepath.Join(opts.RootDir, opts.ID, initSockFilename),
@@ -151,13 +151,13 @@ func (c *Container) Save() error {
 		return fmt.Errorf("chmod state file: %w", err)
 	}
 
-	if c.PIDFile != "" {
+	if c.pidFile != "" && c.State.Pid > 0 {
 		if err := os.WriteFile(
-			c.PIDFile,
+			c.pidFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
 			0o644,
 		); err != nil {
-			return fmt.Errorf("write pid file (%s): %w", c.PIDFile, err)
+			return fmt.Errorf("write pid file (%s): %w", c.pidFile, err)
 		}
 	}
 
