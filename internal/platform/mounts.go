@@ -8,7 +8,6 @@ import (
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -16,8 +15,6 @@ import (
 // filesystem.
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
-		logrus.Debug("mounting: ", m)
-
 		var flags uintptr
 
 		// For cgroupv2 bind mount the cgroup hierarchy.
@@ -73,8 +70,6 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 				dataOptions = append(dataOptions, opt)
 			}
 		}
-
-		logrus.Debug("data: ", dataOptions)
 
 		if err := syscall.Mount(
 			m.Source,

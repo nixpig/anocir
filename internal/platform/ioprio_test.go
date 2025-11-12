@@ -37,19 +37,27 @@ func TestIOPrioToInt(t *testing.T) {
 			value: 24576,
 			err:   nil,
 		},
-		"test invalid": {
+		"test empty class": {
 			ioPrio: &specs.LinuxIOPriority{
-				Class:    "",
+				Class:    specs.IOPriorityClass(""),
 				Priority: 0,
 			},
 			value: 0,
-			err:   ErrIOPrioMapping,
+			err:   ErrUnknownIOPrioClass,
+		},
+		"test invalid class": {
+			ioPrio: &specs.LinuxIOPriority{
+				Class:    specs.IOPriorityClass("invalid"),
+				Priority: 0,
+			},
+			value: 0,
+			err:   ErrUnknownIOPrioClass,
 		},
 	}
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
-			ioprio, err := ioprioToInt(data.ioPrio)
+			ioprio, err := IOPrioToInt(data.ioPrio)
 
 			assert.ErrorIs(t, err, data.err)
 			assert.Equal(t, data.value, ioprio)

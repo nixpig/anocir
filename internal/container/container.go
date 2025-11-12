@@ -563,7 +563,10 @@ func (c *Container) Kill(sig string) error {
 		)
 	}
 
-	if err := platform.SendSignal(c.State.Pid, sig); err != nil {
+	if err := platform.SendSignal(
+		c.State.Pid,
+		platform.ParseSignal(sig),
+	); err != nil {
 		return fmt.Errorf(
 			"send signal '%s' to process '%d': %w",
 			sig,
@@ -926,13 +929,23 @@ func postPivotInitialisers(spec *specs.Spec, rootfs string) error {
 	}
 
 	if spec.Process.Scheduler != nil {
-		if err := platform.SetSchedAttrs(spec.Process.Scheduler); err != nil {
+		schedAttr, err := platform.NewSchedAttr(spec.Process.Scheduler)
+		if err != nil {
+			return fmt.Errorf("new sched attr: %w", err)
+		}
+
+		if err := platform.SchedSetAttr(schedAttr); err != nil {
 			return fmt.Errorf("set sched attrs: %w", err)
 		}
 	}
 
 	if spec.Process.IOPriority != nil {
-		if err := platform.SetIOPriority(spec.Process.IOPriority); err != nil {
+		ioprio, err := platform.IOPrioToInt(spec.Process.IOPriority)
+		if err != nil {
+			return fmt.Errorf("convert ioprio to int: %w", err)
+		}
+
+		if err := platform.IOPrioSet(ioprio); err != nil {
 			return fmt.Errorf("set ioprio: %w", err)
 		}
 	}

@@ -66,64 +66,48 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	c.Clear(capability.AMBIENT)
 
 	if caps.Ambient != nil {
-		for _, e := range caps.Ambient {
-			if v, ok := capabilities[e]; ok {
-				c.Set(capability.AMBIENT, capability.Cap(v))
-			} else {
-				logrus.Warnf("ambient capability %s cannot be mapped", e)
-			}
-		}
+		c.Set(capability.AMBIENT, resolveCaps(caps.Ambient)...)
 	}
 
 	if caps.Bounding != nil {
-		for _, e := range caps.Bounding {
-			if v, ok := capabilities[e]; ok {
-				c.Set(capability.BOUNDING, capability.Cap(v))
-			} else {
-				logrus.Warnf("bounding capability %s cannot be mapped", e)
-			}
-		}
+		c.Set(capability.BOUNDING, resolveCaps(caps.Bounding)...)
 	}
 
 	if caps.Effective != nil {
-		for _, e := range caps.Effective {
-			if v, ok := capabilities[e]; ok {
-				c.Set(capability.EFFECTIVE, capability.Cap(v))
-			} else {
-				logrus.Warnf("effective capability %s cannot be mapped", e)
-			}
-		}
+		c.Set(capability.EFFECTIVE, resolveCaps(caps.Effective)...)
 	}
 
 	if caps.Permitted != nil {
-		for _, e := range caps.Permitted {
-			if v, ok := capabilities[e]; ok {
-				c.Set(capability.PERMITTED, capability.Cap(v))
-			} else {
-				logrus.Warnf("permitted capability %s cannot be mapped", e)
-			}
-		}
+		c.Set(capability.PERMITTED, resolveCaps(caps.Permitted)...)
 	}
 
 	if caps.Inheritable != nil {
-		for _, e := range caps.Inheritable {
-			if v, ok := capabilities[e]; ok {
-				c.Set(capability.INHERITABLE, capability.Cap(v))
-			} else {
-				logrus.Warnf("inheritable capability %s cannot be mapped", e)
-			}
-		}
+		c.Set(capability.INHERITABLE, resolveCaps(caps.Inheritable)...)
 	}
 
-	capType := capability.INHERITABLE |
-		capability.EFFECTIVE |
-		capability.BOUNDING |
-		capability.PERMITTED |
-		capability.AMBIENT
-
-	if err := c.Apply(capType); err != nil {
+	if err := c.Apply(
+		capability.INHERITABLE |
+			capability.EFFECTIVE |
+			capability.BOUNDING |
+			capability.PERMITTED |
+			capability.AMBIENT,
+	); err != nil {
 		return fmt.Errorf("apply capabilities: %w", err)
 	}
 
 	return nil
+}
+
+func resolveCaps(names []string) []capability.Cap {
+	resolved := []capability.Cap{}
+
+	for _, name := range names {
+		if v, ok := capabilities[name]; ok {
+			resolved = append(resolved, v)
+		} else {
+			logrus.Warnf("capability %s cannot be mapped", name)
+		}
+	}
+
+	return resolved
 }

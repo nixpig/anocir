@@ -1,23 +1,20 @@
 package platform
 
 import (
-	"fmt"
 	"syscall"
 
 	"golang.org/x/sys/unix"
 )
 
 // SendSignal sends a signal to the specified process ID.
-func SendSignal(pid int, sig string) error {
-	if err := syscall.Kill(pid, signalArgToSignal(sig)); err != nil {
-		return fmt.Errorf("kill: %w", err)
-	}
-
-	return nil
+func SendSignal(pid int, sig unix.Signal) error {
+	return syscall.Kill(pid, sig)
 }
 
-func signalArgToSignal(sigName string) unix.Signal {
-	switch sigName {
+// ParseSignal parses the given sig and returns the corresponding a unix.Signal.
+// If the signal is not recognised then unix.Signal(0) is returned.
+func ParseSignal(sig string) unix.Signal {
+	switch sig {
 	case "SIGHUP", "HUP", "1":
 		return unix.SIGHUP
 	case "SIGINT", "INT", "2":

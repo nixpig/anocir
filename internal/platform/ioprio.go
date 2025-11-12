@@ -8,34 +8,33 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var ErrIOPrioMapping = errors.New("ioprio mapping failed")
+// ErrUnknownIOPrioClass is returned when the specified I/O priority class is
+// not recognised.
+var ErrUnknownIOPrioClass = errors.New("ioprio mapping failed")
 
-var ioprioClassMapping = map[specs.IOPriorityClass]int{
+// ioPrioClasses maps the I/O priority classes to the corresponding kernel
+// values.
+var ioPrioClasses = map[specs.IOPriorityClass]int{
 	specs.IOPRIO_CLASS_RT:   1,
 	specs.IOPRIO_CLASS_BE:   2,
 	specs.IOPRIO_CLASS_IDLE: 3,
 }
 
-// SetIOPriority sets the I/O priority for the current (container) process.
-func SetIOPriority(ioprio *specs.LinuxIOPriority) error {
-	i, err := ioprioToInt(ioprio)
-	if err != nil {
-		return fmt.Errorf("ioprio to int: %w", err)
-	}
-
-	if _, _, errno := unix.Syscall(unix.SYS_IOPRIO_SET, 1, 0, uintptr(i)); errno != 0 {
-		return fmt.Errorf("set io priority: %w", errno)
+// IOPrioSet sets the I/O priority for the current (container) process.
+func IOPrioSet(ioprio int) error {
+	if _, _, errno := unix.Syscall(unix.SYS_IOPRIO_SET, 1, 0, uintptr(ioprio)); errno != 0 {
+		return fmt.Errorf("ioprio_set: %d", errno)
 	}
 
 	return nil
 }
 
-func ioprioToInt(iop *specs.LinuxIOPriority) (int, error) {
-	class, ok := ioprioClassMapping[iop.Class]
+func IOPrioToInt(iop *specs.LinuxIOPriority) (int, error) {
+	class, ok := ioPrioClasses[iop.Class]
 	if !ok {
 		return 0, fmt.Errorf(
 			"%w: unknown class %s",
-			ErrIOPrioMapping,
+			ErrUnknownIOPrioClass,
 			iop.Class,
 		)
 	}

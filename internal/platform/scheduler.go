@@ -1,12 +1,18 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
 
+// ErrUnknownSchedulerPolicy is returned when the scheduler policy is not
+// recognised.
+var ErrUnknownSchedulerPolicy = errors.New("unknown scheuler policy")
+
+// schedulerFlags maps scheduler flags to their correxponding kernel values.
 var schedulerFlags = map[specs.LinuxSchedulerFlag]int{
 	specs.SchedFlagResetOnFork:  0x01,
 	specs.SchedFlagReclaim:      0x02,
@@ -17,6 +23,8 @@ var schedulerFlags = map[specs.LinuxSchedulerFlag]int{
 	specs.SchedFlagUtilClampMax: 0x40,
 }
 
+// schedulerPolicies maps scheduler policies to their corresponding kernel
+// values.
 var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
 	specs.SchedOther:    0,
 	specs.SchedFIFO:     1,
@@ -27,17 +35,25 @@ var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
 	specs.SchedDeadline: 6,
 }
 
-// SetSchedAttrs sets the scheduler attributes for the current (container)
-// process.
-func SetSchedAttrs(scheduler *specs.Scheduler) error {
+// NewSchedAttr creates a unix.SchedAttr with the scheduling attributes from
+// the given scheduler or returns an error if the scheduler policy is unknown.
+func NewSchedAttr(scheduler *specs.Scheduler) (*unix.SchedAttr, error) {
 	policy, ok := schedulerPolicies[scheduler.Policy]
 	if !ok {
-		return fmt.Errorf("unknown scheduler policy '%d'", policy)
+		return nil, fmt.Errorf(
+			"%w: %s",
+			ErrUnknownSchedulerPolicy,
+			scheduler.Policy,
+		)
 	}
 
-	flags := schedulerFlagsToInt(scheduler.Flags)
+	var flags int
 
-	schedAttr := unix.SchedAttr{
+	for _, flag := range scheduler.Flags {
+		flags |= schedulerFlags[flag]
+	}
+
+	return &unix.SchedAttr{
 		Deadline: scheduler.Deadline,
 		Flags:    uint64(flags),
 		Size:     unix.SizeofSchedAttr,
@@ -46,21 +62,11 @@ func SetSchedAttrs(scheduler *specs.Scheduler) error {
 		Policy:   uint32(policy),
 		Priority: uint32(scheduler.Priority),
 		Runtime:  scheduler.Runtime,
-	}
-
-	if err := unix.SchedSetAttr(0, &schedAttr, 0); err != nil {
-		return fmt.Errorf("set schedattrs: %w", err)
-	}
-
-	return nil
+	}, nil
 }
 
-func schedulerFlagsToInt(flags []specs.LinuxSchedulerFlag) int {
-	var f int
-
-	for _, flag := range flags {
-		f |= schedulerFlags[flag]
-	}
-
-	return f
+// SchedSetAttr sets the scheduler policy and attributes for the current
+// (container) process using the given schedAttr.
+func SchedSetAttr(schedAttr *unix.SchedAttr) error {
+	return unix.SchedSetAttr(0, schedAttr, 0)
 }
