@@ -8,6 +8,8 @@ import (
 	"github.com/syndtr/gocapability/capability"
 )
 
+// capabilities maps capability name strings to their corresponding
+// capability.Cap values.
 var capabilities = map[string]capability.Cap{
 	"CAP_AUDIT_CONTROL":      capability.CAP_AUDIT_CONTROL,
 	"CAP_AUDIT_READ":         capability.CAP_AUDIT_READ,
@@ -52,7 +54,8 @@ var capabilities = map[string]capability.Cap{
 	"CAP_WAKE_ALARM":         capability.CAP_WAKE_ALARM,
 }
 
-// SetCapabilities sets the process capabilities based on the provided LinuxCapabilities.
+// SetCapabilities sets the process capabilities based on the provided
+// LinuxCapabilities.
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	c, err := capability.NewPid2(0)
 	if err != nil {
@@ -98,6 +101,9 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	return nil
 }
 
+// resolveCaps converts a slice of capability name strings to a slice of their
+// corresponding capability.Cap values. If a capability name can't be mapped,
+// a warning is logged and the capability is skipped.
 func resolveCaps(names []string) []capability.Cap {
 	resolved := []capability.Cap{}
 

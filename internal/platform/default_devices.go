@@ -12,13 +12,18 @@ import (
 )
 
 var (
-	AllDevices           = "a"
-	BlockDevice          = "b"
-	CharDevice           = "c"
-	UnbufferedCharDevice = "u"
-	FifoDevice           = "p"
+	defaultFileMode        = os.FileMode(0o666)
+	defaultUID      uint32 = 0
+	defaultGID      uint32 = 0
+
+	allDevices           = "a"
+	blockDevice          = "b"
+	charDevice           = "c"
+	unbufferedCharDevice = "u"
+	fifoDevice           = "p"
 )
 
+// deviceType maps device type strings to their corresponding kernel values.
 var deviceType = map[string]uint32{
 	"b": unix.S_IFBLK,
 	"c": unix.S_IFCHR,
@@ -26,15 +31,9 @@ var deviceType = map[string]uint32{
 	"p": unix.S_IFIFO,
 }
 
-var (
-	defaultFileMode        = os.FileMode(0o666)
-	defaultUID      uint32 = 0
-	defaultGID      uint32 = 0
-)
-
 var defaultDevices = []specs.LinuxDevice{
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/null",
 		Major:    1,
 		Minor:    3,
@@ -43,7 +42,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/zero",
 		Major:    1,
 		Minor:    5,
@@ -52,7 +51,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/full",
 		Major:    1,
 		Minor:    7,
@@ -61,7 +60,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/random",
 		Major:    1,
 		Minor:    8,
@@ -70,7 +69,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/urandom",
 		Major:    1,
 		Minor:    9,
@@ -79,7 +78,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     CharDevice,
+		Type:     charDevice,
 		Path:     "/dev/tty",
 		Major:    5,
 		Minor:    0,
@@ -89,7 +88,7 @@ var defaultDevices = []specs.LinuxDevice{
 	},
 }
 
-// MountDefaultDevices mounts the default set of devices into the container's
+// MountDefaultDevices mounts the default set of devices into the containers
 // root filesystem.
 func MountDefaultDevices(rootfs string) error {
 	for _, d := range defaultDevices {

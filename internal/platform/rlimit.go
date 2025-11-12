@@ -28,7 +28,7 @@ var rlimit = map[string]uint{
 }
 
 // SetRlimits sets the resource limits for the current (container) process
-// based on the provided list of POSIXRlimit specifications.
+// based on the given POSIXRlimit specifications.
 func SetRlimits(rlimits []specs.POSIXRlimit) error {
 	for _, rl := range rlimits {
 		rlType := int(rlimit[rl.Type])

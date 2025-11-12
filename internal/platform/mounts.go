@@ -11,7 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// MountSpecMounts mounts the specified mounts into the container's root
+// MountSpecMounts mounts the specified mounts into the containers root
 // filesystem.
 func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	for _, m := range mounts {
@@ -48,14 +48,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		for _, opt := range m.Options {
 			if f, ok := mountOptions[opt]; ok {
-				// bind mount propagation
-				propagate := opt != "private" && opt != "rprivate" &&
-					opt != "shared" &&
-					opt != "rshared" &&
-					opt != "slave" &&
-					opt != "rslave"
-
-				if propagate {
+				if propagateBindMount(opt) {
 					if f.invert {
 						flags &= f.flag
 					} else {
@@ -83,4 +76,12 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 	}
 
 	return nil
+}
+
+func propagateBindMount(opt string) bool {
+	return opt != "private" && opt != "rprivate" &&
+		opt != "shared" &&
+		opt != "rshared" &&
+		opt != "slave" &&
+		opt != "rslave"
 }

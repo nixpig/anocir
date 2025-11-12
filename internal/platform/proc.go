@@ -7,8 +7,7 @@ import (
 	"syscall"
 )
 
-// MountProc mounts the /proc filesystem inside the container's root
-// filesystem.
+// MountProc mounts the /proc filesystem inside the containers root filesystem.
 func MountProc(containerRootfs string) error {
 	containerProc := filepath.Join(containerRootfs, "proc")
 	if err := os.MkdirAll(containerProc, 0o666); err != nil {

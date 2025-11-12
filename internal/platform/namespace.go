@@ -5,7 +5,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// NamespaceFlags maps OCI LinuxNamespaceType to corresponding Linux clone flags.
+// NamespaceFlags maps LinuxNamespaceType to corresponding Linux clone flags.
 var NamespaceFlags = map[specs.LinuxNamespaceType]uintptr{
 	specs.PIDNamespace:     unix.CLONE_NEWPID,
 	specs.NetworkNamespace: unix.CLONE_NEWNET,
@@ -17,8 +17,8 @@ var NamespaceFlags = map[specs.LinuxNamespaceType]uintptr{
 	specs.TimeNamespace:    unix.CLONE_NEWTIME,
 }
 
-// NamespaceEnvs maps OCI LinuxNamespaceType to corresponding environment
-// flag names.
+// NamespaceEnvs maps LinuxNamespaceType to corresponding environment flag
+// names.
 var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 	specs.PIDNamespace:     "pid",
 	specs.NetworkNamespace: "net",

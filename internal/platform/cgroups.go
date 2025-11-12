@@ -9,7 +9,8 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-// IsUnifiedCGroupsMode checks if the system is running in cgroup v2 unified mode.
+// IsUnifiedCGroupsMode checks if the system is running in cgroup v2 unified
+// mode.
 func IsUnifiedCGroupsMode() bool {
 	return cgroups.Mode() == cgroups.Unified
 }
