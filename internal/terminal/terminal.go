@@ -10,6 +10,7 @@ import (
 	"unsafe"
 
 	"github.com/google/goterm/term"
+	"github.com/nixpig/anocir/internal/platform"
 	"golang.org/x/sys/unix"
 )
 
@@ -71,19 +72,8 @@ func (p *Pty) MountSlave(target string) error {
 		}
 	}
 
-	if err := syscall.Mount(
-		p.Slave.Name(),
-		target,
-		"bind",
-		syscall.MS_BIND,
-		"",
-	); err != nil {
-		return fmt.Errorf(
-			"mount pty slave device (%s) to target (%s): %w",
-			p.Slave.Name(),
-			target,
-			err,
-		)
+	if err := platform.BindMount(p.Slave.Name(), target, false); err != nil {
+		return fmt.Errorf("bind mount pty slave device: %w", err)
 	}
 
 	return nil

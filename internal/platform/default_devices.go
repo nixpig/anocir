@@ -100,13 +100,7 @@ func MountDefaultDevices(rootfs string) error {
 		}
 		f.Close()
 
-		if err := syscall.Mount(
-			d.Path,
-			absPath,
-			"bind",
-			unix.MS_BIND,
-			"",
-		); err != nil {
+		if err := BindMount(d.Path, absPath, false); err != nil {
 			return fmt.Errorf("bind mount device: %w", err)
 		}
 	}

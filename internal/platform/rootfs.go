@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -84,24 +83,12 @@ var mountOptions = map[string]mountOption{
 
 // MountRootfs mounts the container's root filesystem.
 func MountRootfs(containerRootfs string) error {
-	if err := syscall.Mount(
-		"",
-		"/",
-		"",
-		unix.MS_PRIVATE|unix.MS_REC,
-		"",
-	); err != nil {
+	if err := SetPropagation("/", unix.MS_PRIVATE|unix.MS_REC); err != nil {
 		return err
 	}
 
-	if err := syscall.Mount(
-		containerRootfs,
-		containerRootfs,
-		"",
-		unix.MS_BIND|unix.MS_REC,
-		"",
-	); err != nil {
-		return err
+	if err := BindMount(containerRootfs, containerRootfs, true); err != nil {
+		return fmt.Errorf("bind mount rootfs: %w", err)
 	}
 
 	return nil
@@ -109,13 +96,7 @@ func MountRootfs(containerRootfs string) error {
 
 // MountRootReadonly remounts the root filesystem as read-only.
 func MountRootReadonly() error {
-	if err := syscall.Mount(
-		"",
-		"/",
-		"",
-		unix.MS_BIND|unix.MS_REMOUNT|unix.MS_RDONLY,
-		"",
-	); err != nil {
+	if err := Remount("/", unix.MS_BIND|unix.MS_RDONLY); err != nil {
 		return fmt.Errorf("remount root as readonly: %w", err)
 	}
 
@@ -129,13 +110,7 @@ func SetRootfsMountPropagation(prop string) error {
 		return nil
 	}
 
-	if err := syscall.Mount(
-		"",
-		"/",
-		"",
-		f.flag,
-		"",
-	); err != nil {
+	if err := SetPropagation("/", f.flag); err != nil {
 		return fmt.Errorf("set rootfs mount propagation (%s): %w", prop, err)
 	}
 

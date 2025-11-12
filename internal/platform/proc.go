@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 )
 
 // MountProc mounts the /proc filesystem inside the containers root filesystem.
@@ -14,7 +13,7 @@ func MountProc(containerRootfs string) error {
 		return fmt.Errorf("create proc dir: %w", err)
 	}
 
-	if err := syscall.Mount(
+	if err := MountFilesystem(
 		"proc",
 		containerProc,
 		"proc",

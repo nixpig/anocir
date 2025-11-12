@@ -3,7 +3,6 @@ package platform
 import (
 	"fmt"
 	"os"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -19,7 +18,7 @@ func MountMaskedPaths(paths []string) error {
 		}
 
 		if f.IsDir() {
-			if err := syscall.Mount(
+			if err := MountFilesystem(
 				"tmpfs",
 				p,
 				"tmpfs",
@@ -29,13 +28,7 @@ func MountMaskedPaths(paths []string) error {
 				return fmt.Errorf("mount tmpfs masked path: %w", err)
 			}
 		} else {
-			if err := syscall.Mount(
-				"/dev/null",
-				p,
-				"bind",
-				unix.MS_BIND,
-				"",
-			); err != nil {
+			if err := BindMount("/dev/null", p, true); err != nil {
 				return fmt.Errorf("bind mount masked path: %w", err)
 			}
 		}

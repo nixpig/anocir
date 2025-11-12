@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -19,12 +18,10 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 
 		// For cgroupv2 bind mount the cgroup hierarchy.
 		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
-			if err := syscall.Mount(
+			if err := BindMount(
 				"/sys/fs/cgroup",
 				filepath.Join(rootfs, m.Destination),
-				"",
-				syscall.MS_BIND|syscall.MS_REC,
-				"",
+				true,
 			); err != nil {
 				return fmt.Errorf("bind mount cgroup2: %w", err)
 			}
@@ -64,7 +61,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			}
 		}
 
-		if err := syscall.Mount(
+		if err := MountFilesystem(
 			m.Source,
 			dest,
 			m.Type,
