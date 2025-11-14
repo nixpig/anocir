@@ -3,11 +3,9 @@
 package container
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -16,8 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
-	"time"
 
+	"github.com/nixpig/anocir/internal/container/ipc"
 	"github.com/nixpig/anocir/internal/hooks"
 	"github.com/nixpig/anocir/internal/platform"
 	"github.com/nixpig/anocir/internal/terminal"
@@ -212,14 +210,16 @@ func (c *Container) init() error {
 
 	cmd := exec.Command("/proc/self/exe", args...)
 
-	listener, err := net.Listen("unix", c.initSock)
+	initSock := ipc.NewSocket(c.initSock)
+
+	listener, err := initSock.Listen()
 	if err != nil {
 		return fmt.Errorf("listen on init sock: %w", err)
 	}
 	defer listener.Close()
 
 	// Ensure socket accessible from user namespace in container
-	if err := os.Chmod(c.initSock, 0o777); err != nil {
+	if err := initSock.SetPermissions(0o777); err != nil {
 		logrus.Warnf("Failed to chmod init socket: %v", err)
 	}
 
@@ -384,13 +384,10 @@ func (c *Container) init() error {
 	}
 	defer conn.Close()
 
-	b := make([]byte, 128)
-	n, err := conn.Read(b)
+	msg, err := ipc.ReceiveMessage(conn)
 	if err != nil {
-		return fmt.Errorf("read from init sock: %w", err)
+		return err
 	}
-
-	msg := string(b[:n])
 	if msg != readyMsg {
 		return fmt.Errorf("expecting 'ready' but received '%s'", msg)
 	}
@@ -488,17 +485,19 @@ func (c *Container) Start() error {
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
-	conn, err := net.Dial("unix", c.containerSock)
+	containerSock := ipc.NewSocket(c.containerSock)
+
+	conn, err := containerSock.Dial()
 	if err != nil {
 		logrus.Errorf("failed to dial container sock: %s", err)
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
-	if _, err := conn.Write([]byte(startMsg)); err != nil {
+	if err := ipc.SendMessage(conn, startMsg); err != nil {
 		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
 	}
-	conn.Close()
+	defer conn.Close()
 
 	c.State.Status = specs.StateRunning
 	if err := c.Save(); err != nil {
@@ -701,60 +700,35 @@ func (c *Container) mountConsole() error {
 }
 
 func (c *Container) notifyReady() error {
-	// wait a sec for init sock to be ready before dialing - this is nasty
-	// TODO: use file lock to synchronise?
-	timeout := 1 * time.Second
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(100 * time.Millisecond)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf(
-				"failed to connect to init sock after %v",
-				timeout,
-			)
-		case <-ticker.C:
-			initConn, err := net.Dial("unix", c.initSock)
-			if err != nil {
-				continue
-			}
-
-			if _, err := initConn.Write([]byte(readyMsg)); err != nil {
-				return fmt.Errorf("write 'ready' msg to init sock: %w", err)
-			}
-			// close immediately, to be 100% sure it doesn't leak into the container
-			initConn.Close()
-
-			return nil
-		}
+	initSock := ipc.NewSocket(c.initSock)
+	conn, err := initSock.DialWithRetry()
+	if err != nil {
+		return fmt.Errorf("failed to dial socket: %w", err)
 	}
+	defer conn.Close()
+
+	return ipc.SendMessage(conn, readyMsg)
 }
 
 func (c *Container) waitStart() error {
-	listener, err := net.Listen("unix", c.containerSock)
+	containerSock := ipc.NewSocket(c.containerSock)
+	listener, err := containerSock.Listen()
 	if err != nil {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
 	defer listener.Close()
 
-	containerConn, err := listener.Accept()
+	conn, err := listener.Accept()
 	if err != nil {
 		logrus.Errorf("failed to accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
-	defer containerConn.Close()
+	defer conn.Close()
 
-	b := make([]byte, 128)
-	n, err := containerConn.Read(b)
+	msg, err := ipc.ReceiveMessage(conn)
 	if err != nil {
 		return fmt.Errorf("read from container sock: %w", err)
 	}
-
-	msg := string(b[:n])
 	if msg != startMsg {
 		return fmt.Errorf("expecting 'start' but received '%s'", msg)
 	}
