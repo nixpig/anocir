@@ -51,7 +51,7 @@ func TestContainerLifecycle(t *testing.T) {
 			Status:  "creating",
 			Bundle:  opts.Bundle,
 		},
-		Spec:    opts.Spec,
+		spec:    opts.Spec,
 		rootDir: opts.RootDir,
 		containerSock: filepath.Join(
 			opts.RootDir,
@@ -90,7 +90,7 @@ func TestRootFS(t *testing.T) {
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
 			c := &Container{
-				Spec:  &specs.Spec{Root: &specs.Root{Path: data.rootPath}},
+				spec:  &specs.Spec{Root: &specs.Root{Path: data.rootPath}},
 				State: &specs.State{Bundle: data.bundlePath},
 			}
 

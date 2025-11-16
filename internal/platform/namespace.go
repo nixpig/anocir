@@ -1,9 +1,16 @@
 package platform
 
 import (
+	"errors"
+	"fmt"
+	"strings"
+	"syscall"
+
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
+
+var ErrInvalidNamespacePath = errors.New("invalid namespace path")
 
 // NamespaceFlags maps LinuxNamespaceType to corresponding Linux clone flags.
 var NamespaceFlags = map[specs.LinuxNamespaceType]uintptr{
@@ -28,4 +35,35 @@ var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 	specs.UserNamespace:    "user",
 	specs.CgroupNamespace:  "cgroup",
 	specs.TimeNamespace:    "time",
+}
+
+func SetNS(path string) error {
+	fd, err := syscall.Open(path, syscall.O_RDONLY, 0o666)
+	if err != nil {
+		return fmt.Errorf("open ns path %s: %w", path, err)
+	}
+
+	_, _, errno := syscall.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+	if errno != 0 {
+		return fmt.Errorf("set namespace %s errno: %w", path, errno)
+	}
+
+	return syscall.Close(fd)
+}
+
+func ValidateNSPath(ns *specs.LinuxNamespace) error {
+	suffix := fmt.Sprintf("/%s", NamespaceEnvs[ns.Type])
+
+	if ns.Type == specs.PIDNamespace {
+		if !strings.HasSuffix(ns.Path, suffix) &&
+			!strings.HasSuffix(ns.Path, suffix+"_for_children") {
+			return ErrInvalidNamespacePath
+		}
+	} else if !strings.HasSuffix(ns.Path, suffix) &&
+		// TODO: Remember why pid namespace is an exception.
+		ns.Type != specs.PIDNamespace {
+		return ErrInvalidNamespacePath
+	}
+
+	return nil
 }

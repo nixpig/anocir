@@ -41,11 +41,11 @@ const (
 // and other runtime details.
 type Container struct {
 	State           *specs.State
-	Spec            *specs.Spec
 	ConsoleSocket   string
 	ConsoleSocketFD *int
-	Pty             *terminal.Pty
 
+	spec          *specs.Spec
+	pty           *terminal.Pty
 	pidFile       string
 	rootDir       string
 	containerSock string
@@ -72,9 +72,9 @@ func New(opts *ContainerOpts) (*Container, error) {
 		Status:      specs.StateCreating,
 	}
 
-	c := &Container{
+	return &Container{
 		State:         state,
-		Spec:          opts.Spec,
+		spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		pidFile:       opts.PIDFile,
 
@@ -85,9 +85,7 @@ func New(opts *ContainerOpts) (*Container, error) {
 			opts.ID,
 			containerSockFilename,
 		),
-	}
-
-	return c, nil
+	}, nil
 }
 
 // Save persists the container's state to disk. It creates the required
@@ -99,12 +97,13 @@ func (c *Container) Save() error {
 		return fmt.Errorf("create container directory: %w", err)
 	}
 
-	if c.Spec.Linux != nil &&
-		len(c.Spec.Linux.UIDMappings) > 0 && len(c.Spec.Linux.GIDMappings) > 0 {
+	if c.spec.Linux != nil &&
+		len(c.spec.Linux.UIDMappings) > 0 &&
+		len(c.spec.Linux.GIDMappings) > 0 {
 		if err := os.Chown(
 			containerDir,
-			int(c.Spec.Linux.UIDMappings[0].HostID),
-			int(c.Spec.Linux.GIDMappings[0].HostID),
+			int(c.spec.Linux.UIDMappings[0].HostID),
+			int(c.spec.Linux.GIDMappings[0].HostID),
 		); err != nil {
 			return fmt.Errorf("chown container directory: %w", err)
 		}
@@ -121,17 +120,13 @@ func (c *Container) Save() error {
 		return fmt.Errorf("write container state: %w", err)
 	}
 
-	if err := os.Chmod(stateFile, 0o644); err != nil {
-		return fmt.Errorf("chmod state file: %w", err)
-	}
-
 	if c.pidFile != "" && c.State.Pid > 0 {
 		if err := os.WriteFile(
 			c.pidFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
 			0o644,
 		); err != nil {
-			return fmt.Errorf("write pid file (%s): %w", c.pidFile, err)
+			return fmt.Errorf("write pid to file (%s): %w", c.pidFile, err)
 		}
 	}
 
@@ -142,70 +137,52 @@ func (c *Container) Save() error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
-	return c.init()
-}
-
-func (c *Container) init() error {
-	if err := c.execHook(LifecycleCreateRuntime); err != nil {
+	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
 
-	if err := c.execHook(LifecycleCreateContainer); err != nil {
+	if err := c.execHooks(LifecycleCreateContainer); err != nil {
 		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
 
-	useTerminal := c.Spec.Process != nil &&
-		c.Spec.Process.Terminal &&
-		c.ConsoleSocket != ""
+	args := []string{"reexec", "--root", c.rootDir}
 
-	if useTerminal {
-		var err error
-		if c.ConsoleSocketFD, err = terminal.Setup(
-			c.rootFS(),
-			c.ConsoleSocket,
-		); err != nil {
+	if c.useTerminal() {
+		consoleSocketFD, err := terminal.Setup(c.rootFS(), c.ConsoleSocket)
+		if err != nil {
 			return err
 		}
-	}
 
-	args := []string{"reexec"}
+		c.ConsoleSocketFD = consoleSocketFD
+		args = append(
+			args,
+			"--console-socket-fd",
+			strconv.Itoa(*c.ConsoleSocketFD),
+		)
+	}
 
 	if logrus.GetLevel() == logrus.DebugLevel {
 		args = append(args, "--debug")
 	}
 
-	if c.ConsoleSocketFD != nil {
-		fd := strconv.Itoa(*c.ConsoleSocketFD)
-		args = append(args, "--console-socket-fd", fd)
-	}
-
-	args = append(args, "--root", c.rootDir)
 	args = append(args, c.State.ID)
 
-	var err error
+	cmd := exec.Command("/proc/self/exe", args...)
 
-	// TODO: Do these need to be closed in all the error paths?
+	cmd.SysProcAttr = &syscall.SysProcAttr{}
+
 	initSockParentFD, initSockChildFD, err := ipc.NewSocketPair()
 	if err != nil {
 		return err
 	}
 
-	defer func() {
-		if err != nil {
-			unix.Close(initSockParentFD)
-			unix.Close(initSockChildFD)
-		}
-	}()
-
-	cmd := exec.Command("/proc/self/exe", args...)
-
 	cmd.ExtraFiles = []*os.File{
 		os.NewFile(uintptr(initSockChildFD), "init_sock"),
 	}
 
-	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
+	if c.spec.Process != nil && c.spec.Process.OOMScoreAdj != nil {
 		if err := platform.AdjustOOMScore(
-			*c.Spec.Process.OOMScoreAdj,
+			*c.spec.Process.OOMScoreAdj,
 		); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
 		}
@@ -213,50 +190,22 @@ func (c *Container) init() error {
 
 	cloneFlags := uintptr(0)
 
-	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
-	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
-
-	for _, ns := range c.Spec.Linux.Namespaces {
+	for _, ns := range c.spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
-			if uidCount := len(c.Spec.Linux.UIDMappings); uidCount > 0 {
-				uidMappings = slices.Grow(uidMappings, uidCount-1)
+			uidMappings, gidMappings := buildMappings(c.spec)
 
-				for _, m := range c.Spec.Linux.UIDMappings {
-					uidMappings = append(uidMappings, syscall.SysProcIDMap{
-						ContainerID: int(m.ContainerID),
-						HostID:      int(m.HostID),
-						Size:        int(m.Size),
-					})
-				}
-			} else {
-				uidMappings = append(uidMappings, syscall.SysProcIDMap{
-					ContainerID: 0,
-					HostID:      os.Getuid(),
-					Size:        1,
-				})
-			}
+			cmd.SysProcAttr.UidMappings = uidMappings
+			cmd.SysProcAttr.GidMappings = gidMappings
+			cmd.SysProcAttr.GidMappingsEnableSetgroups = false
 
-			if gidCount := len(c.Spec.Linux.GIDMappings); gidCount > 0 {
-				for _, m := range c.Spec.Linux.GIDMappings {
-					gidMappings = slices.Grow(gidMappings, gidCount-1)
-
-					gidMappings = append(gidMappings, syscall.SysProcIDMap{
-						ContainerID: int(m.ContainerID),
-						HostID:      int(m.HostID),
-						Size:        int(m.Size),
-					})
-				}
-			} else {
-				gidMappings = append(gidMappings, syscall.SysProcIDMap{
-					ContainerID: 0,
-					HostID:      os.Getgid(),
-					Size:        1,
-				})
-			}
+			// Explicitly set child to UID/GID 0 so it has necessary permissions to
+			// pick up the mapped credentials and capabilities from /proc/<pid>/uid_map
+			// and /proc/<pid>/gid_map.
+			cmd.SysProcAttr.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 		}
 
-		if ns.Type == specs.TimeNamespace && c.Spec.Linux.TimeOffsets != nil {
-			if err := platform.SetTimeOffsets(c.Spec.Linux.TimeOffsets); err != nil {
+		if ns.Type == specs.TimeNamespace && c.spec.Linux.TimeOffsets != nil {
+			if err := platform.SetTimeOffsets(c.spec.Linux.TimeOffsets); err != nil {
 				return fmt.Errorf("set timens offsets: %w", err)
 			}
 		}
@@ -264,15 +213,8 @@ func (c *Container) init() error {
 		if ns.Path == "" {
 			cloneFlags |= platform.NamespaceFlags[ns.Type]
 		} else {
-			suffix := fmt.Sprintf("/%s", platform.NamespaceEnvs[ns.Type])
-
-			if !strings.HasSuffix(ns.Path, suffix) &&
-				ns.Type != specs.PIDNamespace {
-				return fmt.Errorf(
-					"namespace type (%s) and path (%s) do not match",
-					ns.Type,
-					ns.Path,
-				)
+			if err := platform.ValidateNSPath(&ns); err != nil {
+				return fmt.Errorf("validate ns path: %w", err)
 			}
 
 			if ns.Type == specs.MountNamespace {
@@ -287,38 +229,17 @@ func (c *Container) init() error {
 				)
 				cmd.Env = append(cmd.Env, gonsEnv)
 			} else {
-				fd, err := syscall.Open(ns.Path, syscall.O_RDONLY, 0o666)
-				if err != nil {
-					return fmt.Errorf("open ns path: %w", err)
+				if err := platform.SetNS(ns.Path); err != nil {
+					return fmt.Errorf("set namespace: %w", err)
 				}
-
-				_, _, errno := syscall.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
-				if errno != 0 {
-					return fmt.Errorf("errno: %w", errno)
-				}
-
-				syscall.Close(fd)
 			}
 		}
 	}
 
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		Cloneflags: cloneFlags,
-	}
+	cmd.SysProcAttr.Cloneflags = cloneFlags
 
-	if len(uidMappings) > 0 || len(gidMappings) > 0 {
-		cmd.SysProcAttr.UidMappings = uidMappings
-		cmd.SysProcAttr.GidMappings = gidMappings
-		cmd.SysProcAttr.GidMappingsEnableSetgroups = false
-
-		// Explicitly set child to UID/GID 0 so it has necessary permissions to
-		// pick up the mapped credentials and capabilities from /proc/<pid>/uid_map
-		// and /proc/<pid>/gid_map.
-		cmd.SysProcAttr.Credential = &syscall.Credential{Uid: 0, Gid: 0}
-	}
-
-	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
-		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
+	if c.spec.Process != nil && c.spec.Process.Env != nil {
+		cmd.Env = append(cmd.Env, c.spec.Process.Env...)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -332,23 +253,24 @@ func (c *Container) init() error {
 	unix.Close(initSockChildFD)
 
 	c.State.Pid = cmd.Process.Pid
+
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save container state: %w", err)
 	}
 
-	if c.Spec.Linux.Resources != nil {
+	if c.spec.Linux.Resources != nil {
 		if platform.IsUnifiedCGroupsMode() {
 			if err := platform.AddV2CGroups(
 				c.State.ID,
-				c.Spec.Linux.Resources,
+				c.spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
 				return fmt.Errorf("add to v2 cgroup: %w", err)
 			}
-		} else if c.Spec.Linux.CgroupsPath != "" {
+		} else if c.spec.Linux.CgroupsPath != "" {
 			if err := platform.AddV1CGroups(
-				c.Spec.Linux.CgroupsPath,
-				c.Spec.Linux.Resources,
+				c.spec.Linux.CgroupsPath,
+				c.spec.Linux.Resources,
 				c.State.Pid,
 			); err != nil {
 				return fmt.Errorf("add to v1 cgroup: %w", err)
@@ -426,7 +348,7 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	if err := c.execHook(LifecycleStartContainer); err != nil {
+	if err := c.execHooks(LifecycleStartContainer); err != nil {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
@@ -440,7 +362,7 @@ func (c *Container) Reexec() error {
 // Start begins the execution of the container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
-	if c.Spec.Process == nil {
+	if c.spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
 			return err
@@ -456,7 +378,7 @@ func (c *Container) Start() error {
 		)
 	}
 
-	if err := c.execHook(LifecyclePrestart); err != nil {
+	if err := c.execHooks(LifecyclePrestart); err != nil {
 		logrus.Errorf("failed to exec prestart hooks: %s", err)
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
@@ -480,7 +402,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("save state running: %w", err)
 	}
 
-	if err := c.execHook(LifecyclePoststart); err != nil {
+	if err := c.execHooks(LifecyclePoststart); err != nil {
 		return fmt.Errorf("exec poststart hooks: %w", err)
 	}
 
@@ -497,13 +419,13 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if c.Spec.Linux.Resources != nil {
+	if c.spec.Linux.Resources != nil {
 		if platform.IsUnifiedCGroupsMode() {
 			if err := platform.DeleteV2CGroups(c.State.ID); err != nil {
 				return err
 			}
-		} else if c.Spec.Linux.CgroupsPath != "" {
-			if err := platform.DeleteV1CGroups(c.Spec.Linux.CgroupsPath); err != nil {
+		} else if c.spec.Linux.CgroupsPath != "" {
+			if err := platform.DeleteV1CGroups(c.spec.Linux.CgroupsPath); err != nil {
 				return err
 			}
 		}
@@ -522,7 +444,7 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
-	if err := c.execHook(LifecyclePoststop); err != nil {
+	if err := c.execHooks(LifecyclePoststop); err != nil {
 		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
 	}
 
@@ -555,15 +477,15 @@ func (c *Container) Kill(sig string) error {
 		return fmt.Errorf("save stopped state: %w", err)
 	}
 
-	if err := c.execHook(LifecyclePoststop); err != nil {
+	if err := c.execHooks(LifecyclePoststop); err != nil {
 		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
 	}
 
 	return nil
 }
 
-func (c *Container) execHook(phase Lifecycle) error {
-	if c.Spec.Hooks == nil {
+func (c *Container) execHooks(phase Lifecycle) error {
+	if c.spec.Hooks == nil {
 		return nil
 	}
 
@@ -571,18 +493,18 @@ func (c *Container) execHook(phase Lifecycle) error {
 
 	switch phase {
 	case LifecycleCreateRuntime:
-		h = append(h, c.Spec.Hooks.CreateRuntime...)
+		h = append(h, c.spec.Hooks.CreateRuntime...)
 	case LifecycleCreateContainer:
-		h = append(h, c.Spec.Hooks.CreateContainer...)
+		h = append(h, c.spec.Hooks.CreateContainer...)
 	case LifecycleStartContainer:
-		h = append(h, c.Spec.Hooks.StartContainer...)
+		h = append(h, c.spec.Hooks.StartContainer...)
 	case LifecyclePrestart:
 		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker.
-		h = append(h, c.Spec.Hooks.Prestart...)
+		h = append(h, c.spec.Hooks.Prestart...)
 	case LifecyclePoststart:
-		h = append(h, c.Spec.Hooks.Poststart...)
+		h = append(h, c.spec.Hooks.Poststart...)
 	case LifecyclePoststop:
-		h = append(h, c.Spec.Hooks.Poststop...)
+		h = append(h, c.spec.Hooks.Poststop...)
 	}
 
 	if len(h) > 0 {
@@ -595,11 +517,11 @@ func (c *Container) execHook(phase Lifecycle) error {
 }
 
 func (c *Container) rootFS() string {
-	if strings.HasPrefix(c.Spec.Root.Path, "/") {
-		return c.Spec.Root.Path
+	if strings.HasPrefix(c.spec.Root.Path, "/") {
+		return c.spec.Root.Path
 	}
 
-	return filepath.Join(c.State.Bundle, c.Spec.Root.Path)
+	return filepath.Join(c.State.Bundle, c.spec.Root.Path)
 }
 
 func (c *Container) canBeDeleted() bool {
@@ -616,7 +538,7 @@ func (c *Container) canBeKilled() bool {
 }
 
 func (c *Container) pivotRoot() error {
-	if c.Spec.Process == nil {
+	if c.spec.Process == nil {
 		return errors.New("process is required")
 	}
 
@@ -637,13 +559,13 @@ func (c *Container) connectConsole() error {
 		return fmt.Errorf("new pty: %w", err)
 	}
 
-	if c.Spec.Process.ConsoleSize != nil {
+	if c.spec.Process.ConsoleSize != nil {
 		unix.IoctlSetWinsize(
 			int(pty.Slave.Fd()),
 			unix.TIOCSWINSZ,
 			&unix.Winsize{
-				Row: uint16(c.Spec.Process.ConsoleSize.Height),
-				Col: uint16(c.Spec.Process.ConsoleSize.Width),
+				Row: uint16(c.spec.Process.ConsoleSize.Height),
+				Col: uint16(c.spec.Process.ConsoleSize.Width),
 			},
 		)
 	}
@@ -656,19 +578,19 @@ func (c *Container) connectConsole() error {
 		return fmt.Errorf("connect pty: %w", err)
 	}
 
-	c.Pty = pty
+	c.pty = pty
 
 	return nil
 }
 
 func (c *Container) mountConsole() error {
-	if c.ConsoleSocketFD == nil || !c.Spec.Process.Terminal {
+	if c.ConsoleSocketFD == nil || !c.spec.Process.Terminal {
 		return nil
 	}
 
 	target := filepath.Join(c.rootFS(), "dev/console")
 
-	if err := c.Pty.MountSlave(target); err != nil {
+	if err := c.pty.MountSlave(target); err != nil {
 		return err
 	}
 
@@ -702,26 +624,163 @@ func (c *Container) waitStart() error {
 }
 
 func (c *Container) execUserProcess() error {
-	if err := os.Chdir(c.Spec.Process.Cwd); err != nil {
+	if err := os.Chdir(c.spec.Process.Cwd); err != nil {
 		return fmt.Errorf("set working directory: %w", err)
 	}
 
-	bin, err := exec.LookPath(c.Spec.Process.Args[0])
+	bin, err := exec.LookPath(c.spec.Process.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of user process binary: %w", err)
 	}
 
-	args := c.Spec.Process.Args
-	env := os.Environ()
-
-	if err := syscall.Exec(bin, args, env); err != nil {
-		return fmt.Errorf("execve (%s, %s, %v): %w", bin, args, env, err)
+	if err := syscall.Exec(bin, c.spec.Process.Args, os.Environ()); err != nil {
+		return fmt.Errorf(
+			"execve (argv0=%s, argv=%s, envv=%v): %w",
+			bin, c.spec.Process.Args, os.Environ(), err,
+		)
 	}
 
 	return nil
 }
 
-// Load retrieves a container's state and specification, based on its ID.
+func (c *Container) setupPrePivot() error {
+	if err := platform.MountRootfs(c.rootFS()); err != nil {
+		return fmt.Errorf("mount rootfs: %w", err)
+	}
+
+	if err := platform.MountProc(c.rootFS()); err != nil {
+		return fmt.Errorf("mount proc: %w", err)
+	}
+
+	c.spec.Mounts = append(c.spec.Mounts, specs.Mount{
+		Destination: "/dev/pts",
+		Type:        "devpts",
+		Source:      "devpts",
+		Options: []string{
+			"nosuid",
+			"noexec",
+			"newinstance",
+			"ptmxmode=0666",
+			"mode=0620",
+			"gid=5",
+		},
+	})
+
+	if err := platform.MountSpecMounts(c.spec.Mounts, c.rootFS()); err != nil {
+		return fmt.Errorf("mount spec mounts: %w", err)
+	}
+
+	if err := platform.MountDefaultDevices(c.rootFS()); err != nil {
+		return fmt.Errorf("mount default devices: %w", err)
+	}
+
+	if err := platform.CreateDeviceNodes(c.spec.Linux.Devices, c.rootFS()); err != nil {
+		return fmt.Errorf("mount devices from spec: %w", err)
+	}
+
+	if err := platform.CreateDefaultSymlinks(c.rootFS()); err != nil {
+		return fmt.Errorf("create default symlinks: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) setupPostPivot() error {
+	if c.spec.Linux.Sysctl != nil {
+		if err := platform.SetSysctl(c.spec.Linux.Sysctl); err != nil {
+			return fmt.Errorf("set sysctl: %w", err)
+		}
+	}
+
+	if err := platform.MountMaskedPaths(c.spec.Linux.MaskedPaths); err != nil {
+		return fmt.Errorf("mount masked paths: %w", err)
+	}
+
+	if err := platform.MountReadonlyPaths(c.spec.Linux.ReadonlyPaths); err != nil {
+		return fmt.Errorf("mount readonly paths: %w", err)
+	}
+
+	if err := platform.SetRootfsMountPropagation(
+		c.spec.Linux.RootfsPropagation,
+	); err != nil {
+		return fmt.Errorf("set rootfs mount propagation: %w", err)
+	}
+
+	if c.spec.Root.Readonly {
+		if err := platform.MountRootReadonly(); err != nil {
+			return fmt.Errorf("remount root as readonly: %w", err)
+		}
+	}
+
+	hasUTSNamespace := slices.ContainsFunc(
+		c.spec.Linux.Namespaces,
+		func(n specs.LinuxNamespace) bool {
+			return n.Type == specs.UTSNamespace
+		},
+	)
+
+	if hasUTSNamespace {
+		if err := syscall.Sethostname([]byte(c.spec.Hostname)); err != nil {
+			return fmt.Errorf("set hostname: %w", err)
+		}
+
+		if err := syscall.Setdomainname([]byte(c.spec.Domainname)); err != nil {
+			return fmt.Errorf("set domainname: %w", err)
+		}
+	}
+
+	if err := platform.SetRlimits(c.spec.Process.Rlimits); err != nil {
+		return fmt.Errorf("set rlimits: %w", err)
+	}
+
+	if c.spec.Process.Capabilities != nil {
+		if err := platform.SetCapabilities(c.spec.Process.Capabilities); err != nil {
+			return fmt.Errorf("set capabilities: %w", err)
+		}
+	}
+
+	if c.spec.Process.NoNewPrivileges {
+		if err := platform.SetNoNewPrivs(); err != nil {
+			return fmt.Errorf("set no new privileges: %w", err)
+		}
+	}
+
+	if c.spec.Process.Scheduler != nil {
+		schedAttr, err := platform.NewSchedAttr(c.spec.Process.Scheduler)
+		if err != nil {
+			return fmt.Errorf("new sched attr: %w", err)
+		}
+
+		if err := platform.SchedSetAttr(schedAttr); err != nil {
+			return fmt.Errorf("set sched attr: %w", err)
+		}
+	}
+
+	if c.spec.Process.IOPriority != nil {
+		ioprio, err := platform.IOPrioToInt(c.spec.Process.IOPriority)
+		if err != nil {
+			return fmt.Errorf("convert ioprio to int: %w", err)
+		}
+
+		if err := platform.IOPrioSet(ioprio); err != nil {
+			return fmt.Errorf("set ioprio: %w", err)
+		}
+	}
+
+	if err := platform.SetUser(&c.spec.Process.User); err != nil {
+		return fmt.Errorf("set user: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) useTerminal() bool {
+	return c.spec.Process != nil &&
+		c.spec.Process.Terminal &&
+		c.ConsoleSocket != ""
+}
+
+// Load retrieves an existing container with the given id at the given rootDir.
 func Load(id, rootDir string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
 	if err != nil {
@@ -745,7 +804,7 @@ func Load(id, rootDir string) (*Container, error) {
 
 	c := &Container{
 		State:         state,
-		Spec:          spec,
+		spec:          spec,
 		rootDir:       rootDir,
 		containerSock: filepath.Join(rootDir, id, containerSockFilename),
 	}
@@ -753,140 +812,54 @@ func Load(id, rootDir string) (*Container, error) {
 	return c, nil
 }
 
-// Exists checks if a container with the given ID exists.
-func Exists(containerID, rootDir string) bool {
-	_, err := os.Stat(filepath.Join(rootDir, containerID))
+// Exists checks if a container with the given id at the given rootDir exists.
+func Exists(id, rootDir string) bool {
+	_, err := os.Stat(filepath.Join(rootDir, id))
 
 	return err == nil
 }
 
-func (c *Container) setupPrePivot() error {
-	if err := platform.MountRootfs(c.rootFS()); err != nil {
-		return fmt.Errorf("mount rootfs: %w", err)
-	}
+func buildMappings(
+	spec *specs.Spec,
+) ([]syscall.SysProcIDMap, []syscall.SysProcIDMap) {
+	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
+	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
 
-	if err := platform.MountProc(c.rootFS()); err != nil {
-		return fmt.Errorf("mount proc: %w", err)
-	}
+	if uidCount := len(spec.Linux.UIDMappings); uidCount > 0 {
+		uidMappings = slices.Grow(uidMappings, uidCount-1)
 
-	c.Spec.Mounts = append(c.Spec.Mounts, specs.Mount{
-		Destination: "/dev/pts",
-		Type:        "devpts",
-		Source:      "devpts",
-		Options: []string{
-			"nosuid",
-			"noexec",
-			"newinstance",
-			"ptmxmode=0666",
-			"mode=0620",
-			"gid=5",
-		},
-	})
-
-	if err := platform.MountSpecMounts(c.Spec.Mounts, c.rootFS()); err != nil {
-		return fmt.Errorf("mount spec: %w", err)
-	}
-
-	if err := platform.MountDefaultDevices(c.rootFS()); err != nil {
-		return fmt.Errorf("mount default devices: %w", err)
-	}
-
-	if err := platform.CreateDeviceNodes(c.Spec.Linux.Devices, c.rootFS()); err != nil {
-		return fmt.Errorf("mount devices from spec: %w", err)
-	}
-
-	if err := platform.CreateDefaultSymlinks(c.rootFS()); err != nil {
-		return fmt.Errorf("create default symlinks: %w", err)
-	}
-
-	return nil
-}
-
-func (c *Container) setupPostPivot() error {
-	if c.Spec.Linux.Sysctl != nil {
-		if err := platform.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
-			return fmt.Errorf("set sysctl: %w", err)
+		for _, m := range spec.Linux.UIDMappings {
+			uidMappings = append(uidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
 		}
+	} else {
+		uidMappings = append(uidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getuid(),
+			Size:        1,
+		})
 	}
 
-	if err := platform.MountMaskedPaths(c.Spec.Linux.MaskedPaths); err != nil {
-		return err
-	}
+	if gidCount := len(spec.Linux.GIDMappings); gidCount > 0 {
+		for _, m := range spec.Linux.GIDMappings {
+			gidMappings = slices.Grow(gidMappings, gidCount-1)
 
-	if err := platform.MountReadonlyPaths(c.Spec.Linux.ReadonlyPaths); err != nil {
-		return err
-	}
-
-	if err := platform.SetRootfsMountPropagation(
-		c.Spec.Linux.RootfsPropagation,
-	); err != nil {
-		return err
-	}
-
-	if c.Spec.Root.Readonly {
-		if err := platform.MountRootReadonly(); err != nil {
-			return err
+			gidMappings = append(gidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
 		}
+	} else {
+		gidMappings = append(gidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getgid(),
+			Size:        1,
+		})
 	}
 
-	hasUTSNamespace := slices.ContainsFunc(
-		c.Spec.Linux.Namespaces,
-		func(n specs.LinuxNamespace) bool {
-			return n.Type == specs.UTSNamespace
-		},
-	)
-
-	if hasUTSNamespace {
-		if err := syscall.Sethostname([]byte(c.Spec.Hostname)); err != nil {
-			return err
-		}
-
-		if err := syscall.Setdomainname([]byte(c.Spec.Domainname)); err != nil {
-			return err
-		}
-	}
-
-	if err := platform.SetRlimits(c.Spec.Process.Rlimits); err != nil {
-		return fmt.Errorf("set rlimits: %w", err)
-	}
-
-	if c.Spec.Process.Capabilities != nil {
-		if err := platform.SetCapabilities(c.Spec.Process.Capabilities); err != nil {
-			return fmt.Errorf("set capabilities: %w", err)
-		}
-	}
-
-	if c.Spec.Process.NoNewPrivileges {
-		if err := platform.SetNoNewPrivs(); err != nil {
-			return fmt.Errorf("set no new privileges: %w", err)
-		}
-	}
-
-	if c.Spec.Process.Scheduler != nil {
-		schedAttr, err := platform.NewSchedAttr(c.Spec.Process.Scheduler)
-		if err != nil {
-			return fmt.Errorf("new sched attr: %w", err)
-		}
-
-		if err := platform.SchedSetAttr(schedAttr); err != nil {
-			return fmt.Errorf("set sched attrs: %w", err)
-		}
-	}
-
-	if c.Spec.Process.IOPriority != nil {
-		ioprio, err := platform.IOPrioToInt(c.Spec.Process.IOPriority)
-		if err != nil {
-			return fmt.Errorf("convert ioprio to int: %w", err)
-		}
-
-		if err := platform.IOPrioSet(ioprio); err != nil {
-			return fmt.Errorf("set ioprio: %w", err)
-		}
-	}
-
-	if err := platform.SetUser(&c.Spec.Process.User); err != nil {
-		return fmt.Errorf("set user: %w", err)
-	}
-
-	return nil
+	return uidMappings, gidMappings
 }
