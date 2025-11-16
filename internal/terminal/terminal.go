@@ -21,7 +21,7 @@ type Pty struct {
 	Slave  *os.File
 }
 
-// NewPty creates a new Pty pseudo-terminal pair.
+// NewPty creates a Pty pseudo-terminal pair.
 func NewPty() (*Pty, error) {
 	pty, err := term.OpenPTY()
 	if err != nil {

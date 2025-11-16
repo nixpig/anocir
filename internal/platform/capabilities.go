@@ -2,9 +2,9 @@ package platform
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"github.com/syndtr/gocapability/capability"
 )
 
@@ -111,7 +111,10 @@ func resolveCaps(names []string) []capability.Cap {
 		if v, ok := capabilities[name]; ok {
 			resolved = append(resolved, v)
 		} else {
-			logrus.Warnf("capability %s cannot be mapped", name)
+			os.Stdout.WriteString(fmt.Sprintf(
+				"Warning: capability %s cannot be mapped\n",
+				name,
+			))
 		}
 	}
 

@@ -39,7 +39,7 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringP(
 		"root",
 		"",
-		"/var/lib/anocir/containers",
+		"/run/anocir",
 		"Root directory for container state",
 	)
 

@@ -6,6 +6,8 @@ import (
 	"net"
 	"os"
 	"time"
+
+	"golang.org/x/sys/unix"
 )
 
 type Socket struct {
@@ -14,6 +16,19 @@ type Socket struct {
 
 func NewSocket(path string) *Socket {
 	return &Socket{path}
+}
+
+func NewSocketPair() (int, int, error) {
+	fds, err := unix.Socketpair(
+		unix.AF_UNIX,
+		unix.SOCK_STREAM|unix.SOCK_CLOEXEC,
+		0,
+	)
+	if err != nil {
+		return 0, 0, fmt.Errorf("new socket pair: %w", err)
+	}
+
+	return fds[0], fds[1], nil
 }
 
 func (s *Socket) Listen() (net.Listener, error) {
@@ -52,6 +67,10 @@ func (s *Socket) DialWithRetry() (net.Conn, error) {
 
 func (s *Socket) SetPermissions(mode os.FileMode) error {
 	return os.Chmod(s.path, mode)
+}
+
+func FDToConn(fd int) (net.Conn, error) {
+	return net.FileConn(os.NewFile(uintptr(fd), "ipc_socket"))
 }
 
 func SendMessage(conn net.Conn, msg string) error {

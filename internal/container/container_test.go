@@ -28,6 +28,10 @@ func TestContainerLifecycle(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
+	if err := c.Save(); err != nil {
+		assert.Fail(t, "Container should save")
+	}
+
 	stateFileInfo, err := os.Stat(
 		filepath.Join(opts.RootDir, opts.ID, "state.json"),
 	)
@@ -47,9 +51,8 @@ func TestContainerLifecycle(t *testing.T) {
 			Status:  "creating",
 			Bundle:  opts.Bundle,
 		},
-		Spec:     opts.Spec,
-		rootDir:  opts.RootDir,
-		initSock: filepath.Join(opts.RootDir, opts.ID, initSockFilename),
+		Spec:    opts.Spec,
+		rootDir: opts.RootDir,
 		containerSock: filepath.Join(
 			opts.RootDir,
 			opts.ID,
