@@ -59,9 +59,7 @@ func ValidateNSPath(ns *specs.LinuxNamespace) error {
 			!strings.HasSuffix(ns.Path, suffix+"_for_children") {
 			return ErrInvalidNamespacePath
 		}
-	} else if !strings.HasSuffix(ns.Path, suffix) &&
-		// TODO: Remember why pid namespace is an exception.
-		ns.Type != specs.PIDNamespace {
+	} else if !strings.HasSuffix(ns.Path, suffix) {
 		return ErrInvalidNamespacePath
 	}
 
