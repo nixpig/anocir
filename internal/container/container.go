@@ -382,7 +382,6 @@ func (c *Container) Start() error {
 	}
 
 	if err := c.execHooks(LifecyclePrestart); err != nil {
-		logrus.Errorf("failed to exec prestart hooks: %s", err)
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
 
@@ -390,12 +389,10 @@ func (c *Container) Start() error {
 
 	conn, err := containerSock.Dial()
 	if err != nil {
-		logrus.Errorf("failed to dial container sock: %s", err)
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
 	if err := ipc.SendMessage(conn, startMsg); err != nil {
-		logrus.Errorf("failed to write start to sock: %s", err)
 		return fmt.Errorf("write 'start' msg to container sock: %w", err)
 	}
 	defer conn.Close()
@@ -610,7 +607,6 @@ func (c *Container) waitStart() error {
 
 	conn, err := listener.Accept()
 	if err != nil {
-		logrus.Errorf("failed to accept on container socket: %s", err)
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
 	defer conn.Close()

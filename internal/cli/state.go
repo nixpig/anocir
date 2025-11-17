@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,6 +28,7 @@ func stateCmd() *cobra.Command {
 				RootDir: rootDir,
 			})
 			if err != nil {
+				logrus.Errorf("state operation failed: %s", err)
 				return err
 			}
 
