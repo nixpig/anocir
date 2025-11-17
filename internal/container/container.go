@@ -192,7 +192,10 @@ func (c *Container) Init() error {
 
 	for _, ns := range c.spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
-			uidMappings, gidMappings := buildMappings(c.spec)
+			uidMappings, gidMappings := platform.BuildUserNSMappings(
+				c.spec.Linux.UIDMappings,
+				c.spec.Linux.GIDMappings,
+			)
 
 			cmd.SysProcAttr.UidMappings = uidMappings
 			cmd.SysProcAttr.GidMappings = gidMappings
@@ -817,49 +820,4 @@ func Exists(id, rootDir string) bool {
 	_, err := os.Stat(filepath.Join(rootDir, id))
 
 	return err == nil
-}
-
-func buildMappings(
-	spec *specs.Spec,
-) ([]syscall.SysProcIDMap, []syscall.SysProcIDMap) {
-	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
-	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
-
-	if uidCount := len(spec.Linux.UIDMappings); uidCount > 0 {
-		uidMappings = slices.Grow(uidMappings, uidCount-1)
-
-		for _, m := range spec.Linux.UIDMappings {
-			uidMappings = append(uidMappings, syscall.SysProcIDMap{
-				ContainerID: int(m.ContainerID),
-				HostID:      int(m.HostID),
-				Size:        int(m.Size),
-			})
-		}
-	} else {
-		uidMappings = append(uidMappings, syscall.SysProcIDMap{
-			ContainerID: 0,
-			HostID:      os.Getuid(),
-			Size:        1,
-		})
-	}
-
-	if gidCount := len(spec.Linux.GIDMappings); gidCount > 0 {
-		for _, m := range spec.Linux.GIDMappings {
-			gidMappings = slices.Grow(gidMappings, gidCount-1)
-
-			gidMappings = append(gidMappings, syscall.SysProcIDMap{
-				ContainerID: int(m.ContainerID),
-				HostID:      int(m.HostID),
-				Size:        int(m.Size),
-			})
-		}
-	} else {
-		gidMappings = append(gidMappings, syscall.SysProcIDMap{
-			ContainerID: 0,
-			HostID:      os.Getgid(),
-			Size:        1,
-		})
-	}
-
-	return uidMappings, gidMappings
 }

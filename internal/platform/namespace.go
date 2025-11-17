@@ -3,7 +3,10 @@ package platform
 import (
 	"errors"
 	"fmt"
+	"os"
+	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -63,4 +66,54 @@ func ValidateNSPath(ns *specs.LinuxNamespace) error {
 	}
 
 	return nil
+}
+
+// BuildUserNSMappings converts UID/GID mappings from an OCI spec to
+// syscall.SysProcIDMap for user namespace configuration via cmd.Exec.
+// If no mappings are provided then it defaults to mapping the current process'
+// UID/GID.
+func BuildUserNSMappings(
+	specUIDMappings []specs.LinuxIDMapping,
+	specGIDMappings []specs.LinuxIDMapping,
+) ([]syscall.SysProcIDMap, []syscall.SysProcIDMap) {
+	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
+	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
+
+	if uidCount := len(specUIDMappings); uidCount > 0 {
+		uidMappings = slices.Grow(uidMappings, uidCount-1)
+
+		for _, m := range specUIDMappings {
+			uidMappings = append(uidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
+		}
+	} else {
+		uidMappings = append(uidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getuid(),
+			Size:        1,
+		})
+	}
+
+	if gidCount := len(specGIDMappings); gidCount > 0 {
+		gidMappings = slices.Grow(gidMappings, gidCount-1)
+
+		for _, m := range specGIDMappings {
+			gidMappings = append(gidMappings, syscall.SysProcIDMap{
+				ContainerID: int(m.ContainerID),
+				HostID:      int(m.HostID),
+				Size:        int(m.Size),
+			})
+		}
+	} else {
+		gidMappings = append(gidMappings, syscall.SysProcIDMap{
+			ContainerID: 0,
+			HostID:      os.Getgid(),
+			Size:        1,
+		})
+	}
+
+	return uidMappings, gidMappings
 }

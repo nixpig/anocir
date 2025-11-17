@@ -1,6 +1,8 @@
 package platform_test
 
 import (
+	"os"
+	"syscall"
 	"testing"
 
 	"github.com/nixpig/anocir/internal/platform"
@@ -119,6 +121,192 @@ func TestValidateNSPath(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			err := platform.ValidateNSPath(data.ns)
 			assert.ErrorIs(t, err, data.err)
+		})
+	}
+}
+
+func TestBuildUserNSMappings(t *testing.T) {
+	scenarios := map[string]struct {
+		specUIDMappings     []specs.LinuxIDMapping
+		specGIDMappings     []specs.LinuxIDMapping
+		expectedUIDMappings []syscall.SysProcIDMap
+		expectedGIDMappings []syscall.SysProcIDMap
+	}{
+		"empty uid and gid mappings": {
+			specUIDMappings: []specs.LinuxIDMapping{},
+			specGIDMappings: []specs.LinuxIDMapping{},
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				},
+			},
+		},
+		"missing uid and gid mappings": {
+			specUIDMappings: nil,
+			specGIDMappings: nil,
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				},
+			},
+		},
+		"only uid mappings": {
+			specUIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			specGIDMappings: []specs.LinuxIDMapping{},
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getgid(),
+					Size:        1,
+				},
+			},
+		},
+		"only gid mappings": {
+			specUIDMappings: []specs.LinuxIDMapping{},
+			specGIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      os.Getuid(),
+					Size:        1,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+		},
+		"single uid and gid mapping": {
+			specUIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			specGIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 1000,
+					HostID:      1000,
+					Size:        1,
+				},
+			},
+		},
+		"multiple uid and gid mappings": {
+			specUIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 0,
+					HostID:      1000,
+					Size:        1,
+				},
+				{
+					ContainerID: 1,
+					HostID:      100000,
+					Size:        65536,
+				},
+			},
+			specGIDMappings: []specs.LinuxIDMapping{
+				{
+					ContainerID: 0,
+					HostID:      1000,
+					Size:        1,
+				},
+				{
+					ContainerID: 1,
+					HostID:      100000,
+					Size:        65536,
+				},
+			},
+			expectedUIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      1000,
+					Size:        1,
+				},
+				{
+					ContainerID: 1,
+					HostID:      100000,
+					Size:        65536,
+				},
+			},
+			expectedGIDMappings: []syscall.SysProcIDMap{
+				{
+					ContainerID: 0,
+					HostID:      1000,
+					Size:        1,
+				},
+				{
+					ContainerID: 1,
+					HostID:      100000,
+					Size:        65536,
+				},
+			},
+		},
+	}
+
+	for scenario, data := range scenarios {
+		t.Run(scenario, func(t *testing.T) {
+			uidMappings, gidMappings := platform.BuildUserNSMappings(
+				data.specUIDMappings,
+				data.specGIDMappings,
+			)
+
+			assert.Equal(t, data.expectedUIDMappings, uidMappings)
+			assert.Equal(t, data.expectedGIDMappings, gidMappings)
 		})
 	}
 }
