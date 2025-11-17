@@ -2,18 +2,18 @@ package platform
 
 import (
 	"fmt"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
+	"golang.org/x/sys/unix"
 )
 
 // SetUser sets the user and group IDs for the current (container) process.
 func SetUser(user *specs.User) error {
-	if err := syscall.Setuid(int(user.UID)); err != nil {
+	if err := unix.Setuid(int(user.UID)); err != nil {
 		return fmt.Errorf("set UID: %w", err)
 	}
 
-	if err := syscall.Setgid(int(user.GID)); err != nil {
+	if err := unix.Setgid(int(user.GID)); err != nil {
 		return fmt.Errorf("set GID: %w", err)
 	}
 
@@ -24,7 +24,7 @@ func SetUser(user *specs.User) error {
 			additionalGids[i] = int(gid)
 		}
 
-		if err := syscall.Setgroups(additionalGids); err != nil {
+		if err := unix.Setgroups(additionalGids); err != nil {
 			return fmt.Errorf("set additional GIDs: %w", err)
 		}
 	}

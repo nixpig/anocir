@@ -430,10 +430,10 @@ func (c *Container) Delete(force bool) error {
 			}
 		}
 	} else if c.State.Pid != 0 {
-		if err := syscall.Kill(
+		if err := unix.Kill(
 			c.State.Pid,
-			syscall.SIGKILL,
-		); err != nil && !errors.Is(err, syscall.ESRCH) {
+			unix.SIGKILL,
+		); err != nil && !errors.Is(err, unix.ESRCH) {
 			return fmt.Errorf("send kill signal to process: %w", err)
 		}
 	}
@@ -633,7 +633,7 @@ func (c *Container) execUserProcess() error {
 		return fmt.Errorf("find path of user process binary: %w", err)
 	}
 
-	if err := syscall.Exec(bin, c.spec.Process.Args, os.Environ()); err != nil {
+	if err := unix.Exec(bin, c.spec.Process.Args, os.Environ()); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
 			bin, c.spec.Process.Args, os.Environ(), err,
@@ -720,11 +720,11 @@ func (c *Container) setupPostPivot() error {
 	)
 
 	if hasUTSNamespace {
-		if err := syscall.Sethostname([]byte(c.spec.Hostname)); err != nil {
+		if err := unix.Sethostname([]byte(c.spec.Hostname)); err != nil {
 			return fmt.Errorf("set hostname: %w", err)
 		}
 
-		if err := syscall.Setdomainname([]byte(c.spec.Domainname)); err != nil {
+		if err := unix.Setdomainname([]byte(c.spec.Domainname)); err != nil {
 			return fmt.Errorf("set domainname: %w", err)
 		}
 	}

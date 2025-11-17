@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
@@ -21,7 +20,7 @@ func PivotRoot(containerRootfs string) error {
 		return fmt.Errorf("make old root dir: %w", err)
 	}
 
-	if err := syscall.PivotRoot(
+	if err := unix.PivotRoot(
 		containerRootfs,
 		filepath.Join(containerRootfs, oldroot),
 	); err != nil {
@@ -32,7 +31,7 @@ func PivotRoot(containerRootfs string) error {
 		return fmt.Errorf("chdir to new root: %w", err)
 	}
 
-	if err := syscall.Unmount(oldroot, unix.MNT_DETACH); err != nil {
+	if err := unix.Unmount(oldroot, unix.MNT_DETACH); err != nil {
 		return fmt.Errorf("unmount old root: %w", err)
 	}
 

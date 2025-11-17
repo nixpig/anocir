@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -31,7 +30,7 @@ var rlimit = map[string]uint{
 // based on the given POSIXRlimit specifications.
 func SetRlimits(rlimits []specs.POSIXRlimit) error {
 	for _, rl := range rlimits {
-		if err := syscall.Setrlimit(int(rlimit[rl.Type]), &syscall.Rlimit{
+		if err := unix.Setrlimit(int(rlimit[rl.Type]), &unix.Rlimit{
 			Cur: rl.Soft,
 			Max: rl.Hard,
 		}); err != nil {

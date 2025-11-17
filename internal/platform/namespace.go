@@ -4,7 +4,6 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -38,17 +37,17 @@ var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 }
 
 func SetNS(path string) error {
-	fd, err := syscall.Open(path, syscall.O_RDONLY, 0o666)
+	fd, err := unix.Open(path, unix.O_RDONLY, 0o666)
 	if err != nil {
 		return fmt.Errorf("open ns path %s: %w", path, err)
 	}
 
-	_, _, errno := syscall.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
+	_, _, errno := unix.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("set namespace %s errno: %w", path, errno)
 	}
 
-	return syscall.Close(fd)
+	return unix.Close(fd)
 }
 
 func ValidateNSPath(ns *specs.LinuxNamespace) error {

@@ -2,13 +2,12 @@ package platform
 
 import (
 	"fmt"
-	"syscall"
 
 	"golang.org/x/sys/unix"
 )
 
 func mount(source, target, fstype string, flags uintptr, data string) error {
-	if err := syscall.Mount(source, target, fstype, flags, data); err != nil {
+	if err := unix.Mount(source, target, fstype, flags, data); err != nil {
 		return fmt.Errorf(
 			"mount %s to %s (type=%s, flags=%#x): %w",
 			source, target, fstype, flags, err,

@@ -6,7 +6,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"os"
-	"syscall"
 	"unsafe"
 
 	"github.com/google/goterm/term"
@@ -41,19 +40,19 @@ func (p *Pty) Connect() error {
 		return fmt.Errorf("setsid: %w", err)
 	}
 
-	if err := unix.IoctlSetInt(int(p.Slave.Fd()), syscall.TIOCSCTTY, 0); err != nil {
+	if err := unix.IoctlSetInt(int(p.Slave.Fd()), unix.TIOCSCTTY, 0); err != nil {
 		return fmt.Errorf("set ioctl: %w", err)
 	}
 
-	if err := syscall.Dup2(int(p.Slave.Fd()), 0); err != nil {
+	if err := unix.Dup2(int(p.Slave.Fd()), 0); err != nil {
 		return fmt.Errorf("dup2 stdin: %w", err)
 	}
 
-	if err := syscall.Dup2(int(p.Slave.Fd()), 1); err != nil {
+	if err := unix.Dup2(int(p.Slave.Fd()), 1); err != nil {
 		return fmt.Errorf("dup2 stdout: %w", err)
 	}
 
-	if err := syscall.Dup2(int(p.Slave.Fd()), 2); err != nil {
+	if err := unix.Dup2(int(p.Slave.Fd()), 2); err != nil {
 		return fmt.Errorf("dup2 stderr: %w", err)
 	}
 
@@ -86,14 +85,14 @@ type PtySocket struct {
 
 // NewPtySocket creates a new PtySocket and connects it at the specified path.
 func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
-	fd, err := syscall.Socket(unix.AF_UNIX, unix.SOCK_STREAM, 0)
+	fd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 	if err != nil {
 		return nil, fmt.Errorf("create console socket: %w", err)
 	}
 
-	if err := syscall.Connect(
+	if err := unix.Connect(
 		fd,
-		&syscall.SockaddrUnix{
+		&unix.SockaddrUnix{
 			Name: consoleSocketPath,
 		},
 	); err != nil {
@@ -107,7 +106,7 @@ func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 
 // Close closes the PtySocket.
 func (ps *PtySocket) Close() error {
-	if err := syscall.Close(ps.SocketFd); err != nil {
+	if err := unix.Close(ps.SocketFd); err != nil {
 		return fmt.Errorf("close console socket: %w", err)
 	}
 
@@ -117,7 +116,7 @@ func (ps *PtySocket) Close() error {
 // SendPty sends the master file descriptor of a Pty over a Unix domain socket.
 func SendPty(consoleSocket int, pty *Pty) error {
 	masterFds := []int{int(pty.Master.Fd())}
-	cmsg := syscall.UnixRights(masterFds...)
+	cmsg := unix.UnixRights(masterFds...)
 	size := unsafe.Sizeof(pty.Master.Fd())
 	buf := make([]byte, size)
 
@@ -130,7 +129,7 @@ func SendPty(consoleSocket int, pty *Pty) error {
 		return fmt.Errorf("unsupported architecture (%d)", size*8)
 	}
 
-	if err := syscall.Sendmsg(consoleSocket, buf, cmsg, nil, 0); err != nil {
+	if err := unix.Sendmsg(consoleSocket, buf, cmsg, nil, 0); err != nil {
 		return fmt.Errorf("terminal sendmsg: %w", err)
 	}
 

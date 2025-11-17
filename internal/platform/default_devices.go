@@ -5,7 +5,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -122,7 +121,7 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 			return err
 		}
 
-		if err := syscall.Chmod(absPath, uint32(*d.FileMode)); err != nil {
+		if err := unix.Chmod(absPath, uint32(*d.FileMode)); err != nil {
 			return err
 		}
 
