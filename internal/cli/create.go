@@ -19,12 +19,9 @@ func createCmd() *cobra.Command {
 			containerID := args[0]
 
 			bundle, _ := cmd.Flags().GetString("bundle")
-
-			consoleSocket, _ := cmd.Flags().GetString("console-socket")
-
 			pidFile, _ := cmd.Flags().GetString("pid-file")
-
 			rootDir, _ := cmd.Flags().GetString("root")
+			consoleSocket, _ := cmd.Flags().GetString("console-socket")
 
 			logFile, _ := cmd.Root().Flags().GetString("log")
 

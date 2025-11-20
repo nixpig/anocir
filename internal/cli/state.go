@@ -17,10 +17,7 @@ func stateCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			rootDir, err := cmd.Flags().GetString("root")
-			if err != nil {
-				return err
-			}
+			rootDir, _ := cmd.Flags().GetString("root")
 
 			state, err := operations.State(&operations.StateOpts{
 				ID:      containerID,

@@ -16,15 +16,8 @@ func deleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			force, err := cmd.Flags().GetBool("force")
-			if err != nil {
-				return err
-			}
-
-			rootDir, err := cmd.Flags().GetString("root")
-			if err != nil {
-				return err
-			}
+			force, _ := cmd.Flags().GetBool("force")
+			rootDir, _ := cmd.Flags().GetString("root")
 
 			if err := operations.Delete(&operations.DeleteOpts{
 				ID:      containerID,

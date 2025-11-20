@@ -24,10 +24,7 @@ func reexecCmd() *cobra.Command {
 				consoleSocketFD = &flag
 			}
 
-			rootDir, err := cmd.Flags().GetString("root")
-			if err != nil {
-				return err
-			}
+			rootDir, _ := cmd.Flags().GetString("root")
 
 			if err := operations.Reexec(&operations.ReexecOpts{
 				ID:              containerID,

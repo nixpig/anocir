@@ -18,10 +18,7 @@ func killCmd() *cobra.Command {
 			containerID := args[0]
 			signal := args[1]
 
-			rootDir, err := cmd.Flags().GetString("root")
-			if err != nil {
-				return err
-			}
+			rootDir, _ := cmd.Flags().GetString("root")
 
 			if err := operations.Kill(&operations.KillOpts{
 				ID:      containerID,
