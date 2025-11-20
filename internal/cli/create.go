@@ -18,25 +18,15 @@ func createCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			bundle, err := cmd.Flags().GetString("bundle")
-			if err != nil {
-				return err
-			}
+			bundle, _ := cmd.Flags().GetString("bundle")
 
-			consoleSocket, err := cmd.Flags().GetString("console-socket")
-			if err != nil {
-				return err
-			}
+			consoleSocket, _ := cmd.Flags().GetString("console-socket")
 
-			pidFile, err := cmd.Flags().GetString("pid-file")
-			if err != nil {
-				return err
-			}
+			pidFile, _ := cmd.Flags().GetString("pid-file")
 
-			rootDir, err := cmd.Flags().GetString("root")
-			if err != nil {
-				return err
-			}
+			rootDir, _ := cmd.Flags().GetString("root")
+
+			logFile, _ := cmd.Root().Flags().GetString("log")
 
 			if err := operations.Create(&operations.CreateOpts{
 				ID:            containerID,
@@ -44,6 +34,7 @@ func createCmd() *cobra.Command {
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
 				RootDir:       rootDir,
+				LogFile:       logFile,
 			}); err != nil {
 				return fmt.Errorf("create: %w", err)
 			}

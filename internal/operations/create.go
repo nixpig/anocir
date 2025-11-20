@@ -17,6 +17,7 @@ type CreateOpts struct {
 	ConsoleSocket string
 	PIDFile       string
 	RootDir       string
+	LogFile       string
 }
 
 // Create creates a new container. It takes CreateOpts as input, which includes
@@ -48,6 +49,7 @@ func Create(opts *CreateOpts) error {
 		ConsoleSocket: opts.ConsoleSocket,
 		PIDFile:       opts.PIDFile,
 		RootDir:       opts.RootDir,
+		LogFile:       opts.LogFile,
 	})
 	if err != nil {
 		return fmt.Errorf("create container: %w", err)

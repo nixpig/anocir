@@ -20,7 +20,7 @@ func RootCmd() *cobra.Command {
 			debug, _ := cmd.Flags().GetBool("debug")
 
 			if logfile != "" {
-				logger, err := logging.Initialise(logfile, debug)
+				logger, err := logging.NewLogger(logfile, debug)
 				if err != nil {
 					return fmt.Errorf("initialise logging: %w", err)
 				}

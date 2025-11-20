@@ -21,7 +21,7 @@ func NewErrorWriter(logger *slog.Logger) *ErrorWriter {
 	return &ErrorWriter{logger}
 }
 
-func Initialise(logfile string, debug bool) (*slog.Logger, error) {
+func NewLogger(logfile string, debug bool) (*slog.Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
 		return nil, fmt.Errorf("create log directory: %w", err)
 	}
