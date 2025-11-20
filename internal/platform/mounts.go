@@ -17,7 +17,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		var flags uintptr
 
 		// For cgroupv2 bind mount the cgroup hierarchy.
-		if m.Type == "cgroup" && IsUnifiedCGroupsMode() {
+		if m.Type == "cgroup" && isUnifiedCGroupsMode() {
 			if err := BindMount(
 				"/sys/fs/cgroup",
 				filepath.Join(rootfs, m.Destination),

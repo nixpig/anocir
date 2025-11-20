@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/containerd/cgroups/v3"
@@ -9,14 +10,56 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-// IsUnifiedCGroupsMode checks if the system is running in cgroup v2 unified
+var ErrInvalidCGroup = errors.New("invalid cgroup config")
+
+// isUnifiedCGroupsMode checks if the system is running in cgroup v2 unified
 // mode.
-func IsUnifiedCGroupsMode() bool {
+func isUnifiedCGroupsMode() bool {
 	return cgroups.Mode() == cgroups.Unified
 }
 
-// AddV1CGroups adds a process to a cgroup v1 hierarchy.
-func AddV1CGroups(
+func AddCGroups(state *specs.State, spec *specs.Spec) error {
+	if isUnifiedCGroupsMode() {
+		if err := addV2CGroups(
+			state.ID,
+			spec.Linux.Resources,
+			state.Pid,
+		); err != nil {
+			return fmt.Errorf("add to v2 cgroup: %w", err)
+		}
+	} else if spec.Linux.CgroupsPath != "" {
+		if err := addV1CGroups(
+			spec.Linux.CgroupsPath,
+			spec.Linux.Resources,
+			state.Pid,
+		); err != nil {
+			return fmt.Errorf("add to v1 cgroup: %w", err)
+		}
+	} else {
+		return ErrInvalidCGroup
+	}
+
+	return nil
+}
+
+func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
+	if isUnifiedCGroupsMode() {
+		if err := deleteV2CGroups(state.ID); err != nil {
+			return err
+		}
+	} else if spec.Linux.CgroupsPath != "" {
+		if err := deleteV1CGroups(spec.Linux.CgroupsPath); err != nil {
+			return err
+		}
+	} else {
+		return ErrInvalidCGroup
+	}
+
+	return nil
+}
+
+// addV1CGroups adds a process to a cgroup v1 hierarchy.
+func addV1CGroups(
 	path string,
 	resources *specs.LinuxResources,
 	pid int,
@@ -35,8 +78,8 @@ func AddV1CGroups(
 	return nil
 }
 
-// DeleteV1CGroups deletes a cgroup v1 hierarchy.
-func DeleteV1CGroups(path string) error {
+// deleteV1CGroups deletes a cgroup v1 hierarchy.
+func deleteV1CGroups(path string) error {
 	staticPath := cgroup1.StaticPath(path)
 
 	cg, err := cgroup1.Load(staticPath)
@@ -51,8 +94,8 @@ func DeleteV1CGroups(path string) error {
 	return nil
 }
 
-// AddV2CGroups adds a process to a cgroup v2 hierarchy.
-func AddV2CGroups(
+// addV2CGroups adds a process to a cgroup v2 hierarchy.
+func addV2CGroups(
 	containerID string,
 	resources *specs.LinuxResources,
 	pid int,
@@ -72,8 +115,8 @@ func AddV2CGroups(
 	return nil
 }
 
-// DeleteV2CGroups deletes a cgroup v2 hierarchy.
-func DeleteV2CGroups(containerID string) error {
+// deleteV2CGroups deletes a cgroup v2 hierarchy.
+func deleteV2CGroups(containerID string) error {
 	systemdGroup := fmt.Sprintf("%s.slice", containerID)
 
 	cg, err := cgroup2.LoadSystemd("/", systemdGroup)

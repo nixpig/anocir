@@ -265,22 +265,8 @@ func (c *Container) Init() error {
 	}
 
 	if c.spec.Linux.Resources != nil {
-		if platform.IsUnifiedCGroupsMode() {
-			if err := platform.AddV2CGroups(
-				c.State.ID,
-				c.spec.Linux.Resources,
-				c.State.Pid,
-			); err != nil {
-				return fmt.Errorf("add to v2 cgroup: %w", err)
-			}
-		} else if c.spec.Linux.CgroupsPath != "" {
-			if err := platform.AddV1CGroups(
-				c.spec.Linux.CgroupsPath,
-				c.spec.Linux.Resources,
-				c.State.Pid,
-			); err != nil {
-				return fmt.Errorf("add to v1 cgroup: %w", err)
-			}
+		if err := platform.AddCGroups(c.State, c.spec); err != nil {
+			return fmt.Errorf("create cgroups: %w", err)
 		}
 	}
 
@@ -423,14 +409,8 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if c.spec.Linux.Resources != nil {
-		if platform.IsUnifiedCGroupsMode() {
-			if err := platform.DeleteV2CGroups(c.State.ID); err != nil {
-				return err
-			}
-		} else if c.spec.Linux.CgroupsPath != "" {
-			if err := platform.DeleteV1CGroups(c.spec.Linux.CgroupsPath); err != nil {
-				return err
-			}
+		if err := platform.DeleteCGroups(c.State, c.spec); err != nil {
+			return fmt.Errorf("delete cgroups: %w", err)
 		}
 	} else if c.State.Pid != 0 {
 		if err := unix.Kill(
