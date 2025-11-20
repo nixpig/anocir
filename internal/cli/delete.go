@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -32,7 +31,6 @@ func deleteCmd() *cobra.Command {
 				Force:   force,
 				RootDir: rootDir,
 			}); err != nil {
-				logrus.Errorf("delete operation failed: %s", err)
 				return fmt.Errorf("delete: %w", err)
 			}
 

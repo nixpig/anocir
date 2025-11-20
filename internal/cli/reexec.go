@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -35,7 +34,6 @@ func reexecCmd() *cobra.Command {
 				ConsoleSocketFD: consoleSocketFD,
 				RootDir:         rootDir,
 			}); err != nil {
-				logrus.Errorf("reexec operation failed: %s", err)
 				return fmt.Errorf("reexec: %w", err)
 			}
 

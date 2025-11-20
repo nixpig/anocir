@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -29,7 +28,6 @@ func killCmd() *cobra.Command {
 				Signal:  signal,
 				RootDir: rootDir,
 			}); err != nil {
-				logrus.Errorf("kill operation failed: %s", err)
 				return fmt.Errorf("kill: %w", err)
 			}
 

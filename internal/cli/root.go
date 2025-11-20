@@ -1,6 +1,8 @@
 package cli
 
 import (
+	"fmt"
+
 	"github.com/nixpig/anocir/internal/logging"
 	"github.com/spf13/cobra"
 )
@@ -13,11 +15,20 @@ func RootCmd() *cobra.Command {
 		Example:      "",
 		Version:      "0.0.1",
 		SilenceUsage: true,
-		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			logfile, _ := cmd.Flags().GetString("log")
 			debug, _ := cmd.Flags().GetBool("debug")
 
-			logging.Initialise(logfile, debug)
+			if logfile != "" {
+				logger, err := logging.Initialise(logfile, debug)
+				if err != nil {
+					return fmt.Errorf("initialise logging: %w", err)
+				}
+
+				cmd.Root().SetErr(logging.NewErrorWriter(logger))
+			}
+
+			return nil
 		},
 	}
 
@@ -46,8 +57,8 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringP(
 		"log",
 		"l",
-		"/var/log/anocir/log.txt",
-		"Location of log file",
+		"",
+		"Destination to write error logs (default is stderr)",
 	)
 
 	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")

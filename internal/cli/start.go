@@ -4,7 +4,6 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +26,6 @@ func startCmd() *cobra.Command {
 				ID:      containerID,
 				RootDir: rootDir,
 			}); err != nil {
-				logrus.Errorf("start operation failed: %s", err)
 				return fmt.Errorf("start: %w", err)
 			}
 

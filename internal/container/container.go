@@ -49,6 +49,7 @@ type Container struct {
 	pidFile       string
 	rootDir       string
 	containerSock string
+	logFile       string
 }
 
 // ContainerOpts holds the options for creating a new container.
@@ -59,6 +60,7 @@ type ContainerOpts struct {
 	ConsoleSocket string
 	PIDFile       string
 	RootDir       string
+	LogFile       string
 }
 
 // New creates a container based on the provided opts and saves its state.
@@ -79,7 +81,7 @@ func New(opts *ContainerOpts) (*Container, error) {
 		pidFile:       opts.PIDFile,
 
 		rootDir: opts.RootDir,
-
+		logFile: opts.LogFile,
 		containerSock: filepath.Join(
 			opts.RootDir,
 			opts.ID,
@@ -165,6 +167,7 @@ func (c *Container) Init() error {
 		args = append(args, "--debug")
 	}
 
+	args = append(args, "--log", c.logFile)
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)
@@ -368,9 +371,9 @@ func (c *Container) Start() error {
 	if c.spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
-			return err
+			return fmt.Errorf("save state stopped: %w", err)
 		}
-		// nothing to do; silent return
+		// Nothing to do; silent return.
 		return nil
 	}
 

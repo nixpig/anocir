@@ -17,7 +17,6 @@ func main() {
 	}
 
 	if err := cli.RootCmd().Execute(); err != nil {
-		os.Stderr.Write(fmt.Appendf(nil, "failed to execute: %s\n", err))
 		os.Exit(1)
 	}
 }

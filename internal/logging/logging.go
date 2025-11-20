@@ -1,35 +1,51 @@
 package logging
 
 import (
+	"bytes"
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
-
-	"github.com/sirupsen/logrus"
 )
 
-func Initialise(logfile string, debug bool) {
+type ErrorWriter struct {
+	logger *slog.Logger
+}
+
+func (ew *ErrorWriter) Write(p []byte) (int, error) {
+	ew.logger.Error(string(bytes.TrimSpace(p)))
+	return len(p), nil
+}
+
+func NewErrorWriter(logger *slog.Logger) *ErrorWriter {
+	return &ErrorWriter{logger}
+}
+
+func Initialise(logfile string, debug bool) (*slog.Logger, error) {
 	if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
-		fmt.Printf("Warning: failed to create log directory: %v\n", err)
+		return nil, fmt.Errorf("create log directory: %w", err)
 	}
 
-	if f, err := os.OpenFile(
+	f, err := os.OpenFile(
 		logfile,
 		os.O_CREATE|os.O_APPEND|os.O_WRONLY,
 		0o644,
-	); err != nil {
-		fmt.Printf("Warning: failed to open log file: %v\n", err)
-		fmt.Println("Logging to stdout...")
-	} else {
-		logrus.SetOutput(f)
+	)
+	if err != nil {
+		return nil, fmt.Errorf("open log file %s: %w", logfile, err)
 	}
 
+	level := slog.LevelInfo
+	addSource := false
 	if debug {
-		logrus.SetLevel(logrus.DebugLevel)
+		level = slog.LevelDebug
+		addSource = true
 	}
 
-	logrus.SetFormatter(&logrus.TextFormatter{
-		DisableColors: false,
-		FullTimestamp: true,
-	})
+	logger := slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{
+		Level:     level,
+		AddSource: addSource,
+	}))
+
+	return logger, nil
 }

@@ -5,7 +5,6 @@ import (
 	"os"
 
 	"github.com/nixpig/anocir/internal/operations"
-	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -46,7 +45,6 @@ func createCmd() *cobra.Command {
 				PIDFile:       pidFile,
 				RootDir:       rootDir,
 			}); err != nil {
-				logrus.Errorf("create operation failed: %s", err)
 				return fmt.Errorf("create: %w", err)
 			}
 
