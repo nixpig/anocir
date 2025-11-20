@@ -10,7 +10,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-var ErrInvalidCGroup = errors.New("invalid cgroup config")
+var ErrInvalidCGroupPath = errors.New("invalid cgroup path")
 
 // isUnifiedCGroupsMode checks if the system is running in cgroup v2 unified
 // mode.
@@ -18,6 +18,8 @@ func isUnifiedCGroupsMode() bool {
 	return cgroups.Mode() == cgroups.Unified
 }
 
+// AddCGroups creates a cgroup with the configuration from the given spec and
+// adds the process from the given state to it.
 func AddCGroups(state *specs.State, spec *specs.Spec) error {
 	if isUnifiedCGroupsMode() {
 		if err := addV2CGroups(
@@ -27,7 +29,7 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 		); err != nil {
 			return fmt.Errorf("add to v2 cgroup: %w", err)
 		}
-	} else if spec.Linux.CgroupsPath != "" {
+	} else {
 		if err := addV1CGroups(
 			spec.Linux.CgroupsPath,
 			spec.Linux.Resources,
@@ -35,8 +37,6 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 		); err != nil {
 			return fmt.Errorf("add to v1 cgroup: %w", err)
 		}
-	} else {
-		return ErrInvalidCGroup
 	}
 
 	return nil
@@ -47,12 +47,10 @@ func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 		if err := deleteV2CGroups(state.ID); err != nil {
 			return err
 		}
-	} else if spec.Linux.CgroupsPath != "" {
+	} else {
 		if err := deleteV1CGroups(spec.Linux.CgroupsPath); err != nil {
 			return err
 		}
-	} else {
-		return ErrInvalidCGroup
 	}
 
 	return nil
@@ -64,6 +62,10 @@ func addV1CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
+	if path == "" {
+		return ErrInvalidCGroupPath
+	}
+
 	staticPath := cgroup1.StaticPath(path)
 
 	cg, err := cgroup1.New(staticPath, resources)
@@ -80,6 +82,10 @@ func addV1CGroups(
 
 // deleteV1CGroups deletes a cgroup v1 hierarchy.
 func deleteV1CGroups(path string) error {
+	if path == "" {
+		return ErrInvalidCGroupPath
+	}
+
 	staticPath := cgroup1.StaticPath(path)
 
 	cg, err := cgroup1.Load(staticPath)
