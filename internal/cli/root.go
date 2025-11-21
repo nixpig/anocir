@@ -10,8 +10,8 @@ import (
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:          "anocir",
-		Short:        "An experimental Linux container runtime.",
-		Long:         "An experimental Linux container runtime; working towards OCI Runtime Spec compliance.",
+		Short:        "An experimental Linux container runtime",
+		Long:         "An experimental Linux container runtime, implementing the OCI Runtime Spec",
 		Example:      "",
 		Version:      "0.0.1",
 		SilenceUsage: true,
@@ -43,8 +43,11 @@ func RootCmd() *cobra.Command {
 	)
 
 	// Required by Docker
-	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "placeholder")
-	cmd.PersistentFlags().StringP("log-format", "", "", "placeholder")
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "Not implemented")
+	cmd.PersistentFlags().StringP("log-format", "", "", "Not implemented")
+
+	hideFlags(cmd, []string{"systemd-cgroup", "log-format"})
+
 	// ---
 
 	cmd.PersistentFlags().StringP(
@@ -66,4 +69,15 @@ func RootCmd() *cobra.Command {
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 
 	return cmd
+}
+
+func hideFlags(cmd *cobra.Command, flags []string) {
+	helpFunc := cmd.HelpFunc()
+	cmd.SetHelpFunc(func(c *cobra.Command, s []string) {
+		for _, flag := range flags {
+			cmd.Flags().MarkHidden(flag)
+		}
+
+		helpFunc(cmd, s)
+	})
 }

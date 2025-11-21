@@ -12,7 +12,6 @@ func createCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
-		Long:    "Create a container from a bundle directory",
 		Example: "  anocir create busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {

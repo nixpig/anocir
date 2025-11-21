@@ -11,7 +11,6 @@ func deleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "delete [flags] CONTAINER_ID",
 		Short: "Delete a container",
-		Long:  "Release container resources after the container process has exited",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
