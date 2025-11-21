@@ -22,7 +22,7 @@ func RootCmd() *cobra.Command {
 			if logfile != "" {
 				logger, err := logging.NewLogger(logfile, debug)
 				if err != nil {
-					return fmt.Errorf("initialise logging: %w", err)
+					return fmt.Errorf("failed to initialise logging: %w", err)
 				}
 
 				cmd.Root().SetErr(logging.NewErrorWriter(logger))
@@ -42,14 +42,6 @@ func RootCmd() *cobra.Command {
 		featuresCmd(),
 	)
 
-	// Required by Docker
-	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "Not implemented")
-	cmd.PersistentFlags().StringP("log-format", "", "", "Not implemented")
-
-	hideFlags(cmd, []string{"systemd-cgroup", "log-format"})
-
-	// ---
-
 	cmd.PersistentFlags().StringP(
 		"root",
 		"",
@@ -61,23 +53,17 @@ func RootCmd() *cobra.Command {
 		"log",
 		"l",
 		"",
-		"Destination to write error logs (default is stderr)",
+		"Destination to write error logs (default \"stderr\")",
 	)
 
 	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 
+	// Required by Docker.
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "Not implemented")
+	cmd.PersistentFlags().StringP("log-format", "", "", "Not implemented")
+	// ---
+
 	return cmd
-}
-
-func hideFlags(cmd *cobra.Command, flags []string) {
-	helpFunc := cmd.HelpFunc()
-	cmd.SetHelpFunc(func(c *cobra.Command, s []string) {
-		for _, flag := range flags {
-			cmd.Flags().MarkHidden(flag)
-		}
-
-		helpFunc(cmd, s)
-	})
 }

@@ -23,7 +23,7 @@ func deleteCmd() *cobra.Command {
 				Force:   force,
 				RootDir: rootDir,
 			}); err != nil {
-				return fmt.Errorf("delete: %w", err)
+				return fmt.Errorf("failed to delete container: %w", err)
 			}
 
 			return nil
@@ -31,7 +31,7 @@ func deleteCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		BoolP("force", "f", false, "Delete container regardless of state")
+		BoolP("force", "f", false, "Force container deletion")
 
 	return cmd
 }

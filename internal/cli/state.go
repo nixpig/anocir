@@ -23,11 +23,11 @@ func stateCmd() *cobra.Command {
 				RootDir: rootDir,
 			})
 			if err != nil {
-				return fmt.Errorf("state: %w", err)
+				return fmt.Errorf("failed to get state of container: %w", err)
 			}
 
 			if _, err := cmd.OutOrStdout().Write([]byte(state)); err != nil {
-				return fmt.Errorf("write state to stdout: %w", err)
+				return fmt.Errorf("failed to print state to stdout: %w", err)
 			}
 
 			return nil

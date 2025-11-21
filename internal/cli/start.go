@@ -22,7 +22,7 @@ func startCmd() *cobra.Command {
 				ID:      containerID,
 				RootDir: rootDir,
 			}); err != nil {
-				return fmt.Errorf("start: %w", err)
+				return fmt.Errorf("failed to start container: %w", err)
 			}
 
 			return nil

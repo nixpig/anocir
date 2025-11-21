@@ -32,7 +32,7 @@ func createCmd() *cobra.Command {
 				RootDir:       rootDir,
 				LogFile:       logFile,
 			}); err != nil {
-				return fmt.Errorf("create: %w", err)
+				return fmt.Errorf("failed to create container: %w", err)
 			}
 
 			return nil

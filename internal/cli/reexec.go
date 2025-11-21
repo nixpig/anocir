@@ -30,14 +30,14 @@ func reexecCmd() *cobra.Command {
 				ConsoleSocketFD: consoleSocketFD,
 				RootDir:         rootDir,
 			}); err != nil {
-				return fmt.Errorf("reexec: %w", err)
+				return fmt.Errorf("failed to reexec process: %w", err)
 			}
 
 			return nil
 		},
 	}
 
-	cmd.Flags().IntP("console-socket-fd", "", 0, "console socket fd")
+	cmd.Flags().IntP("console-socket-fd", "", 0, "Console socket FD")
 
 	return cmd
 }

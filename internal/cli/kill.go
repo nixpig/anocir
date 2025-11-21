@@ -24,7 +24,7 @@ func killCmd() *cobra.Command {
 				Signal:  signal,
 				RootDir: rootDir,
 			}); err != nil {
-				return fmt.Errorf("kill: %w", err)
+				return fmt.Errorf("failed to send signal to container: %w", err)
 			}
 
 			return nil

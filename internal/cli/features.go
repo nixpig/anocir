@@ -17,23 +17,23 @@ func featuresCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			features, err := json.Marshal(operations.GetFeatures())
 			if err != nil {
-				return fmt.Errorf("features: %w", err)
+				return fmt.Errorf("failed to get features: %w", err)
 			}
 
 			var formattedFeatures bytes.Buffer
 			if err := json.Indent(
 				&formattedFeatures,
-				[]byte(features),
+				features,
 				"",
 				"  ",
 			); err != nil {
-				return err
+				return fmt.Errorf("failed to format features output: %w", err)
 			}
 
 			if _, err := cmd.OutOrStdout().Write(
 				formattedFeatures.Bytes(),
 			); err != nil {
-				return fmt.Errorf("features: %w", err)
+				return fmt.Errorf("failed to print features to stdout: %w", err)
 			}
 
 			return nil
