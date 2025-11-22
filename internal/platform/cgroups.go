@@ -10,6 +10,7 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// ErrInvalidCGroupPath is returned when an invalid cgroup path is specified.
 var ErrInvalidCGroupPath = errors.New("invalid cgroup path")
 
 // isUnifiedCGroupsMode checks if the system is running in cgroup v2 unified
@@ -42,6 +43,7 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 	return nil
 }
 
+// DeleteCGroups deletes a cgroup based on the given state and/or spec.
 func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 	if isUnifiedCGroupsMode() {
 		if err := deleteV2CGroups(state.ID); err != nil {
@@ -56,7 +58,6 @@ func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 	return nil
 }
 
-// addV1CGroups adds a process to a cgroup v1 hierarchy.
 func addV1CGroups(
 	path string,
 	resources *specs.LinuxResources,
@@ -80,7 +81,6 @@ func addV1CGroups(
 	return nil
 }
 
-// deleteV1CGroups deletes a cgroup v1 hierarchy.
 func deleteV1CGroups(path string) error {
 	if path == "" {
 		return ErrInvalidCGroupPath
@@ -100,7 +100,6 @@ func deleteV1CGroups(path string) error {
 	return nil
 }
 
-// addV2CGroups adds a process to a cgroup v2 hierarchy.
 func addV2CGroups(
 	containerID string,
 	resources *specs.LinuxResources,
@@ -121,7 +120,6 @@ func addV2CGroups(
 	return nil
 }
 
-// deleteV2CGroups deletes a cgroup v2 hierarchy.
 func deleteV2CGroups(containerID string) error {
 	systemdGroup := fmt.Sprintf("%s.slice", containerID)
 

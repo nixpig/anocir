@@ -47,13 +47,14 @@ func SetNS(path string) error {
 	if err != nil {
 		return fmt.Errorf("open ns path %s: %w", path, err)
 	}
+	defer unix.Close(fd)
 
 	_, _, errno := unix.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
 		return fmt.Errorf("set namespace %s errno: %w", path, errno)
 	}
 
-	return unix.Close(fd)
+	return nil
 }
 
 // ValidateNSPath validates that the suffix of the Path is valid for the Type

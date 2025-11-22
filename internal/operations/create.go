@@ -29,6 +29,7 @@ type CreateOpts struct {
 
 // Create creates a new container.
 func Create(opts *CreateOpts) error {
+	// TODO: Validate Container ID is only alphanumeric, dash, underscore.
 	if container.Exists(opts.ID, opts.RootDir) {
 		return fmt.Errorf("container '%s' exists", opts.ID)
 	}
@@ -47,6 +48,8 @@ func Create(opts *CreateOpts) error {
 	if err := json.Unmarshal(config, &spec); err != nil {
 		return fmt.Errorf("unmarshall config: %w", err)
 	}
+
+	// TODO: Validate spec.Version matches what the runtime supports.
 
 	cntr, err := container.New(&container.ContainerOpts{
 		ID:            opts.ID,

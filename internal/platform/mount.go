@@ -2,9 +2,18 @@ package platform
 
 import (
 	"fmt"
+	"slices"
 
 	"golang.org/x/sys/unix"
 )
+
+var validPropagationFlags = []uintptr{
+	0,
+	unix.MS_SHARED,
+	unix.MS_PRIVATE,
+	unix.MS_SLAVE,
+	unix.MS_UNBINDABLE,
+}
 
 func mount(source, target, fstype string, flags uintptr, data string) error {
 	if err := unix.Mount(source, target, fstype, flags, data); err != nil {
@@ -46,19 +55,24 @@ func MountFilesystem(
 }
 
 // SetPropagation sets the propagation type for the mount at the given target.
-// Valid values for flag are MS_SHARED, MS_PRIVATE, MS_SLAVE, MS_BINDABLE.
-// Only one flag may be provided at a time.
+// Valid values for flag are MS_SHARED, MS_PRIVATE, MS_SLAVE, MS_BINDABLE and
+// only one flag may be provided. The MS_REC modifier can be OR'd with any
+// propagation type to make it recursive.
 func SetPropagation(target string, flag uintptr) error {
-	// validPropagationFlags := []uintptr{
-	// 	unix.MS_SHARED,
-	// 	unix.MS_PRIVATE,
-	// 	unix.MS_SLAVE,
-	// 	unix.MS_UNBINDABLE,
-	// }
-	//
-	// if !slices.Contains(validPropagationFlags, flag) {
-	// 	return fmt.Errorf("invalid propagation flag: 0x%x", flag)
-	// }
+	if !validatePropagationFlag(flag) {
+		return fmt.Errorf("invalid propagation flag: 0x%x", flag)
+	}
 
 	return mount("", target, "", flag, "")
+}
+
+// TODO: Add unit tests.
+func validatePropagationFlag(flag uintptr) bool {
+	baseFlag := flag &^ unix.MS_REC
+
+	if !slices.Contains(validPropagationFlags, baseFlag) {
+		return false
+	}
+
+	return true
 }

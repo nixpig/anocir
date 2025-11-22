@@ -123,6 +123,7 @@ func (c *Container) Save() error {
 	}
 
 	if c.pidFile != "" && c.State.Pid > 0 {
+		// TODO: PID file writing requires atomicity.
 		if err := os.WriteFile(
 			c.pidFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
@@ -271,6 +272,7 @@ func (c *Container) Init() error {
 	}
 
 	if err := cmd.Process.Release(); err != nil {
+		// TODO: Cleanup cgroups and the like.
 		return fmt.Errorf("release container process: %w", err)
 	}
 
@@ -317,6 +319,8 @@ func (c *Container) Reexec() error {
 	}
 
 	// 3 is first extra file, after 0=stdin 1=stdout 2=stderr.
+	// TODO: This feels brittle - if cmd.ExtraFiles changes then this breaks
+	// silently.
 	conn, err := ipc.FDToConn(3)
 	if err != nil {
 		return err
@@ -348,7 +352,7 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	panic("if you got here then something went horribly wrong")
+	panic("if you got here then something wrong that is not recoverable")
 }
 
 // Start begins the execution of the Container. It executes pre-start and
@@ -546,14 +550,13 @@ func (c *Container) connectConsole() error {
 	}
 
 	if c.spec.Process.ConsoleSize != nil {
-		unix.IoctlSetWinsize(
-			int(pty.Slave.Fd()),
-			unix.TIOCSWINSZ,
-			&unix.Winsize{
-				Row: uint16(c.spec.Process.ConsoleSize.Height),
-				Col: uint16(c.spec.Process.ConsoleSize.Width),
-			},
-		)
+		if err := platform.SetWinSize(
+			pty.Slave.Fd(),
+			c.spec.Process.ConsoleSize.Width,
+			c.spec.Process.ConsoleSize.Height,
+		); err != nil {
+			return fmt.Errorf("set console size: %w", err)
+		}
 	}
 
 	if err := terminal.SendPty(*c.ConsoleSocketFD, pty); err != nil {

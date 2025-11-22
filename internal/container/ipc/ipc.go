@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+const bufSize = 128
+
 // Socket holds a path to use for a unix domain socket.
 type Socket struct {
 	path string
@@ -77,6 +79,10 @@ func FDToConn(fd int) (net.Conn, error) {
 
 // SendMessage writes the given msg to the given conn.
 func SendMessage(conn net.Conn, msg string) error {
+	if len(msg) > bufSize {
+		return fmt.Errorf("message is larger than %d", bufSize)
+	}
+
 	_, err := conn.Write([]byte(msg))
 
 	return err
@@ -84,7 +90,7 @@ func SendMessage(conn net.Conn, msg string) error {
 
 // ReceiveMessage reads from the given conn and returns the read data.
 func ReceiveMessage(conn net.Conn) (string, error) {
-	buf := make([]byte, 128)
+	buf := make([]byte, bufSize)
 
 	n, err := conn.Read(buf)
 	if err != nil {
