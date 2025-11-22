@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"slices"
 
 	"golang.org/x/sys/unix"
 )
@@ -50,16 +49,16 @@ func MountFilesystem(
 // Valid values for flag are MS_SHARED, MS_PRIVATE, MS_SLAVE, MS_BINDABLE.
 // Only one flag may be provided at a time.
 func SetPropagation(target string, flag uintptr) error {
-	validPropagationFlags := []uintptr{
-		unix.MS_SHARED,
-		unix.MS_PRIVATE,
-		unix.MS_SLAVE,
-		unix.MS_UNBINDABLE,
-	}
-
-	if !slices.Contains(validPropagationFlags, flag) {
-		return fmt.Errorf("invalid propagation flag: 0x%x", flag)
-	}
+	// validPropagationFlags := []uintptr{
+	// 	unix.MS_SHARED,
+	// 	unix.MS_PRIVATE,
+	// 	unix.MS_SLAVE,
+	// 	unix.MS_UNBINDABLE,
+	// }
+	//
+	// if !slices.Contains(validPropagationFlags, flag) {
+	// 	return fmt.Errorf("invalid propagation flag: 0x%x", flag)
+	// }
 
 	return mount("", target, "", flag, "")
 }

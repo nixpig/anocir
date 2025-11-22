@@ -102,6 +102,7 @@ func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 			Name: consoleSocketPath,
 		},
 	); err != nil {
+		unix.Close(fd)
 		return nil, fmt.Errorf("connect to console socket: %w", err)
 	}
 
