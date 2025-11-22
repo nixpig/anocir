@@ -96,10 +96,6 @@ func New(opts *ContainerOpts) (*Container, error) {
 func (c *Container) Save() error {
 	containerDir := filepath.Join(c.rootDir, c.State.ID)
 
-	if err := os.MkdirAll(containerDir, 0o755); err != nil {
-		return fmt.Errorf("create container directory: %w", err)
-	}
-
 	if c.spec.Linux != nil &&
 		len(c.spec.Linux.UIDMappings) > 0 &&
 		len(c.spec.Linux.GIDMappings) > 0 {
@@ -141,11 +137,6 @@ func (c *Container) Save() error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
-	if err := c.lock(); err != nil {
-		return err
-	}
-	defer c.unlock()
-
 	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
@@ -364,11 +355,6 @@ func (c *Container) Reexec() error {
 // Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
-	if err := c.lock(); err != nil {
-		return err
-	}
-	defer c.unlock()
-
 	if c.spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
@@ -416,11 +402,6 @@ func (c *Container) Start() error {
 // Delete removes the Container from the system. If force is true then it will
 // delete the Container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
-	if err := c.lock(); err != nil {
-		return err
-	}
-	defer c.unlock()
-
 	if !force && !c.canBeDeleted() {
 		return fmt.Errorf(
 			"container cannot be deleted in current state (%s) try using '--force'",
@@ -457,11 +438,6 @@ func (c *Container) Delete(force bool) error {
 // Kill sends the given sig to the Container process and executes post-stop
 // hooks.
 func (c *Container) Kill(sig string) error {
-	if err := c.lock(); err != nil {
-		return err
-	}
-	defer c.unlock()
-
 	if !c.canBeKilled() {
 		return fmt.Errorf(
 			"container cannot be killed in current state (%s)",
@@ -784,7 +760,7 @@ func (c *Container) setupPostPivot() error {
 	return nil
 }
 
-func (c *Container) lock() error {
+func (c *Container) Lock() error {
 	lockPath := filepath.Join(c.rootDir, c.State.ID, "lock")
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
@@ -800,7 +776,7 @@ func (c *Container) lock() error {
 	return nil
 }
 
-func (c *Container) unlock() error {
+func (c *Container) Unlock() error {
 	if c.lockFile == nil {
 		return nil
 	}

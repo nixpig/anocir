@@ -28,6 +28,10 @@ func TestContainerLifecycle(t *testing.T) {
 	assert.NoError(t, err)
 	assert.NotNil(t, c)
 
+	if err := os.MkdirAll(filepath.Join(opts.RootDir, opts.ID), 0o755); err != nil {
+		assert.Fail(t, "must create container directory")
+	}
+
 	if err := c.Save(); err != nil {
 		assert.Fail(t, "Container should save")
 	}

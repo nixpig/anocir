@@ -23,6 +23,10 @@ func Kill(opts *KillOpts) error {
 		return fmt.Errorf("load container: %w", err)
 	}
 
+	if err := cntr.Lock(); err != nil {
+		return fmt.Errorf("lock container: %w", err)
+	}
+
 	if err := cntr.Kill(opts.Signal); err != nil {
 		return fmt.Errorf("kill container: %w", err)
 	}

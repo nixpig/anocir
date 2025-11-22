@@ -51,6 +51,20 @@ func Create(opts *CreateOpts) error {
 
 	// TODO: Validate spec.Version matches what the runtime supports.
 
+	if err := os.MkdirAll(opts.RootDir, 0o755); err != nil {
+		return fmt.Errorf("create root dir: %w", err)
+	}
+
+	containerDir := filepath.Join(opts.RootDir, opts.ID)
+
+	if err := os.Mkdir(containerDir, 0o755); err != nil {
+		if os.IsExist(err) {
+			return fmt.Errorf("container '%s' already exists", opts.ID)
+		}
+
+		return fmt.Errorf("create container directory: %w", err)
+	}
+
 	cntr, err := container.New(&container.ContainerOpts{
 		ID:            opts.ID,
 		Bundle:        bundle,
@@ -61,7 +75,13 @@ func Create(opts *CreateOpts) error {
 		LogFile:       opts.LogFile,
 	})
 	if err != nil {
+		os.RemoveAll(containerDir)
 		return fmt.Errorf("create container: %w", err)
+	}
+
+	if err := cntr.Lock(); err != nil {
+		os.RemoveAll(containerDir)
+		return fmt.Errorf("lock container: %w", err)
 	}
 
 	if err := cntr.Save(); err != nil {

@@ -25,6 +25,10 @@ func State(opts *StateOpts) (string, error) {
 		return "", fmt.Errorf("load container: %w", err)
 	}
 
+	if err := cntr.Lock(); err != nil {
+		return "", fmt.Errorf("lock container: %w", err)
+	}
+
 	process, err := os.FindProcess(cntr.State.Pid)
 	if err != nil {
 		return "", fmt.Errorf("find container process: %w", err)
