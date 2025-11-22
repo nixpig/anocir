@@ -50,6 +50,7 @@ type Container struct {
 	rootDir       string
 	containerSock string
 	logFile       string
+	lockFile      *os.File
 }
 
 // ContainerOpts holds the options for creating a new Container.
@@ -140,6 +141,11 @@ func (c *Container) Save() error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
+	if err := c.lock(); err != nil {
+		return err
+	}
+	defer c.unlock()
+
 	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
@@ -358,6 +364,11 @@ func (c *Container) Reexec() error {
 // Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
+	if err := c.lock(); err != nil {
+		return err
+	}
+	defer c.unlock()
+
 	if c.spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.Save(); err != nil {
@@ -405,6 +416,11 @@ func (c *Container) Start() error {
 // Delete removes the Container from the system. If force is true then it will
 // delete the Container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
+	if err := c.lock(); err != nil {
+		return err
+	}
+	defer c.unlock()
+
 	if !force && !c.canBeDeleted() {
 		return fmt.Errorf(
 			"container cannot be deleted in current state (%s) try using '--force'",
@@ -441,6 +457,11 @@ func (c *Container) Delete(force bool) error {
 // Kill sends the given sig to the Container process and executes post-stop
 // hooks.
 func (c *Container) Kill(sig string) error {
+	if err := c.lock(); err != nil {
+		return err
+	}
+	defer c.unlock()
+
 	if !c.canBeKilled() {
 		return fmt.Errorf(
 			"container cannot be killed in current state (%s)",
@@ -761,6 +782,31 @@ func (c *Container) setupPostPivot() error {
 	}
 
 	return nil
+}
+
+func (c *Container) lock() error {
+	lockPath := filepath.Join(c.rootDir, c.State.ID, "lock")
+	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
+	if err != nil {
+		return fmt.Errorf("open lock file: %w", err)
+	}
+
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
+		f.Close()
+		return fmt.Errorf("acquire file lock: %w", err)
+	}
+
+	c.lockFile = f
+	return nil
+}
+
+func (c *Container) unlock() error {
+	if c.lockFile == nil {
+		return nil
+	}
+
+	defer c.lockFile.Close()
+	return unix.Flock(int(c.lockFile.Fd()), unix.LOCK_UN)
 }
 
 func (c *Container) useTerminal() bool {

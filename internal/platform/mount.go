@@ -70,9 +70,5 @@ func SetPropagation(target string, flag uintptr) error {
 func validatePropagationFlag(flag uintptr) bool {
 	baseFlag := flag &^ unix.MS_REC
 
-	if !slices.Contains(validPropagationFlags, baseFlag) {
-		return false
-	}
-
-	return true
+	return slices.Contains(validPropagationFlags, baseFlag)
 }
