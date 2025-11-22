@@ -468,6 +468,27 @@ func (c *Container) Kill(sig string) error {
 	return nil
 }
 
+func (c *Container) GetState() (string, error) {
+	process, err := os.FindProcess(c.State.Pid)
+	if err != nil {
+		return "", fmt.Errorf("find container process: %w", err)
+	}
+
+	if err := process.Signal(unix.Signal(0)); err != nil {
+		c.State.Status = specs.StateStopped
+		if err := c.Save(); err != nil {
+			return "", fmt.Errorf("save stopped state: %w", err)
+		}
+	}
+
+	state, err := json.Marshal(c.State)
+	if err != nil {
+		return "", fmt.Errorf("marshal state: %w", err)
+	}
+
+	return string(state), nil
+}
+
 // execHooks executes the hooks for the given phase of the Container execution.
 func (c *Container) execHooks(phase Lifecycle) error {
 	if c.spec.Hooks == nil {
