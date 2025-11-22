@@ -115,13 +115,12 @@ func (c *Container) Save() error {
 
 	stateFile := filepath.Join(containerDir, "state.json")
 
-	if err := os.WriteFile(stateFile, state, 0o644); err != nil {
+	if err := platform.AtomicWriteFile(stateFile, state, 0o644); err != nil {
 		return fmt.Errorf("write container state: %w", err)
 	}
 
 	if c.pidFile != "" && c.State.Pid > 0 {
-		// TODO: PID file writing requires atomicity.
-		if err := os.WriteFile(
+		if err := platform.AtomicWriteFile(
 			c.pidFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
 			0o644,
