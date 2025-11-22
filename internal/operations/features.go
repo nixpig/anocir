@@ -2,7 +2,7 @@ package operations
 
 import "github.com/opencontainers/runtime-spec/specs-go"
 
-// GetFeatures returns the supported features of the runtime.
+// GetFeatures returns the Features supported by anocir.
 func GetFeatures() *Features {
 	return &Features{
 		OCIVersionMin: specs.Version,

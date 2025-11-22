@@ -8,13 +8,16 @@ import (
 
 // ReexecOpts holds the options for the Reexec operation.
 type ReexecOpts struct {
-	ID              string
+	// ID is the Container ID.
+	ID string
+	// RootDir is the root directory for the Container state file.
+	RootDir string
+	// ConsoleSocketFD is the file descriptor of the unix domain socket used to
+	// recieve the PTY master file descriptor sent by the container runtime.
 	ConsoleSocketFD *int
-	RootDir         string
 }
 
-// Reexec re-executes the container process. It takes ReexecOpts as input,
-// which includes the container ID and a console socket file descriptor.
+// Reexec re-executes the container process.
 func Reexec(opts *ReexecOpts) error {
 	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {

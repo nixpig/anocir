@@ -29,6 +29,7 @@ func IOPrioSet(ioprio int) error {
 	return nil
 }
 
+// IOPrioToInt converts the given iop to its corresponding integer value.
 func IOPrioToInt(iop *specs.LinuxIOPriority) (int, error) {
 	class, ok := ioPrioClasses[iop.Class]
 	if !ok {

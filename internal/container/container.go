@@ -52,7 +52,7 @@ type Container struct {
 	logFile       string
 }
 
-// ContainerOpts holds the options for creating a new container.
+// ContainerOpts holds the options for creating a new Container.
 type ContainerOpts struct {
 	ID            string
 	Bundle        string
@@ -63,8 +63,8 @@ type ContainerOpts struct {
 	LogFile       string
 }
 
-// New creates a container based on the provided opts and saves its state.
-// The container will be in the 'creating' state.
+// New creates a Container based on the provided opts and saves its state.
+// The Container will be in the 'creating' state.
 func New(opts *ContainerOpts) (*Container, error) {
 	state := &specs.State{
 		Version:     specs.Version,
@@ -90,8 +90,8 @@ func New(opts *ContainerOpts) (*Container, error) {
 	}, nil
 }
 
-// Save persists the container's state to disk. It creates the required
-// directory hierarchy and sets permissions, if needed.
+// Save persists the Container state to disk. It creates the required directory
+// hierarchy and sets the needed permissions.
 func (c *Container) Save() error {
 	containerDir := filepath.Join(c.rootDir, c.State.ID)
 
@@ -135,7 +135,7 @@ func (c *Container) Save() error {
 	return nil
 }
 
-// Init prepares the container for execution. It executes hooks, sets up the
+// Init prepares the Container for execution. It executes hooks, sets up the
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
@@ -285,7 +285,7 @@ func (c *Container) Init() error {
 		return err
 	}
 	if msg != readyMsg {
-		return fmt.Errorf("expecting 'ready' but received '%s'", msg)
+		return fmt.Errorf("expecting '%s' but received '%s'", readyMsg, msg)
 	}
 
 	c.State.Status = specs.StateCreated
@@ -297,7 +297,7 @@ func (c *Container) Init() error {
 }
 
 // Reexec is the entry point for the containerised process. It is responsible
-// for setting up the container's environment, including namespaces, mounts,
+// for setting up the Container environment, including namespaces, mounts,
 // and security settings, before executing the user-specified process.
 func (c *Container) Reexec() error {
 	// Subsequent syscalls need to happen in a single-threaded context.
@@ -351,7 +351,7 @@ func (c *Container) Reexec() error {
 	panic("if you got here then something went horribly wrong")
 }
 
-// Start begins the execution of the container. It executes pre-start and
+// Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
 	if c.spec.Process == nil {
@@ -382,7 +382,7 @@ func (c *Container) Start() error {
 	}
 
 	if err := ipc.SendMessage(conn, startMsg); err != nil {
-		return fmt.Errorf("write 'start' msg to container sock: %w", err)
+		return fmt.Errorf("write '%s' msg to container sock: %w", startMsg, err)
 	}
 	defer conn.Close()
 
@@ -398,8 +398,8 @@ func (c *Container) Start() error {
 	return nil
 }
 
-// Delete removes the container from the system. If force is true then it will
-// delete the container, regardless of the container's state.
+// Delete removes the Container from the system. If force is true then it will
+// delete the Container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
 	if !force && !c.canBeDeleted() {
 		return fmt.Errorf(
@@ -434,7 +434,8 @@ func (c *Container) Delete(force bool) error {
 	return nil
 }
 
-// Kill sends a signal to the container's process and executes post-stop hooks.
+// Kill sends the given sig to the Container process and executes post-stop
+// hooks.
 func (c *Container) Kill(sig string) error {
 	if !c.canBeKilled() {
 		return fmt.Errorf(
@@ -467,6 +468,7 @@ func (c *Container) Kill(sig string) error {
 	return nil
 }
 
+// execHooks executes the hooks for the given phase of the Container execution.
 func (c *Container) execHooks(phase Lifecycle) error {
 	if c.spec.Hooks == nil {
 		return nil
@@ -499,6 +501,7 @@ func (c *Container) execHooks(phase Lifecycle) error {
 	return nil
 }
 
+// rootFS determines and returns the root filesystem.
 func (c *Container) rootFS() string {
 	if strings.HasPrefix(c.spec.Root.Path, "/") {
 		return c.spec.Root.Path
@@ -580,6 +583,7 @@ func (c *Container) mountConsole() error {
 	return nil
 }
 
+// waitStart listens on the container socket for the start message.
 func (c *Container) waitStart() error {
 	containerSock := ipc.NewSocket(c.containerSock)
 	listener, err := containerSock.Listen()
@@ -599,7 +603,7 @@ func (c *Container) waitStart() error {
 		return fmt.Errorf("read from container sock: %w", err)
 	}
 	if msg != startMsg {
-		return fmt.Errorf("expecting 'start' but received '%s'", msg)
+		return fmt.Errorf("expecting '%s' but received '%s'", startMsg, msg)
 	}
 
 	return nil
@@ -762,7 +766,7 @@ func (c *Container) useTerminal() bool {
 		c.ConsoleSocket != ""
 }
 
-// Load retrieves an existing container with the given id at the given rootDir.
+// Load retrieves an existing Container with the given id at the given rootDir.
 func Load(id, rootDir string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
 	if err != nil {
@@ -794,7 +798,7 @@ func Load(id, rootDir string) (*Container, error) {
 	return c, nil
 }
 
-// Exists checks if a container with the given id at the given rootDir exists.
+// Exists checks if a container exists with the given id at the given rootDir.
 func Exists(id, rootDir string) bool {
 	_, err := os.Stat(filepath.Join(rootDir, id))
 

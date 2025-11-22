@@ -5,6 +5,8 @@ import (
 	"path/filepath"
 )
 
+// defaultSymlinks are the symlinks required by all containers to ensure
+// common device paths work correctly.
 var defaultSymlinks = map[string]string{
 	"/proc/self/fd":   "dev/fd",
 	"/proc/self/fd/0": "dev/stdin",

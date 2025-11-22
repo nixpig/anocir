@@ -12,12 +12,13 @@ import (
 
 // StateOpts holds the options for the State operation.
 type StateOpts struct {
-	ID      string
+	// ID is the Container ID.
+	ID string
+	// RootDir is the root directory of the Container state file.
 	RootDir string
 }
 
-// State returns the state of a container. It takes StateOpts as input,
-// which include the container ID.
+// State returns the state of a Container.
 func State(opts *StateOpts) (string, error) {
 	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {

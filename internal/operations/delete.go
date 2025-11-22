@@ -8,13 +8,15 @@ import (
 
 // DeleteOpts holds the options for the Delete operation.
 type DeleteOpts struct {
-	ID      string
-	Force   bool
+	// ID is the Container ID.
+	ID string
+	// RootDir is the root directory containing the Container state file.
 	RootDir string
+	// Force is used to override the conditions for deleting a Container.
+	Force bool
 }
 
-// Delete removes a container. It takes DeleteOpts as input, which includes the
-// container ID and a force flag.
+// Delete removes a container.
 func Delete(opts *DeleteOpts) error {
 	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {

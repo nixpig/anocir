@@ -7,6 +7,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// rlimit maps RLIMIT_* strings to their corresponding syscall constant values.
 var rlimit = map[string]uint{
 	"RLIMIT_AS":         unix.RLIMIT_AS,
 	"RLIMIT_CORE":       unix.RLIMIT_CORE,

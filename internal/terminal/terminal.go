@@ -13,11 +13,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Pty represents a pseudo-terminal pair, consisting of a master and a slave
-// file.
+// Pty represents a pseudo-terminal pair, consisting of a Master and a Slave
+// File.
 type Pty struct {
+	// Master is the master side of the pseudo-terminal pair held by the runtime
+	// process.
 	Master *os.File
-	Slave  *os.File
+	// Slave is the slave side of the pseudo-terminal pair used as the
+	// controlling terminal for the container process.
+	Slave *os.File
 }
 
 // NewPty creates a Pty pseudo-terminal pair.
@@ -33,7 +37,7 @@ func NewPty() (*Pty, error) {
 	}, nil
 }
 
-// Connect sets up the Pty slave as the controlling terminal and redirects
+// Connect sets up the Pty Slave as the controlling terminal and redirects
 // stdin, stdout, and stderr to it.
 func (p *Pty) Connect() error {
 	if _, err := unix.Setsid(); err != nil {
@@ -59,7 +63,7 @@ func (p *Pty) Connect() error {
 	return nil
 }
 
-// MountSlave mounts the Pty slave device to the specified target path.
+// MountSlave mounts the Pty Slave device to the specified target path.
 func (p *Pty) MountSlave(target string) error {
 	if _, err := os.Stat(target); os.IsNotExist(err) {
 		f, err := os.Create(target)
@@ -78,12 +82,14 @@ func (p *Pty) MountSlave(target string) error {
 	return nil
 }
 
-// PtySocket represents a Unix domain socket used for communicating with a Pty.
+// PtySocket represents a unix domain socket used for communicating with a Pty.
 type PtySocket struct {
+	// SocketFd is the file descriptor to use for the unix domain socket.
 	SocketFd int
 }
 
-// NewPtySocket creates a new PtySocket and connects it at the specified path.
+// NewPtySocket creates a new PtySocket and connects it at the specified
+// consoleSocketPath.
 func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 	fd, err := unix.Socket(unix.AF_UNIX, unix.SOCK_STREAM, 0)
 	if err != nil {
@@ -113,13 +119,14 @@ func (ps *PtySocket) Close() error {
 	return nil
 }
 
-// SendPty sends the master file descriptor of a Pty over a Unix domain socket.
+// SendPty sends the Master file descriptor of a Pty over a unix domain socket.
 func SendPty(consoleSocket int, pty *Pty) error {
 	masterFds := []int{int(pty.Master.Fd())}
 	cmsg := unix.UnixRights(masterFds...)
 	size := unsafe.Sizeof(pty.Master.Fd())
 	buf := make([]byte, size)
 
+	// Ensure FD number is encoded correctly for the architecture.
 	switch size {
 	case 4:
 		binary.NativeEndian.PutUint32(buf, uint32(pty.Master.Fd()))
@@ -137,8 +144,9 @@ func SendPty(consoleSocket int, pty *Pty) error {
 }
 
 // Setup prepares the console for the container process. It changes the current
-// working directory to the rootfs, creates a symlink for the console socket,
-// and returns the file descriptor of the console socket.
+// working directory to the given rootfs, creates a symlink for the console
+// socket, and returns the file descriptor of the console socket at
+// consoleSocketPath.
 func Setup(rootfs, consoleSocketPath string) (*int, error) {
 	consoleSocket, err := NewPtySocket(consoleSocketPath)
 	if err != nil {

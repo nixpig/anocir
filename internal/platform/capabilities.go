@@ -8,8 +8,8 @@ import (
 	"github.com/syndtr/gocapability/capability"
 )
 
-// capabilities maps capability name strings to their corresponding
-// capability.Cap values.
+// capabilities maps CAP_* capability name strings to their corresponding
+// capability.Cap constant values.
 var capabilities = map[string]capability.Cap{
 	"CAP_AUDIT_CONTROL":      capability.CAP_AUDIT_CONTROL,
 	"CAP_AUDIT_READ":         capability.CAP_AUDIT_READ,

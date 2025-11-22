@@ -12,16 +12,22 @@ import (
 
 // CreateOpts holds the options for the Create operation.
 type CreateOpts struct {
-	ID            string
-	Bundle        string
+	// ID is the Container ID.
+	ID string
+	// Bundle is the location of the bundle.
+	Bundle string
+	// ConsoleSocket is the path of the unix domain socket where the Container
+	// PTY master file descriptor is sent.
 	ConsoleSocket string
-	PIDFile       string
-	RootDir       string
-	LogFile       string
+	// PIDFile is an optional file location to write the PID of the container to.
+	PIDFile string
+	// RootDir is the directory to store the container state file.
+	RootDir string
+	// LogFile is the location of the file used for logging.
+	LogFile string
 }
 
-// Create creates a new container. It takes CreateOpts as input, which includes
-// the container ID, bundle path, console socket path, and PID file path.
+// Create creates a new container.
 func Create(opts *CreateOpts) error {
 	if container.Exists(opts.ID, opts.RootDir) {
 		return fmt.Errorf("container '%s' exists", opts.ID)

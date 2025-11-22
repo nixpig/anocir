@@ -12,7 +12,7 @@ import (
 // recognised.
 var ErrUnknownSchedulerPolicy = errors.New("unknown scheuler policy")
 
-// schedulerFlags maps scheduler flags to their correxponding kernel values.
+// schedulerFlags maps scheduler flags to their corresponding kernel values.
 var schedulerFlags = map[specs.LinuxSchedulerFlag]int{
 	specs.SchedFlagResetOnFork:  0x01,
 	specs.SchedFlagReclaim:      0x02,

@@ -8,13 +8,15 @@ import (
 
 // KillOpts holds the options for the Kill operation.
 type KillOpts struct {
-	ID      string
-	Signal  string
+	// ID is the Container ID.
+	ID string
+	// RootDir is the root directory of the Container state file.
 	RootDir string
+	// Signal is the signal to send to the Container.
+	Signal string
 }
 
-// Kill sends a signal to a container. It takes KillOpts as input, which
-// includes the container ID and the signal to send.
+// Kill sends a signal to a Container.
 func Kill(opts *KillOpts) error {
 	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {

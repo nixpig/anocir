@@ -8,12 +8,13 @@ import (
 
 // StartOpts holds the options for the Start operation.
 type StartOpts struct {
-	ID      string
+	// ID is the Container ID.
+	ID string
+	// RootDir is the root directory of the Container state file.
 	RootDir string
 }
 
-// Start starts a container. It takes StartOpts as input, which include the
-// container ID.
+// Start starts a Container.
 func Start(opts *StartOpts) error {
 	cntr, err := container.Load(opts.ID, opts.RootDir)
 	if err != nil {

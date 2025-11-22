@@ -12,6 +12,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ErrInvalidNamespacePath is returned when an invalid namespace path is
+// specified.
 var ErrInvalidNamespacePath = errors.New("invalid namespace path")
 
 // NamespaceFlags maps LinuxNamespaceType to corresponding Linux clone flags.
@@ -39,6 +41,7 @@ var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 	specs.TimeNamespace:    "time",
 }
 
+// SetNS enters the namespace specified by the given path.
 func SetNS(path string) error {
 	fd, err := unix.Open(path, unix.O_RDONLY, 0o666)
 	if err != nil {
@@ -53,6 +56,8 @@ func SetNS(path string) error {
 	return unix.Close(fd)
 }
 
+// ValidateNSPath validates that the suffix of the Path is valid for the Type
+// in the given ns.
 func ValidateNSPath(ns *specs.LinuxNamespace) error {
 	suffix := fmt.Sprintf("/%s", NamespaceEnvs[ns.Type])
 
