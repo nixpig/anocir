@@ -18,19 +18,15 @@ type DeleteOpts struct {
 
 // Delete removes a container.
 func Delete(opts *DeleteOpts) error {
-	cntr, err := container.Load(opts.ID, opts.RootDir)
-	if err != nil {
-		return fmt.Errorf("load container: %w", err)
-	}
+	return container.WithLock(
+		opts.ID,
+		opts.RootDir,
+		func(c *container.Container) error {
+			if err := c.Delete(opts.Force); err != nil {
+				return fmt.Errorf("delete container: %w", err)
+			}
 
-	if err := cntr.Lock(); err != nil {
-		return fmt.Errorf("lock container: %w", err)
-	}
-	defer cntr.Unlock()
-
-	if err := cntr.Delete(opts.Force); err != nil {
-		return fmt.Errorf("delete container: %w", err)
-	}
-
-	return nil
+			return nil
+		},
+	)
 }

@@ -784,6 +784,20 @@ func (c *Container) Unlock() error {
 	return unix.Flock(int(c.lockFile.Fd()), unix.LOCK_UN)
 }
 
+func (c *Container) ReloadState() error {
+	stateFile := filepath.Join(c.rootDir, c.State.ID, "state.json")
+	s, err := os.ReadFile(stateFile)
+	if err != nil {
+		return fmt.Errorf("read state file: %w", err)
+	}
+
+	if err := json.Unmarshal(s, c.State); err != nil {
+		return fmt.Errorf("unmarshal state: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Container) useTerminal() bool {
 	return c.spec.Process != nil &&
 		c.spec.Process.Terminal &&
@@ -820,6 +834,27 @@ func Load(id, rootDir string) (*Container, error) {
 	}
 
 	return c, nil
+}
+
+// WithLock loads a Container with the given id at the given
+// rootDir, acquires an exclusive lock, refreshes the state, and executes the
+// given fn, finally releasing the lock.
+func WithLock(id, rootDir string, fn func(*Container) error) error {
+	c, err := Load(id, rootDir)
+	if err != nil {
+		return fmt.Errorf("load container: %w", err)
+	}
+
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("lock access to container: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.ReloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
+	return fn(c)
 }
 
 // Exists checks if a container exists with the given id at the given rootDir.

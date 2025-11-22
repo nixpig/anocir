@@ -16,19 +16,15 @@ type StartOpts struct {
 
 // Start starts a Container.
 func Start(opts *StartOpts) error {
-	cntr, err := container.Load(opts.ID, opts.RootDir)
-	if err != nil {
-		return fmt.Errorf("load container: %w", err)
-	}
+	return container.WithLock(
+		opts.ID,
+		opts.RootDir,
+		func(c *container.Container) error {
+			if err := c.Start(); err != nil {
+				return fmt.Errorf("start container: %w", err)
+			}
 
-	if err := cntr.Lock(); err != nil {
-		return fmt.Errorf("lock container: %w", err)
-	}
-	defer cntr.Unlock()
-
-	if err := cntr.Start(); err != nil {
-		return fmt.Errorf("start container: %w", err)
-	}
-
-	return nil
+			return nil
+		},
+	)
 }

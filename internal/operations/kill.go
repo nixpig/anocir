@@ -18,19 +18,14 @@ type KillOpts struct {
 
 // Kill sends a signal to a Container.
 func Kill(opts *KillOpts) error {
-	cntr, err := container.Load(opts.ID, opts.RootDir)
-	if err != nil {
-		return fmt.Errorf("load container: %w", err)
-	}
-
-	if err := cntr.Lock(); err != nil {
-		return fmt.Errorf("lock container: %w", err)
-	}
-	defer cntr.Unlock()
-
-	if err := cntr.Kill(opts.Signal); err != nil {
-		return fmt.Errorf("kill container: %w", err)
-	}
-
-	return nil
+	return container.WithLock(
+		opts.ID,
+		opts.RootDir,
+		func(c *container.Container) error {
+			if err := c.Kill(opts.Signal); err != nil {
+				return fmt.Errorf("kill container: %w", err)
+			}
+			return nil
+		},
+	)
 }
