@@ -83,6 +83,7 @@ func Create(opts *CreateOpts) error {
 		os.RemoveAll(containerDir)
 		return fmt.Errorf("lock container: %w", err)
 	}
+	defer cntr.Unlock()
 
 	if err := cntr.Save(); err != nil {
 		return fmt.Errorf("save container: %w", err)

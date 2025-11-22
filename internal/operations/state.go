@@ -28,6 +28,7 @@ func State(opts *StateOpts) (string, error) {
 	if err := cntr.Lock(); err != nil {
 		return "", fmt.Errorf("lock container: %w", err)
 	}
+	defer cntr.Unlock()
 
 	process, err := os.FindProcess(cntr.State.Pid)
 	if err != nil {

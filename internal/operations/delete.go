@@ -26,6 +26,7 @@ func Delete(opts *DeleteOpts) error {
 	if err := cntr.Lock(); err != nil {
 		return fmt.Errorf("lock container: %w", err)
 	}
+	defer cntr.Unlock()
 
 	if err := cntr.Delete(opts.Force); err != nil {
 		return fmt.Errorf("delete container: %w", err)

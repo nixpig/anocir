@@ -24,6 +24,7 @@ func Start(opts *StartOpts) error {
 	if err := cntr.Lock(); err != nil {
 		return fmt.Errorf("lock container: %w", err)
 	}
+	defer cntr.Unlock()
 
 	if err := cntr.Start(); err != nil {
 		return fmt.Errorf("start container: %w", err)
