@@ -148,11 +148,11 @@ func SendPty(consoleSocket int, pty *Pty) error {
 // working directory to the given rootfs, creates a symlink for the console
 // socket, and returns the file descriptor of the console socket at
 // consoleSocketPath.
-func Setup(rootfs, consoleSocketPath string) (*int, error) {
+func Setup(rootfs, consoleSocketPath string) (int, error) {
 	consoleSocket, err := NewPtySocket(consoleSocketPath)
 	if err != nil {
-		return nil, fmt.Errorf("create terminal socket: %w", err)
+		return 0, fmt.Errorf("create terminal socket: %w", err)
 	}
 
-	return &consoleSocket.SocketFd, nil
+	return consoleSocket.SocketFd, nil
 }

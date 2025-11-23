@@ -13,8 +13,9 @@ type ReexecOpts struct {
 	// RootDir is the root directory for the Container state file.
 	RootDir string
 	// ConsoleSocketFD is the file descriptor of the unix domain socket used to
-	// recieve the PTY master file descriptor sent by the container runtime.
-	ConsoleSocketFD *int
+	// recieve the PTY master file descriptor sent by the container runtime. The
+	// zero value is used as a sentinal value and indicates it's not set.
+	ConsoleSocketFD int
 }
 
 // Reexec re-executes the container process.

@@ -59,7 +59,7 @@ var (
 type Container struct {
 	State           *specs.State
 	ConsoleSocket   string
-	ConsoleSocketFD *int
+	ConsoleSocketFD int
 
 	spec          *specs.Spec
 	pty           *terminal.Pty
@@ -173,7 +173,7 @@ func (c *Container) Init() error {
 		args = append(
 			args,
 			"--console-socket-fd",
-			strconv.Itoa(*c.ConsoleSocketFD),
+			strconv.Itoa(c.ConsoleSocketFD),
 		)
 	}
 
@@ -339,9 +339,6 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	// 3 is first extra file, after 0=stdin 1=stdout 2=stderr.
-	// TODO: This feels brittle - if cmd.ExtraFiles changes then this breaks
-	// silently.
 	initSockFD := os.Getenv(envInitSockFD)
 	if initSockFD == "" {
 		return errors.New("missing init sock fd")
@@ -604,7 +601,7 @@ func (c *Container) pivotRoot() error {
 }
 
 func (c *Container) connectConsole() error {
-	if c.ConsoleSocketFD == nil {
+	if c.ConsoleSocketFD == 0 {
 		return nil
 	}
 
@@ -623,12 +620,11 @@ func (c *Container) connectConsole() error {
 		}
 	}
 
-	if err := terminal.SendPty(*c.ConsoleSocketFD, pty); err != nil {
+	if err := terminal.SendPty(c.ConsoleSocketFD, pty); err != nil {
 		return fmt.Errorf("connect pty and socket: %w", err)
 	}
 
-	unix.Close(*c.ConsoleSocketFD)
-	c.ConsoleSocketFD = nil
+	unix.Close(c.ConsoleSocketFD)
 
 	if err := pty.Connect(); err != nil {
 		return fmt.Errorf("connect pty: %w", err)
@@ -640,7 +636,7 @@ func (c *Container) connectConsole() error {
 }
 
 func (c *Container) mountConsole() error {
-	if c.ConsoleSocketFD == nil || !c.spec.Process.Terminal {
+	if c.pty == nil || !c.spec.Process.Terminal {
 		return nil
 	}
 

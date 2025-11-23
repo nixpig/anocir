@@ -1,7 +1,11 @@
 package validation
 
-import "errors"
+import (
+	"errors"
+	"fmt"
+)
 
+// maxLength is somewhat arbitrary, but 64 should be plenty long enough.
 const maxLength = 64
 
 // ContainerID validates that the provided ID is not empty, does not exceed the
@@ -12,7 +16,7 @@ func ContainerID(id string) error {
 	}
 
 	if len(id) > maxLength {
-		return errors.New("max length is 64 chars")
+		return fmt.Errorf("max length is %d chars", maxLength)
 	}
 
 	for _, c := range id {

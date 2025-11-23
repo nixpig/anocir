@@ -16,13 +16,7 @@ func reexecCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			// TODO: figure out a cleaner way of passing the console socket fd
-			var consoleSocketFD *int
-			if cmd.Flags().Changed("console-socket-fd") {
-				flag, _ := cmd.Flags().GetInt("console-socket-fd")
-				consoleSocketFD = &flag
-			}
-
+			consoleSocketFD, _ := cmd.Flags().GetInt("console-socket-fd")
 			rootDir, _ := cmd.Flags().GetString("root")
 
 			if err := operations.Reexec(&operations.ReexecOpts{

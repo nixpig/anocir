@@ -31,8 +31,7 @@ func killCmd() *cobra.Command {
 		},
 	}
 
-	// TODO: figure out why Docker needs this and implement it
-	cmd.Flags().BoolP("all", "a", false, "Kill all (Docker??)")
+	cmd.Flags().BoolP("all", "a", false, "Not implemented")
 
 	return cmd
 }
