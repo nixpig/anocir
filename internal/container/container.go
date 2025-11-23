@@ -29,6 +29,10 @@ const (
 	// to container operations.
 	lockFilename = "c.lock"
 
+	// envInitSockFD is the name of the environment variable used to pass the
+	// init sock file descriptor.
+	envInitSockFD = "_ANOCIR_INIT_SOCK_FD"
+
 	// containerSockFilename is the filename of the socket used by the runtime to
 	// send messages to the container.
 	containerSockFilename = "c.sock"
@@ -189,9 +193,17 @@ func (c *Container) Init() error {
 		return err
 	}
 
-	cmd.ExtraFiles = []*os.File{
-		os.NewFile(uintptr(initSockChildFD), "init_sock"),
-	}
+	initSockFile := os.NewFile(uintptr(initSockChildFD), "init_sock")
+	cmd.ExtraFiles = []*os.File{initSockFile}
+
+	cmd.Env = append(
+		cmd.Env,
+		fmt.Sprintf(
+			"%s=%d",
+			envInitSockFD,
+			slices.Index(cmd.ExtraFiles, initSockFile)+3,
+		),
+	)
 
 	if c.spec.Process != nil && c.spec.Process.OOMScoreAdj != nil {
 		if err := platform.AdjustOOMScore(
@@ -330,7 +342,17 @@ func (c *Container) Reexec() error {
 	// 3 is first extra file, after 0=stdin 1=stdout 2=stderr.
 	// TODO: This feels brittle - if cmd.ExtraFiles changes then this breaks
 	// silently.
-	conn, err := ipc.FDToConn(3)
+	initSockFD := os.Getenv(envInitSockFD)
+	if initSockFD == "" {
+		return errors.New("missing init sock fd")
+	}
+
+	initSockFDVal, err := strconv.Atoi(initSockFD)
+	if err != nil {
+		return errors.New("invalid init sock fd")
+	}
+
+	conn, err := ipc.FDToConn(initSockFDVal)
 	if err != nil {
 		return err
 	}
