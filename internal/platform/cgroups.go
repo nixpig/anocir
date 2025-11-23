@@ -63,6 +63,7 @@ func addV1CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
+	// TODO: Improve path validation, e.g. prevent traversal.
 	if path == "" {
 		return ErrInvalidCGroupPath
 	}
@@ -82,6 +83,7 @@ func addV1CGroups(
 }
 
 func deleteV1CGroups(path string) error {
+	// TODO: Improve path validation, e.g. prevent traversal.
 	if path == "" {
 		return ErrInvalidCGroupPath
 	}

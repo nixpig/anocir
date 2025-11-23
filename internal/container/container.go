@@ -454,6 +454,8 @@ func (c *Container) Delete(force bool) error {
 		); err != nil && !errors.Is(err, unix.ESRCH) {
 			return fmt.Errorf("send kill signal to process: %w", err)
 		}
+
+		unix.Wait4(c.State.Pid, nil, 0, nil)
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -508,6 +510,9 @@ func (c *Container) Kill(sig string) error {
 	return nil
 }
 
+// GetState returns the state of the container. In the case the container
+// process no longer exists, it has the side effect of internally modifying
+// the state to be 'stopped' before returning.
 func (c *Container) GetState() (string, error) {
 	if c.State.Pid != 0 {
 		process, err := os.FindProcess(c.State.Pid)
