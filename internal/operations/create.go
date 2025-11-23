@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/container"
+	"github.com/nixpig/anocir/internal/operations/validation"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -29,7 +30,10 @@ type CreateOpts struct {
 
 // Create creates a new container.
 func Create(opts *CreateOpts) error {
-	// TODO: Validate Container ID is only alphanumeric, dash, underscore.
+	if err := validation.ContainerID(opts.ID); err != nil {
+		return fmt.Errorf("invalid container ID: %w", err)
+	}
+
 	if container.Exists(opts.ID, opts.RootDir) {
 		return fmt.Errorf("container '%s' exists", opts.ID)
 	}
