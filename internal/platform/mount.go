@@ -66,7 +66,6 @@ func SetPropagation(target string, flag uintptr) error {
 	return mount("", target, "", flag, "")
 }
 
-// TODO: Add unit tests.
 func validatePropagationFlag(flag uintptr) bool {
 	baseFlag := flag &^ unix.MS_REC
 
