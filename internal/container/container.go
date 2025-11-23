@@ -267,11 +267,6 @@ func (c *Container) Init() error {
 		}
 	}
 
-	if err := cmd.Process.Release(); err != nil {
-		// TODO: Cleanup cgroups and the like.
-		return fmt.Errorf("release container process: %w", err)
-	}
-
 	conn, err := ipc.FDToConn(initSockParentFD)
 	if err != nil {
 		return fmt.Errorf("accept on init sock parent: %w", err)
@@ -284,6 +279,11 @@ func (c *Container) Init() error {
 	}
 	if msg != readyMsg {
 		return fmt.Errorf("expecting '%s' but received '%s'", readyMsg, msg)
+	}
+
+	if err := cmd.Process.Release(); err != nil {
+		// TODO: Cleanup cgroups and the like.
+		return fmt.Errorf("release container process: %w", err)
 	}
 
 	c.State.Status = specs.StateCreated
