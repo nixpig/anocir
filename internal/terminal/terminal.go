@@ -71,7 +71,6 @@ func (p *Pty) MountSlave(target string) error {
 			return fmt.Errorf("create device target if not exists: %w", err)
 		}
 		if f != nil {
-			// TODO: Check this error?
 			f.Close()
 		}
 	}
@@ -103,9 +102,6 @@ func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 			Name: consoleSocketPath,
 		},
 	); err != nil {
-		// TODO: Review whether checking the error here matters.
-		// If we're just exiting the process, it probably doesn't, but let's be
-		// sure.
 		unix.Close(fd)
 		return nil, fmt.Errorf("connect to console socket: %w", err)
 	}
