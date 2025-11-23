@@ -2,6 +2,7 @@
 package hooks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -45,8 +46,15 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 			cmd.Env = h.Env
 			cmd.Stdin = strings.NewReader(string(s))
 
+			var stdout, stderr bytes.Buffer
+			cmd.Stdout = &stdout
+			cmd.Stderr = &stderr
+
 			if err := cmd.Run(); err != nil {
-				return fmt.Errorf("execute hook %s: %w", h.Path, err)
+				return fmt.Errorf(
+					"execute hook %s: %w\nstdout: %s\nstderr: %s",
+					h.Path, err, stdout.String(), stderr.String(),
+				)
 			}
 
 			return nil

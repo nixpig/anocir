@@ -16,8 +16,12 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 
 	tempFileName := f.Name()
 
-	defer os.Remove(tempFileName)
-	defer f.Close()
+	defer func() {
+		f.Close()
+		if _, err := os.Stat(tempFileName); err == nil {
+			os.Remove(tempFileName)
+		}
+	}()
 
 	if _, err := f.Write(data); err != nil {
 		return fmt.Errorf("write data to temp file: %w", err)
@@ -29,10 +33,6 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 
 	if err := f.Chmod(perm); err != nil {
 		return fmt.Errorf("chmod temp file: %w", err)
-	}
-
-	if err := f.Close(); err != nil {
-		return fmt.Errorf("close temp file: %w", err)
 	}
 
 	if err := os.Rename(tempFileName, filename); err != nil {

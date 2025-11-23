@@ -25,6 +25,10 @@ import (
 )
 
 const (
+	// lockFilename is the filename of the lockfile used to synchronise access
+	// to container operations.
+	lockFilename = "c.lock"
+
 	// containerSockFilename is the filename of the socket used by the runtime to
 	// send messages to the container.
 	containerSockFilename = "c.sock"
@@ -35,6 +39,15 @@ const (
 	// startMsg is the message sent on the container socket to start the created
 	// container.
 	startMsg = "start"
+)
+
+var (
+	// ErrOperationInProgress is returned when the container is locked by another
+	// operation.
+	ErrOperationInProgress = errors.New("operation already in progress")
+
+	// ErrMissingProcess is returned when the provided spec is missing a process.
+	ErrMissingProcess = errors.New("process is required")
 )
 
 // Container represents an OCI container, including its state, specification,
@@ -421,6 +434,8 @@ func (c *Container) Delete(force bool) error {
 		}
 	}
 
+	// TODO: Review whether need to remove pidfile.
+
 	if err := os.RemoveAll(
 		filepath.Join(c.rootDir, c.State.ID),
 	); err != nil {
@@ -456,6 +471,9 @@ func (c *Container) Kill(sig string) error {
 		)
 	}
 
+	// TODO: Wait for signal to be handled. Signal isn't necessarily going to
+	// stop the process, so only update state and exec hooks if needed.
+
 	c.State.Status = specs.StateStopped
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save stopped state: %w", err)
@@ -469,15 +487,17 @@ func (c *Container) Kill(sig string) error {
 }
 
 func (c *Container) GetState() (string, error) {
-	process, err := os.FindProcess(c.State.Pid)
-	if err != nil {
-		return "", fmt.Errorf("find container process: %w", err)
-	}
+	if c.State.Pid != 0 {
+		process, err := os.FindProcess(c.State.Pid)
+		if err != nil {
+			return "", fmt.Errorf("find container process: %w", err)
+		}
 
-	if err := process.Signal(unix.Signal(0)); err != nil {
-		c.State.Status = specs.StateStopped
-		if err := c.Save(); err != nil {
-			return "", fmt.Errorf("save stopped state: %w", err)
+		if err := process.Signal(unix.Signal(0)); err != nil {
+			c.State.Status = specs.StateStopped
+			if err := c.Save(); err != nil {
+				return "", fmt.Errorf("save stopped state: %w", err)
+			}
 		}
 	}
 
@@ -546,7 +566,7 @@ func (c *Container) canBeKilled() bool {
 
 func (c *Container) pivotRoot() error {
 	if c.spec.Process == nil {
-		return errors.New("process is required")
+		return ErrMissingProcess
 	}
 
 	if err := platform.PivotRoot(c.rootFS()); err != nil {
@@ -579,6 +599,9 @@ func (c *Container) connectConsole() error {
 	if err := terminal.SendPty(*c.ConsoleSocketFD, pty); err != nil {
 		return fmt.Errorf("connect pty and socket: %w", err)
 	}
+
+	unix.Close(*c.ConsoleSocketFD)
+	c.ConsoleSocketFD = nil
 
 	if err := pty.Connect(); err != nil {
 		return fmt.Errorf("connect pty: %w", err)
@@ -781,14 +804,19 @@ func (c *Container) setupPostPivot() error {
 }
 
 func (c *Container) Lock() error {
-	lockPath := filepath.Join(c.rootDir, c.State.ID, "lock")
+	lockPath := filepath.Join(c.rootDir, c.State.ID, lockFilename)
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return fmt.Errorf("open lock file: %w", err)
 	}
 
-	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX); err != nil {
+	if err := unix.Flock(int(f.Fd()), unix.LOCK_EX|unix.LOCK_NB); err != nil {
 		f.Close()
+
+		if err == unix.EWOULDBLOCK {
+			return ErrOperationInProgress
+		}
+
 		return fmt.Errorf("acquire file lock: %w", err)
 	}
 
