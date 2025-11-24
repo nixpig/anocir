@@ -27,6 +27,7 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 	if isUnifiedCGroupsMode() {
 		if err := addV2CGroups(
 			state.ID,
+			spec.Linux.CgroupsPath,
 			spec.Linux.Resources,
 			state.Pid,
 		); err != nil {
@@ -48,7 +49,7 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 // DeleteCGroups deletes a cgroup based on the given state and/or spec.
 func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 	if isUnifiedCGroupsMode() {
-		if err := deleteV2CGroups(state.ID); err != nil {
+		if err := deleteV2CGroups(state.ID, spec.Linux.CgroupsPath); err != nil {
 			return err
 		}
 	} else {
@@ -104,13 +105,22 @@ func deleteV1CGroups(path string) error {
 
 func addV2CGroups(
 	containerID string,
+	cgroupsPath string,
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	systemdGroup := fmt.Sprintf("%s.slice", containerID)
+	systemdCGroup := cgroupsPath
+	if systemdCGroup == "" {
+		systemdCGroup = containerID
+	}
+
+	if !strings.HasSuffix(systemdCGroup, ".slice") {
+		systemdCGroup = fmt.Sprintf("%s.slice", systemdCGroup)
+	}
+
 	cgResources := cgroup2.ToResources(resources)
 
-	cg, err := cgroup2.NewSystemd("/", systemdGroup, -1, cgResources)
+	cg, err := cgroup2.NewSystemd("/", systemdCGroup, -1, cgResources)
 	if err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
 	}
@@ -122,10 +132,17 @@ func addV2CGroups(
 	return nil
 }
 
-func deleteV2CGroups(containerID string) error {
-	systemdGroup := fmt.Sprintf("%s.slice", containerID)
+func deleteV2CGroups(containerID, cgroupsPath string) error {
+	systemdCGroup := cgroupsPath
+	if systemdCGroup == "" {
+		systemdCGroup = containerID
+	}
 
-	cg, err := cgroup2.LoadSystemd("/", systemdGroup)
+	if !strings.HasSuffix(systemdCGroup, ".slice") {
+		systemdCGroup = fmt.Sprintf("%s.slice", systemdCGroup)
+	}
+
+	cg, err := cgroup2.LoadSystemd("/", systemdCGroup)
 	if err != nil {
 		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
 	}

@@ -64,6 +64,7 @@ func GetFeatures() *Features {
 				"pid",
 				"user",
 				"uts",
+				"time",
 			},
 			Capabilities: []string{
 				"CAP_AUDIT_CONTROL",
@@ -110,7 +111,7 @@ func GetFeatures() *Features {
 			},
 			CGroup: &CGroupFeatures{
 				V1:          true,
-				V2:          false,
+				V2:          true,
 				Systemd:     true,
 				SystemdUser: false,
 				RDMA:        false,
