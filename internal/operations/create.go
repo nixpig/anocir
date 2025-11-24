@@ -69,9 +69,7 @@ func Create(opts *CreateOpts) error {
 		return fmt.Errorf("create container directory: %w", err)
 	}
 
-	// TODO: Need to cleanup in the error paths...
-
-	cntr, err := container.New(&container.ContainerOpts{
+	cntr := container.New(&container.ContainerOpts{
 		ID:            opts.ID,
 		Bundle:        bundle,
 		Spec:          spec,
@@ -80,10 +78,6 @@ func Create(opts *CreateOpts) error {
 		RootDir:       opts.RootDir,
 		LogFile:       opts.LogFile,
 	})
-	if err != nil {
-		os.RemoveAll(containerDir)
-		return fmt.Errorf("create container: %w", err)
-	}
 
 	if err := cntr.Lock(); err != nil {
 		return fmt.Errorf("lock container: %w", err)
@@ -95,7 +89,6 @@ func Create(opts *CreateOpts) error {
 	}
 
 	if err := cntr.Init(); err != nil {
-		cntr.Delete(true)
 		return fmt.Errorf("initialise container: %w", err)
 	}
 

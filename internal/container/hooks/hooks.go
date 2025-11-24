@@ -24,7 +24,6 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	for _, h := range hooks {
 		ctx := context.Background()
 
-		// TODO: Do we need to validate against path traversal?
 		binary, err := exec.LookPath(h.Path)
 		if err != nil {
 			return fmt.Errorf("find path of hook binary: %w", err)

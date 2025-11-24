@@ -2,6 +2,10 @@
 // forked container process and the runtime.
 package ipc
 
+// TODO: Now it's clear exactly what IPC is required, this could probably be
+// simplified significantly by using EventFD or some other
+// condition-variable-like mechanism to 'nofify' on "ready" and "start".
+
 import (
 	"context"
 	"fmt"

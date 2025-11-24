@@ -83,7 +83,7 @@ type ContainerOpts struct {
 
 // New creates a Container based on the provided opts and saves its state.
 // The Container will be in the 'creating' state.
-func New(opts *ContainerOpts) (*Container, error) {
+func New(opts *ContainerOpts) *Container {
 	state := &specs.State{
 		Version:     specs.Version,
 		ID:          opts.ID,
@@ -105,7 +105,7 @@ func New(opts *ContainerOpts) (*Container, error) {
 			opts.ID,
 			containerSockFilename,
 		),
-	}, nil
+	}
 }
 
 // Save persists the Container state to disk. It creates the required directory
@@ -307,7 +307,6 @@ func (c *Container) Init() error {
 	}
 
 	if err := cmd.Process.Release(); err != nil {
-		// TODO: Cleanup cgroups and the like.
 		return fmt.Errorf("release container process: %w", err)
 	}
 
@@ -470,8 +469,7 @@ func (c *Container) Delete(force bool) error {
 	return nil
 }
 
-// Kill sends the given sig to the Container process and executes post-stop
-// hooks.
+// Kill sends the given sig to the Container process.
 func (c *Container) Kill(sig string) error {
 	if !c.canBeKilled() {
 		return fmt.Errorf(

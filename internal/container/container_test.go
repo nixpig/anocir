@@ -24,9 +24,7 @@ func TestContainerLifecycle(t *testing.T) {
 
 	os.WriteFile(filepath.Join(opts.Bundle, "config.json"), config, 0o644)
 
-	c, err := New(opts)
-	assert.NoError(t, err)
-	assert.NotNil(t, c)
+	c := New(opts)
 
 	if err := os.MkdirAll(filepath.Join(opts.RootDir, opts.ID), 0o755); err != nil {
 		assert.Fail(t, "must create container directory")
