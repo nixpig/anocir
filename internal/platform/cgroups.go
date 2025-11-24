@@ -3,6 +3,8 @@ package platform
 import (
 	"errors"
 	"fmt"
+	"path/filepath"
+	"strings"
 
 	"github.com/containerd/cgroups/v3"
 	"github.com/containerd/cgroups/v3/cgroup1"
@@ -63,8 +65,7 @@ func addV1CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	// TODO: Improve path validation, e.g. prevent traversal.
-	if path == "" {
+	if !validateCgroupPath(path) {
 		return ErrInvalidCGroupPath
 	}
 
@@ -83,8 +84,7 @@ func addV1CGroups(
 }
 
 func deleteV1CGroups(path string) error {
-	// TODO: Improve path validation, e.g. prevent traversal.
-	if path == "" {
+	if !validateCgroupPath(path) {
 		return ErrInvalidCGroupPath
 	}
 
@@ -143,4 +143,16 @@ func deleteV2CGroups(containerID string) error {
 	}
 
 	return nil
+}
+
+func validateCgroupPath(path string) bool {
+	if path == "" {
+		return false
+	}
+
+	if strings.HasPrefix(filepath.Clean(path), "..") {
+		return false
+	}
+
+	return true
 }
