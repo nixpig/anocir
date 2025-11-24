@@ -492,18 +492,6 @@ func (c *Container) Kill(sig string) error {
 		)
 	}
 
-	// TODO: Wait for signal to be handled. Signal isn't necessarily going to
-	// stop the process, so only update state and exec hooks if needed.
-
-	c.State.Status = specs.StateStopped
-	if err := c.Save(); err != nil {
-		return fmt.Errorf("save stopped state: %w", err)
-	}
-
-	if err := c.execHooks(LifecyclePoststop); err != nil {
-		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
-	}
-
 	return nil
 }
 
