@@ -39,3 +39,42 @@ func TestValidateCgroupPath(t *testing.T) {
 		})
 	}
 }
+
+func TestBuildSystemdCgroupPath(t *testing.T) {
+	scenarios := map[string]struct {
+		cgroupsPath       string
+		containerID       string
+		systemdCgroupPath string
+	}{
+		"test cgroupsPath without slice suffix": {
+			cgroupsPath:       "/etc/systemd/system/user-1000",
+			containerID:       "",
+			systemdCgroupPath: "/etc/systemd/system/user-1000.slice",
+		},
+		"test cgroupsPath with slice suffix": {
+			cgroupsPath:       "/etc/systemd/system/user-1000.slice",
+			containerID:       "",
+			systemdCgroupPath: "/etc/systemd/system/user-1000.slice",
+		},
+		"test empty cgroupsPath and valid containerID": {
+			cgroupsPath:       "",
+			containerID:       "test-container",
+			systemdCgroupPath: "test-container.slice",
+		},
+		"test empty cgroupsPath and empty containerID": {
+			cgroupsPath:       "",
+			containerID:       "",
+			systemdCgroupPath: "",
+		},
+	}
+
+	for scenario, data := range scenarios {
+		t.Run(scenario, func(t *testing.T) {
+			assert.Equal(
+				t,
+				data.systemdCgroupPath,
+				buildSystemdCGroupPath(data.cgroupsPath, data.containerID),
+			)
+		})
+	}
+}

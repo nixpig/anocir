@@ -109,18 +109,11 @@ func addV2CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	systemdCGroup := cgroupsPath
-	if systemdCGroup == "" {
-		systemdCGroup = containerID
-	}
-
-	if !strings.HasSuffix(systemdCGroup, ".slice") {
-		systemdCGroup = fmt.Sprintf("%s.slice", systemdCGroup)
-	}
+	systemdCgroupPath := buildSystemdCGroupPath(cgroupsPath, containerID)
 
 	cgResources := cgroup2.ToResources(resources)
 
-	cg, err := cgroup2.NewSystemd("/", systemdCGroup, -1, cgResources)
+	cg, err := cgroup2.NewSystemd("/", systemdCgroupPath, -1, cgResources)
 	if err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
 	}
@@ -133,16 +126,9 @@ func addV2CGroups(
 }
 
 func deleteV2CGroups(containerID, cgroupsPath string) error {
-	systemdCGroup := cgroupsPath
-	if systemdCGroup == "" {
-		systemdCGroup = containerID
-	}
+	systemdCGroupPath := buildSystemdCGroupPath(cgroupsPath, containerID)
 
-	if !strings.HasSuffix(systemdCGroup, ".slice") {
-		systemdCGroup = fmt.Sprintf("%s.slice", systemdCGroup)
-	}
-
-	cg, err := cgroup2.LoadSystemd("/", systemdCGroup)
+	cg, err := cgroup2.LoadSystemd("/", systemdCGroupPath)
 	if err != nil {
 		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
 	}
@@ -172,4 +158,21 @@ func validateCgroupPath(path string) bool {
 	}
 
 	return true
+}
+
+func buildSystemdCGroupPath(cgroupsPath, containerID string) string {
+	systemdCGroupPath := cgroupsPath
+	if systemdCGroupPath == "" {
+		if containerID == "" {
+			return ""
+		}
+
+		systemdCGroupPath = containerID
+	}
+
+	if !strings.HasSuffix(systemdCGroupPath, ".slice") {
+		systemdCGroupPath = fmt.Sprintf("%s.slice", systemdCGroupPath)
+	}
+
+	return systemdCGroupPath
 }

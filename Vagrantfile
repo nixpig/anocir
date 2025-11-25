@@ -42,6 +42,7 @@ Vagrant.configure("2") do |config|
       wget https://go.dev/dl/go1.25.3.linux-amd64.tar.gz -O go.tar.gz
       tar -C /usr/local -xzf go.tar.gz
       export PATH=$PATH:/usr/local/go/bin
+      echo 'export PATH=$PATH:/usr/local/go/bin' >> /home/vagrant/.bashrc
     fi
 
     # Clone runtime-tools repo
