@@ -7,10 +7,6 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
-// startMsg is the message sent on the container socket to start the created
-// container.
-const startMsg = "start"
-
 // Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
@@ -41,8 +37,12 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
-	if err := ipc.SendMessage(conn, startMsg); err != nil {
-		return fmt.Errorf("write '%s' msg to container sock: %w", startMsg, err)
+	if err := ipc.SendMessage(conn, ipc.StartMsg); err != nil {
+		return fmt.Errorf(
+			"write '%s' msg to container sock: %w",
+			ipc.StartMsg,
+			err,
+		)
 	}
 	defer conn.Close()
 
@@ -56,4 +56,8 @@ func (c *Container) Start() error {
 	}
 
 	return nil
+}
+
+func (c *Container) canBeStarted() bool {
+	return c.State.Status == specs.StateCreated
 }

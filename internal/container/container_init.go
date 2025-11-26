@@ -32,7 +32,7 @@ func (c *Container) Init() error {
 		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
 
-	args := []string{"reexec", "--root", c.rootDir}
+	args := []string{"reexec", "--root", c.RootDir}
 
 	if c.useTerminal() {
 		consoleSocketFD, err := terminal.Setup(c.rootFS(), c.ConsoleSocket)
@@ -173,8 +173,8 @@ func (c *Container) Init() error {
 	if err != nil {
 		return err
 	}
-	if msg != readyMsg {
-		return fmt.Errorf("expecting '%s' but received '%s'", readyMsg, msg)
+	if msg != ipc.ReadyMsg {
+		return fmt.Errorf("expecting '%s' but received '%s'", ipc.ReadyMsg, msg)
 	}
 
 	if err := cmd.Process.Release(); err != nil {

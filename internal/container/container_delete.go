@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/platform"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
 
@@ -38,7 +39,7 @@ func (c *Container) Delete(force bool) error {
 	// TODO: Review whether need to remove pidfile.
 
 	if err := os.RemoveAll(
-		filepath.Join(c.rootDir, c.State.ID),
+		filepath.Join(c.RootDir, c.State.ID),
 	); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
@@ -48,4 +49,8 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	return nil
+}
+
+func (c *Container) canBeDeleted() bool {
+	return c.State.Status == specs.StateStopped
 }

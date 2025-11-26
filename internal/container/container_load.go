@@ -34,7 +34,7 @@ func Load(id, rootDir string) (*Container, error) {
 	c := &Container{
 		State:         state,
 		spec:          spec,
-		rootDir:       rootDir,
+		RootDir:       rootDir,
 		containerSock: filepath.Join(rootDir, id, containerSockFilename),
 	}
 

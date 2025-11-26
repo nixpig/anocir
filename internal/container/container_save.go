@@ -13,7 +13,7 @@ import (
 // Save persists the Container state to disk. It creates the required directory
 // hierarchy and sets the needed permissions.
 func (c *Container) Save() error {
-	containerDir := filepath.Join(c.rootDir, c.State.ID)
+	containerDir := filepath.Join(c.RootDir, c.State.ID)
 
 	if c.spec.Linux != nil &&
 		len(c.spec.Linux.UIDMappings) > 0 &&
@@ -32,9 +32,11 @@ func (c *Container) Save() error {
 		return fmt.Errorf("serialise container state: %w", err)
 	}
 
-	stateFile := filepath.Join(containerDir, "state.json")
-
-	if err := platform.AtomicWriteFile(stateFile, state, 0o644); err != nil {
+	if err := platform.AtomicWriteFile(
+		c.stateFilepath(),
+		state,
+		0o644,
+	); err != nil {
 		return fmt.Errorf("write container state: %w", err)
 	}
 

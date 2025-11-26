@@ -26,7 +26,7 @@ type Container struct {
 	spec          *specs.Spec
 	pty           *terminal.Pty
 	pidFile       string
-	rootDir       string
+	RootDir       string
 	containerSock string
 	logFile       string
 	lockFile      *os.File
@@ -60,7 +60,7 @@ func New(opts *ContainerOpts) *Container {
 		ConsoleSocket: opts.ConsoleSocket,
 		pidFile:       opts.PIDFile,
 
-		rootDir: opts.RootDir,
+		RootDir: opts.RootDir,
 		logFile: opts.LogFile,
 		containerSock: filepath.Join(
 			opts.RootDir,
@@ -112,15 +112,6 @@ func (c *Container) rootFS() string {
 	return filepath.Join(c.State.Bundle, c.spec.Root.Path)
 }
 
-func (c *Container) canBeDeleted() bool {
-	return c.State.Status == specs.StateStopped
-}
-
-func (c *Container) canBeStarted() bool {
-	return c.State.Status == specs.StateCreated
-}
-
-func (c *Container) canBeKilled() bool {
-	return c.State.Status == specs.StateRunning ||
-		c.State.Status == specs.StateCreated
+func (c *Container) stateFilepath() string {
+	return filepath.Join(c.RootDir, c.State.ID, "state.json")
 }

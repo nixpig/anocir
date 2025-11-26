@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/platform"
+	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
 // Kill sends the given sig to the Container process.
@@ -28,4 +29,9 @@ func (c *Container) Kill(sig string) error {
 	}
 
 	return nil
+}
+
+func (c *Container) canBeKilled() bool {
+	return c.State.Status == specs.StateRunning ||
+		c.State.Status == specs.StateCreated
 }

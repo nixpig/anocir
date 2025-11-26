@@ -16,7 +16,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-const bufSize = 128
+const (
+	bufSize = 128
+
+	// startMsg is the message sent on the container socket to start the created
+	// container.
+	StartMsg = "start"
+	// readyMsg is the message sent over the init socketpair when the container
+	// is created and ready to receive commands.
+	ReadyMsg = "ready"
+)
 
 // Socket holds a path to use for a unix domain socket.
 type Socket struct {

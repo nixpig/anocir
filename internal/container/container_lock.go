@@ -19,7 +19,7 @@ const lockFilename = "c.lock"
 var ErrOperationInProgress = errors.New("operation already in progress")
 
 func (c *Container) Lock() error {
-	lockPath := filepath.Join(c.rootDir, c.State.ID, lockFilename)
+	lockPath := filepath.Join(c.RootDir, c.State.ID, lockFilename)
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return fmt.Errorf("open lock file: %w", err)
@@ -64,8 +64,7 @@ func (c *Container) DoWithLock(fn func(*Container) error) error {
 }
 
 func (c *Container) reloadState() error {
-	stateFile := filepath.Join(c.rootDir, c.State.ID, "state.json")
-	s, err := os.ReadFile(stateFile)
+	s, err := os.ReadFile(c.stateFilepath())
 	if err != nil {
 		return fmt.Errorf("read state file: %w", err)
 	}
