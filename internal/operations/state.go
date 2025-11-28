@@ -19,17 +19,20 @@ func State(opts *StateOpts) (string, error) {
 	var state string
 	var err error
 
-	err = container.WithLock(
-		opts.ID,
-		opts.RootDir,
-		func(c *container.Container) error {
-			state, err = c.GetState()
-			if err != nil {
-				return fmt.Errorf("state: %w", err)
-			}
-			return nil
-		},
-	)
+	c, err := container.Load(opts.ID, opts.RootDir)
+	if err != nil {
+		return "", fmt.Errorf("load container: %w", err)
+	}
 
-	return state, err
+	if err := c.DoWithLock(func(c *container.Container) error {
+		state, err = c.GetState()
+		if err != nil {
+			return fmt.Errorf("state: %w", err)
+		}
+		return nil
+	}); err != nil {
+		return "", fmt.Errorf("with lock: %w", err)
+	}
+
+	return state, nil
 }

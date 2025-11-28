@@ -54,7 +54,7 @@ func TestContainerLifecycle(t *testing.T) {
 			Bundle:  opts.Bundle,
 		},
 		spec:    opts.Spec,
-		rootDir: opts.RootDir,
+		RootDir: opts.RootDir,
 		containerSock: filepath.Join(
 			opts.RootDir,
 			opts.ID,
@@ -99,6 +99,24 @@ func TestRootFS(t *testing.T) {
 			assert.Equal(t, data.rootFS, c.rootFS())
 		})
 	}
+}
+
+func TestStateFilePath(t *testing.T) {
+	opts := &ContainerOpts{
+		ID:      "test-container",
+		Bundle:  t.TempDir(),
+		Spec:    &specs.Spec{},
+		RootDir: t.TempDir(),
+		PIDFile: filepath.Join(t.TempDir(), "pid"),
+	}
+
+	c := New(opts)
+
+	assert.Equal(
+		t,
+		filepath.Join(opts.RootDir, opts.ID, "state.json"),
+		c.stateFilepath(),
+	)
 }
 
 func TestStateChange(t *testing.T) {
