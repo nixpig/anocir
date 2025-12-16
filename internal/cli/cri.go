@@ -61,7 +61,7 @@ func criCmd() *cobra.Command {
 			case <-ctx.Done():
 				cmd.OutOrStdout().Write([]byte("shutting down server\n"))
 				server.Shutdown()
-				_ = <-errCh
+				<-errCh
 			}
 
 			return nil
