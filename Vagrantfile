@@ -39,7 +39,7 @@ Vagrant.configure("2") do |config|
 
     # Install go
     if ! command -v go 2>&1 >/dev/null; then
-      wget https://go.dev/dl/go1.25.3.linux-amd64.tar.gz -O go.tar.gz
+      wget https://go.dev/dl/go1.25.5.linux-amd64.tar.gz -O go.tar.gz
       tar -C /usr/local -xzf go.tar.gz
       export PATH=$PATH:/usr/local/go/bin
       echo 'export PATH=$PATH:/usr/local/go/bin' >> /home/vagrant/.bashrc
