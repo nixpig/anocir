@@ -53,6 +53,7 @@ jobs:
           submodules: true
 
       - name: build critest
+        working-directory: test/cri-tools
         run: make critest
 
       - name: download anocir artifact
