@@ -11,14 +11,26 @@ builds:
       - CGO_ENABLED=1
     targets:
       - linux_amd64
-      # - linux_arm64
-
+      - linux_arm64
+  - id: anocird
+    main: ./cmd/anocird
+    binary: anocird
+    env:
+      - CGO_ENABLED=1
+    targets:
+      - linux_amd64
+      - linux_arm64
 archives:
   - id: anocir
     formats: ["tar.gz"]
     name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
     builds:
       - anocir
+  - id: anocird
+    formats: ["tar.gz"]
+    name_template: "{{ .Binary }}_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+    builds:
+      - anocird
 
 changelog:
   sort: asc
