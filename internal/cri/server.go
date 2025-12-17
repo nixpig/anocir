@@ -2,11 +2,14 @@ package cri
 
 import (
 	"context"
+	"log/slog"
 	"net"
 	"sync"
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
@@ -15,33 +18,40 @@ type criServer struct {
 	runtimeapi.UnimplementedRuntimeServiceServer
 
 	grpcServer *grpc.Server
-	addr       string
 	listener   net.Listener
+	log        *slog.Logger
 
 	mu sync.Mutex
 }
 
-func newCRIServer(listener net.Listener) *criServer {
-	return &criServer{listener: listener}
+func newCRIServer(listener net.Listener, logger *slog.Logger) *criServer {
+	return &criServer{listener: listener, log: logger}
 }
 
 func (cs *criServer) start() error {
 	cs.mu.Lock()
 
-	cs.grpcServer = grpc.NewServer()
-	cs.addr = cs.listener.Addr().String()
+	cs.log.Info("starting server", "addr", cs.listener.Addr().String())
 
-	runtimeapi.RegisterImageServiceServer(cs.grpcServer, cs)
-	runtimeapi.RegisterRuntimeServiceServer(cs.grpcServer, cs)
+	grpcServer := grpc.NewServer()
+
+	runtimeapi.RegisterImageServiceServer(grpcServer, cs)
+	runtimeapi.RegisterRuntimeServiceServer(grpcServer, cs)
+
+	cs.grpcServer = grpcServer
 
 	cs.mu.Unlock()
 
-	return cs.grpcServer.Serve(cs.listener)
+	return grpcServer.Serve(cs.listener)
 }
 
 func (cs *criServer) shutdown() {
 	cs.mu.Lock()
+
+	cs.log.Info("shutting down server")
+
 	grpcServer := cs.grpcServer
+
 	cs.mu.Unlock()
 
 	if grpcServer == nil {
@@ -57,6 +67,7 @@ func (cs *criServer) shutdown() {
 	select {
 	case <-doneCh:
 	case <-time.After(5 * time.Second):
+		cs.log.Info("graceful shutdown timed out, terminating")
 		grpcServer.Stop()
 	}
 }
@@ -66,5 +77,8 @@ func (cs *criServer) RunPodSandbox(
 	req *runtimeapi.RunPodSandboxRequest,
 ) (*runtimeapi.RunPodSandboxResponse, error) {
 	// config := req.GetConfig()
-	return nil, nil
+	return nil, status.Error(
+		codes.Unimplemented,
+		"RunPodSandbox not implemented",
+	)
 }

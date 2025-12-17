@@ -2,6 +2,8 @@ package cli
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/logging"
 	"github.com/spf13/cobra"
@@ -20,10 +22,20 @@ func RootCmd() *cobra.Command {
 			debug, _ := cmd.Flags().GetBool("debug")
 
 			if logfile != "" {
-				logger, err := logging.NewLogger(logfile, debug)
-				if err != nil {
-					return fmt.Errorf("failed to initialise logging: %w", err)
+				if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
+					return fmt.Errorf("create log directory: %w", err)
 				}
+
+				f, err := os.OpenFile(
+					logfile,
+					os.O_CREATE|os.O_APPEND|os.O_WRONLY,
+					0o644,
+				)
+				if err != nil {
+					return fmt.Errorf("open log file %s: %w", logfile, err)
+				}
+
+				logger := logging.NewLogger(f, debug)
 
 				cmd.Root().SetErr(logging.NewErrorWriter(logger))
 			}

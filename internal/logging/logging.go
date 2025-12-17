@@ -2,10 +2,8 @@ package logging
 
 import (
 	"bytes"
-	"fmt"
+	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 )
 
 // ErrorWriter wraps a Logger and implements the Writer interface.
@@ -27,20 +25,7 @@ func NewErrorWriter(logger *slog.Logger) *ErrorWriter {
 
 // NewLogger creates a Logger, outputting to the given logfile. If debug is
 // true then the log level is set to DEBUG, else it's INFO.
-func NewLogger(logfile string, debug bool) (*slog.Logger, error) {
-	if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
-		return nil, fmt.Errorf("create log directory: %w", err)
-	}
-
-	f, err := os.OpenFile(
-		logfile,
-		os.O_CREATE|os.O_APPEND|os.O_WRONLY,
-		0o644,
-	)
-	if err != nil {
-		return nil, fmt.Errorf("open log file %s: %w", logfile, err)
-	}
-
+func NewLogger(w io.Writer, debug bool) *slog.Logger {
 	level := slog.LevelInfo
 	addSource := false
 	if debug {
@@ -48,10 +33,10 @@ func NewLogger(logfile string, debug bool) (*slog.Logger, error) {
 		addSource = true
 	}
 
-	logger := slog.New(slog.NewTextHandler(f, &slog.HandlerOptions{
+	logger := slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
 		Level:     level,
 		AddSource: addSource,
 	}))
 
-	return logger, nil
+	return logger
 }

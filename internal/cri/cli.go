@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"syscall"
 
+	"github.com/nixpig/anocir/internal/logging"
 	"github.com/spf13/cobra"
 )
 
@@ -30,11 +31,13 @@ func Cmd() *cobra.Command {
 				return fmt.Errorf("failed to setup socket: %w", err)
 			}
 
-			server := newCRIServer(listener)
+			debug, _ := cmd.Flags().GetBool("debug")
+			logger := logging.NewLogger(cmd.OutOrStdout(), debug)
+
+			server := newCRIServer(listener, logger)
 
 			errCh := make(chan error, 1)
 			go func() {
-				fmt.Fprintln(cmd.OutOrStdout(), "starting server")
 				errCh <- server.start()
 			}()
 
@@ -51,7 +54,6 @@ func Cmd() *cobra.Command {
 					return fmt.Errorf("server stopped with error: %w", err)
 				}
 			case <-ctx.Done():
-				fmt.Fprintln(cmd.OutOrStdout(), "shutting down server")
 				server.shutdown()
 				<-errCh
 			}
@@ -62,6 +64,9 @@ func Cmd() *cobra.Command {
 
 	cmd.Flags().
 		StringP("socket", "s", "/run/anocir/anocird.sock", "UNIX socket for the CRI server")
+
+	cmd.Flags().
+		BoolP("debug", "d", false, "Enable debug logging")
 
 	return cmd
 }
