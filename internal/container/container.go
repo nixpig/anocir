@@ -345,12 +345,12 @@ func (c *Container) Init() error {
 	args := []string{"reexec", "--root", c.RootDir}
 
 	if c.useTerminal() {
-		consoleSocketFD, err := terminal.Setup(c.rootFS(), c.ConsoleSocket)
+		ptySocket, err := terminal.NewPtySocket(c.ConsoleSocket)
 		if err != nil {
 			return err
 		}
 
-		c.ConsoleSocketFD = consoleSocketFD
+		c.ConsoleSocketFD = ptySocket.SocketFd
 		args = append(
 			args,
 			"--console-socket-fd",

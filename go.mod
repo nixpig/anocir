@@ -4,7 +4,6 @@ go 1.25.5
 
 require (
 	github.com/containerd/cgroups/v3 v3.0.5
-	github.com/google/goterm v0.0.0-20200907032337-555d40f16ae2
 	github.com/opencontainers/runtime-spec v1.2.0
 	github.com/sirupsen/logrus v1.9.3
 	github.com/spf13/cobra v1.8.1

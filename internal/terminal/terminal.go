@@ -8,7 +8,6 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/google/goterm/term"
 	"github.com/nixpig/anocir/internal/platform"
 	"golang.org/x/sys/unix"
 )
@@ -26,14 +25,33 @@ type Pty struct {
 
 // NewPty creates a Pty pseudo-terminal pair.
 func NewPty() (*Pty, error) {
-	pty, err := term.OpenPTY()
+	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open pty: %w", err)
+		return nil, fmt.Errorf("open /dev/ptmx: %w", err)
+	}
+
+	if err := unix.IoctlSetPointerInt(int(master.Fd()), unix.TIOCSPTLCK, 0); err != nil {
+		master.Close()
+		return nil, fmt.Errorf("unlock slave: %w", err)
+	}
+
+	ptyNumber, err := unix.IoctlGetInt(int(master.Fd()), unix.TIOCGPTN)
+	if err != nil {
+		master.Close()
+		return nil, fmt.Errorf("get pty number: %w", err)
+	}
+
+	ptsName := fmt.Sprintf("/dev/pts/%d", ptyNumber)
+
+	slave, err := os.OpenFile(ptsName, os.O_RDWR|unix.O_NOCTTY, 0)
+	if err != nil {
+		master.Close()
+		return nil, fmt.Errorf("open slave: %w", err)
 	}
 
 	return &Pty{
-		Master: pty.Master,
-		Slave:  pty.Slave,
+		Master: master,
+		Slave:  slave,
 	}, nil
 }
 
@@ -142,17 +160,4 @@ func SendPty(consoleSocket int, pty *Pty) error {
 	}
 
 	return nil
-}
-
-// Setup prepares the console for the container process. It changes the current
-// working directory to the given rootfs, creates a symlink for the console
-// socket, and returns the file descriptor of the console socket at
-// consoleSocketPath.
-func Setup(rootfs, consoleSocketPath string) (int, error) {
-	consoleSocket, err := NewPtySocket(consoleSocketPath)
-	if err != nil {
-		return 0, fmt.Errorf("create terminal socket: %w", err)
-	}
-
-	return consoleSocket.SocketFd, nil
 }
