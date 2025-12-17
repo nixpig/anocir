@@ -1,3 +1,6 @@
 [submodule "test/runtime-tools"]
 	path = test/runtime-tools
 	url = git@github.com:nixpig/runtime-tools.git
+[submodule "test/cri-tools"]
+	path = test/cri-tools
+	url = git@github.com:kubernetes-sigs/cri-tools.git

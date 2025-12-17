@@ -28,16 +28,65 @@ jobs:
       - name: run unit tests (coverage)
         run: make coverage
 
-      - name: build artifact
+      - name: build artifacts
         run: make build
 
-      - name: upload binary artifact
+      - name: upload anocir artifact
         uses: actions/upload-artifact@master
         with:
-          name: binary
+          name: anocir
           path: tmp/bin/anocir
 
-  test:
+      - name: upload anocird artifact
+        uses: actions/upload-artifact@master
+        with:
+          name: anocird
+          path: tmp/bin/anocird
+
+  cri-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout anocir repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: build critest
+        run: make critest
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@master
+        with:
+          name: anocir
+          path: .
+
+      - name: chmod anocir
+        run: |
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
+
+      - name: download anocird artifact
+        uses: actions/download-artifact@master
+        with:
+          name: anocird
+          path: .
+
+      - name: chmod anocird
+        run: |
+          chmod 755 ./anocird
+          sudo mv ./anocird /usr/bin/anocird
+
+      - name: start anocird
+        run: |
+          sudo nohup /usr/bin/anocird > /tmp/anocird.log 2>&1 & sleep 1
+
+      - name: run cri tests
+        working-directory: test/cri-tools
+        run: |
+          sudo build/bin/linux/amd64/critest --runtime-endpoint=unix:///run/anocir/anocird.sock --image-endpoint=unix:///run/anocir/anocird.sock
+
+  oci-test:
     needs: build
     runs-on: ubuntu-latest
     steps:
@@ -59,10 +108,10 @@ jobs:
         working-directory: test/runtime-tools
         run: make runtimetest validation-executables
 
-      - name: download binary artifact
+      - name: download anocir artifact
         uses: actions/download-artifact@master
         with:
-          name: binary
+          name: anocir
           path: .
 
       - name: chmod anocir
@@ -74,6 +123,24 @@ jobs:
         working-directory: test/runtime-tools
         run: |
           sudo RUNTIME=/usr/bin/anocir ../scripts/oci-integration.sh
+
+  docker-test:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: checkout anocir repo
+        uses: actions/checkout@v4
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@master
+        with:
+          name: anocir
+          path: .
+
+      - name: chmod anocir
+        run: |
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
 
       - name: set docker daemon
         run: |

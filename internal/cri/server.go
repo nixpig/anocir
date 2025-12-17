@@ -76,6 +76,7 @@ func (cs *criServer) RunPodSandbox(
 	ctx context.Context,
 	req *runtimeapi.RunPodSandboxRequest,
 ) (*runtimeapi.RunPodSandboxResponse, error) {
+	cs.log.Info("request: RunPodSandbox")
 	// config := req.GetConfig()
 	return nil, status.Error(
 		codes.Unimplemented,
