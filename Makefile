@@ -11,8 +11,15 @@ audit:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 .PHONY: build
-build:
+build: build-oci build-cri
+
+.PHONY: build-oci
+build-oci:
 	CGO_ENABLED=1 go build -o tmp/bin/anocir cmd/anocir/main.go
+
+.PHONY: build-cri
+build-cri:
+	CGO_ENABLED=1 go build -o tmp/bin/anocird cmd/anocird/main.go
 
 .PHONY: test
 test: 
@@ -27,9 +34,9 @@ coverage:
 coveralls:
 	go run github.com/mattn/goveralls@latest -coverprofile=coverage.out -service=github
 
-.PHONY: run
-run:
-	CGO_ENABLED=1 go run ./...
+.PHONY: run-cri
+run-cri:
+	CGO_ENABLED=1 go run-oci ./cmd/anocird
 
 .PHONY: clean
 clean:

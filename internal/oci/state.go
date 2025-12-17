@@ -26,7 +26,7 @@ func stateCmd() *cobra.Command {
 				return fmt.Errorf("failed to get state of container: %w", err)
 			}
 
-			if _, err := cmd.OutOrStdout().Write([]byte(state)); err != nil {
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), state); err != nil {
 				return fmt.Errorf("failed to print state to stdout: %w", err)
 			}
 

@@ -1,6 +1,7 @@
 package cri
 
 import (
+	"context"
 	"net"
 	"sync"
 	"time"
@@ -9,33 +10,36 @@ import (
 	runtimeapi "k8s.io/cri-api/pkg/apis/runtime/v1"
 )
 
-type CRIServer struct {
+type criServer struct {
 	runtimeapi.UnimplementedImageServiceServer
 	runtimeapi.UnimplementedRuntimeServiceServer
 
 	grpcServer *grpc.Server
 	addr       string
+	listener   net.Listener
 
 	mu sync.Mutex
 }
 
-func NewCRIServer() *CRIServer {
-	return &CRIServer{}
+func newCRIServer(listener net.Listener) *criServer {
+	return &criServer{listener: listener}
 }
 
-func (cs *CRIServer) Start(listener net.Listener) error {
+func (cs *criServer) start() error {
 	cs.mu.Lock()
+
 	cs.grpcServer = grpc.NewServer()
-	cs.addr = listener.Addr().String()
-	cs.mu.Unlock()
+	cs.addr = cs.listener.Addr().String()
 
 	runtimeapi.RegisterImageServiceServer(cs.grpcServer, cs)
 	runtimeapi.RegisterRuntimeServiceServer(cs.grpcServer, cs)
 
-	return cs.grpcServer.Serve(listener)
+	cs.mu.Unlock()
+
+	return cs.grpcServer.Serve(cs.listener)
 }
 
-func (cs *CRIServer) Shutdown() {
+func (cs *criServer) shutdown() {
 	cs.mu.Lock()
 	grpcServer := cs.grpcServer
 	cs.mu.Unlock()
@@ -55,4 +59,12 @@ func (cs *CRIServer) Shutdown() {
 	case <-time.After(5 * time.Second):
 		grpcServer.Stop()
 	}
+}
+
+func (cs *criServer) RunPodSandbox(
+	ctx context.Context,
+	req *runtimeapi.RunPodSandboxRequest,
+) (*runtimeapi.RunPodSandboxResponse, error) {
+	// config := req.GetConfig()
+	return nil, nil
 }

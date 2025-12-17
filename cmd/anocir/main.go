@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/nixpig/anocir/internal/cli"
+	cli "github.com/nixpig/anocir/internal/oci"
 	"github.com/thediveo/gons"
 )
 
