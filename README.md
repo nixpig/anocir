@@ -9,23 +9,19 @@
 
 **An experimental Linux container runtime, implementing the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md).**
 
-![docker hello-world with anocir runtime](demo.gif)
-
-The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/).
-
-
-### 📈 Project Status
-
 > [!NOTE]
 > 
 > This is a personal project to explore how container runtimes work. It's not production-ready. If you're looking for a production-ready alternative to `runc`, I think [`youki`](https://github.com/containers/youki) is pretty cool.
 
-#### Roadmap
 
-- [x] Pass all tests in the [opencontainers OCI Runtime Spec test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
-- [ ] Pass all tests in the [Kubernetes CRI validation test suite](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/validation.md).
-- [ ] Implement optional [Seccomp](https://github.com/opencontainers/runtime-spec/blob/main/config-linux.md#seccomp).
-- [ ] Implement optional [AppArmor](https://github.com/opencontainers/runtime-spec/blob/main/config.md#linux-process).
+The process of building this is being documented in a series of blog posts which you can read here: [Building a container runtime from scratch in Go](https://nixpig.dev/posts/container-runtime-introduction/).
+
+![Demo of anocir runtime with Docker](demo.gif)
+
+## 🗺️ Roadmap
+
+- [x] Implement the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) and pass all tests in the [OCI Runtime Spec test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+- [ ] Implement the [Kubernetes CRI API](https://kubernetes.io/docs/concepts/containers/cri/) and pass all tests in the [CRI validation test suite](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/validation.md).
 
 ## 🚀 Quick start
 
@@ -39,7 +35,7 @@ The process of building this is being documented in a series of blog posts which
 >
 > Some features may require `sudo` and make changes to your system. Take appropriate precautions.
 
-### 🐋 Docker
+### Docker
 
 By default, the Docker daemon uses the `runc` container runtime. `anocir` can be used as a drop-in replacement for `runc`.
 
@@ -57,15 +53,15 @@ docker run -it --runtime anocir busybox sh
 
 ```
 
-### 💻️ CLI
+### CLI
 
 The `anocir` CLI implements the [OCI Runtime Command Line Interface](https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md) spec. You can view the docs by running `anocir --help` or `anocir [COMMAND] --help`.
 
-## 🤝 Contributing
+## ⚒️ Contributing
 
 **Feel free to leave any comments/suggestions/feedback in [issues](https://github.com/nixpig/anocir/issues).**
 
-### ⚒️ Build from source
+### Build from source
 
 **Prerequisite:** Compiler for Go installed ([instructions](https://go.dev/doc/install)).
 
@@ -82,7 +78,7 @@ I'm developing `anocir` on the following environment. Even with the same set up,
 
 You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
-### 🎯 Run the OCI test suite
+### Run the OCI test suite
 
 See [OCI.md](OCI.md) for details of tests.
 
