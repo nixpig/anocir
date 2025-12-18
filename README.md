@@ -82,13 +82,22 @@ You can spin up this VM from the included `Vagrantfile`, just run `vagrant up`.
 
 See [OCI.md](OCI.md) for details of tests.
 
-1. `vagrant up --provision`
-1. `vagrant ssh`
-1. `cd /anocir`
-1. `make build`
-1. `cd /anocir/test/runtime-tools`
-1. `make runtimetest validation-executables`
-1. `sudo RUNTIME=../../tmp/bin/anocir ../scripts/oci-integration.sh`
+1. Start the dev VM: 
+    ```
+    vagrant up --provision && vagrant ssh
+    ```
+1. Build the anocir binary: 
+    ```bash
+    cd /anocir && make build-oci
+    ```
+1. Build the test executables: 
+    ``` bash
+    cd /anocir/test/runtime-tools && make runtimetest validation-executables
+    ```
+1. Run the test suite: 
+    ```bash
+    sudo RUNTIME=/anocir/tmp/bin/anocir /anocir/test/scripts/oci-integration.sh
+    ```
 
 ## 💡 Inspiration
 
