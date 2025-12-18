@@ -19,7 +19,6 @@ import (
 	"github.com/nixpig/anocir/internal/platform"
 	"github.com/nixpig/anocir/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -61,10 +60,11 @@ type Container struct {
 	containerSock string
 	logFile       string
 	lockFile      *os.File
+	debug         bool
 }
 
-// ContainerOpts holds the options for creating a new Container.
-type ContainerOpts struct {
+// Opts holds the options for creating a new Container.
+type Opts struct {
 	ID            string
 	Bundle        string
 	Spec          *specs.Spec
@@ -72,11 +72,12 @@ type ContainerOpts struct {
 	PIDFile       string
 	RootDir       string
 	LogFile       string
+	Debug         bool
 }
 
 // New creates a Container based on the provided opts and saves its state.
 // The Container will be in the 'creating' state.
-func New(opts *ContainerOpts) *Container {
+func New(opts *Opts) *Container {
 	state := &specs.State{
 		Version:     specs.Version,
 		ID:          opts.ID,
@@ -90,6 +91,7 @@ func New(opts *ContainerOpts) *Container {
 		spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		pidFile:       opts.PIDFile,
+		debug:         opts.Debug,
 
 		RootDir: opts.RootDir,
 		logFile: opts.LogFile,
@@ -358,7 +360,7 @@ func (c *Container) Init() error {
 		)
 	}
 
-	if logrus.GetLevel() == logrus.DebugLevel {
+	if c.debug {
 		args = append(args, "--debug")
 	}
 
@@ -507,11 +509,11 @@ func (c *Container) Reexec() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := c.connectConsole(); err != nil {
+	if err := c.setupPrePivot(); err != nil {
 		return err
 	}
 
-	if err := c.setupPrePivot(); err != nil {
+	if err := c.connectConsole(); err != nil {
 		return err
 	}
 
@@ -623,7 +625,7 @@ func (c *Container) mountConsole() error {
 	target := filepath.Join(c.rootFS(), "dev/console")
 
 	if err := c.pty.MountSlave(target); err != nil {
-		return err
+		return fmt.Errorf("mount slave: %w", err)
 	}
 
 	return nil
@@ -634,7 +636,10 @@ func (c *Container) connectConsole() error {
 		return nil
 	}
 
-	pty, err := terminal.NewPty()
+	ptmxPath := filepath.Join(c.rootFS(), "dev/pts/ptmx")
+	ptsDir := filepath.Join(c.rootFS(), "dev/pts")
+
+	pty, err := terminal.NewPtyAt(ptmxPath, ptsDir)
 	if err != nil {
 		return fmt.Errorf("new pty: %w", err)
 	}

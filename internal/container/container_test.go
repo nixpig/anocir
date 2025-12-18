@@ -11,7 +11,7 @@ import (
 )
 
 func TestContainerLifecycle(t *testing.T) {
-	opts := &ContainerOpts{
+	opts := &Opts{
 		ID:      "test-container",
 		Bundle:  t.TempDir(),
 		Spec:    &specs.Spec{},
@@ -102,7 +102,7 @@ func TestRootFS(t *testing.T) {
 }
 
 func TestStateFilePath(t *testing.T) {
-	opts := &ContainerOpts{
+	opts := &Opts{
 		ID:      "test-container",
 		Bundle:  t.TempDir(),
 		Spec:    &specs.Spec{},

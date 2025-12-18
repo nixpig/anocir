@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -19,12 +19,14 @@ func reexecCmd() *cobra.Command {
 			consoleSocketFD, _ := cmd.Flags().GetInt("console-socket-fd")
 			rootDir, _ := cmd.Flags().GetString("root")
 
-			if err := operations.Reexec(&operations.ReexecOpts{
-				ID:              containerID,
-				ConsoleSocketFD: consoleSocketFD,
-				RootDir:         rootDir,
-			}); err != nil {
-				return fmt.Errorf("failed to reexec process: %w", err)
+			cntr, err := container.Load(containerID, rootDir)
+			if err != nil {
+				return fmt.Errorf("failed to load container: %w", err)
+			}
+
+			cntr.ConsoleSocketFD = consoleSocketFD
+			if err := cntr.Reexec(); err != nil {
+				return fmt.Errorf("failed to reexec container: %w", err)
 			}
 
 			return nil

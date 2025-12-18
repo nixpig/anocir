@@ -3,7 +3,7 @@ package validation_test
 import (
 	"testing"
 
-	"github.com/nixpig/anocir/internal/operations/validation"
+	"github.com/nixpig/anocir/internal/validation"
 	"github.com/stretchr/testify/assert"
 )
 

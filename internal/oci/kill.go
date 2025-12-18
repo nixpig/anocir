@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -19,15 +19,17 @@ func killCmd() *cobra.Command {
 
 			rootDir, _ := cmd.Flags().GetString("root")
 
-			if err := operations.Kill(&operations.KillOpts{
-				ID:      containerID,
-				Signal:  signal,
-				RootDir: rootDir,
-			}); err != nil {
-				return fmt.Errorf("failed to send signal to container: %w", err)
+			cntr, err := container.Load(containerID, rootDir)
+			if err != nil {
+				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return nil
+			return cntr.DoWithLock(func(c *container.Container) error {
+				if err := c.Kill(signal); err != nil {
+					return fmt.Errorf("failed to kill container: %w", err)
+				}
+				return nil
+			})
 		},
 	}
 

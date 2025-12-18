@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -18,15 +18,17 @@ func deleteCmd() *cobra.Command {
 			force, _ := cmd.Flags().GetBool("force")
 			rootDir, _ := cmd.Flags().GetString("root")
 
-			if err := operations.Delete(&operations.DeleteOpts{
-				ID:      containerID,
-				Force:   force,
-				RootDir: rootDir,
-			}); err != nil {
-				return fmt.Errorf("failed to delete container: %w", err)
+			cntr, err := container.Load(containerID, rootDir)
+			if err != nil {
+				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return nil
+			return cntr.DoWithLock(func(c *container.Container) error {
+				if err := c.Delete(force); err != nil {
+					return fmt.Errorf("failed to delete container: %w", err)
+				}
+				return nil
+			})
 		},
 	}
 

@@ -5,7 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -15,7 +15,7 @@ func featuresCmd() *cobra.Command {
 		Short:   "List supported runtime features",
 		Example: "  anocir features",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			features, err := json.Marshal(operations.GetFeatures())
+			features, err := json.Marshal(container.GetFeatures())
 			if err != nil {
 				return fmt.Errorf("failed to get features: %w", err)
 			}

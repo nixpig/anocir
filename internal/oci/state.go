@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -18,19 +18,23 @@ func stateCmd() *cobra.Command {
 
 			rootDir, _ := cmd.Flags().GetString("root")
 
-			state, err := operations.State(&operations.StateOpts{
-				ID:      containerID,
-				RootDir: rootDir,
-			})
+			cntr, err := container.Load(containerID, rootDir)
 			if err != nil {
-				return fmt.Errorf("failed to get state of container: %w", err)
+				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			if _, err := fmt.Fprintln(cmd.OutOrStdout(), state); err != nil {
-				return fmt.Errorf("failed to print state to stdout: %w", err)
-			}
+			return cntr.DoWithLock(func(c *container.Container) error {
+				state, err := c.GetState()
+				if err != nil {
+					return fmt.Errorf("failed to get container state: %w", err)
+				}
 
-			return nil
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), state); err != nil {
+					return fmt.Errorf("failed to print state: %w", err)
+				}
+
+				return nil
+			})
 		},
 	}
 

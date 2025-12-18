@@ -23,11 +23,17 @@ type Pty struct {
 	Slave *os.File
 }
 
-// NewPty creates a Pty pseudo-terminal pair.
 func NewPty() (*Pty, error) {
-	master, err := os.OpenFile("/dev/ptmx", os.O_RDWR, 0)
+	return NewPtyAt("/dev/ptmx", "/dev/pts")
+}
+
+// NewPtyAt creates a Pty pseudo-terminal pair using the specified ptmxPath and
+// ptsDir where /dev/ptmx and /dev/pts may be at non-standard paths in a
+// container mount namespace.
+func NewPtyAt(ptmxPath, ptsDir string) (*Pty, error) {
+	master, err := os.OpenFile(ptmxPath, os.O_RDWR, 0)
 	if err != nil {
-		return nil, fmt.Errorf("open /dev/ptmx: %w", err)
+		return nil, fmt.Errorf("open ptmx: %w", err)
 	}
 
 	if err := unix.IoctlSetPointerInt(int(master.Fd()), unix.TIOCSPTLCK, 0); err != nil {
@@ -41,7 +47,7 @@ func NewPty() (*Pty, error) {
 		return nil, fmt.Errorf("get pty number: %w", err)
 	}
 
-	ptsName := fmt.Sprintf("/dev/pts/%d", ptyNumber)
+	ptsName := fmt.Sprintf("%s/%d", ptsDir, ptyNumber)
 
 	slave, err := os.OpenFile(ptsName, os.O_RDWR|unix.O_NOCTTY, 0)
 	if err != nil {

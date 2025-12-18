@@ -3,7 +3,7 @@ package cli
 import (
 	"fmt"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
 	"github.com/spf13/cobra"
 )
 
@@ -18,14 +18,17 @@ func startCmd() *cobra.Command {
 
 			rootDir, _ := cmd.Flags().GetString("root")
 
-			if err := operations.Start(&operations.StartOpts{
-				ID:      containerID,
-				RootDir: rootDir,
-			}); err != nil {
-				return fmt.Errorf("failed to start container: %w", err)
+			cntr, err := container.Load(containerID, rootDir)
+			if err != nil {
+				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return nil
+			return cntr.DoWithLock(func(c *container.Container) error {
+				if err := c.Start(); err != nil {
+					return fmt.Errorf("failed to start container: %w", err)
+				}
+				return nil
+			})
 		},
 	}
 

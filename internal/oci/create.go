@@ -1,10 +1,15 @@
 package cli
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 
-	"github.com/nixpig/anocir/internal/operations"
+	"github.com/nixpig/anocir/internal/container"
+	"github.com/nixpig/anocir/internal/validation"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/spf13/cobra"
 )
 
@@ -21,18 +26,49 @@ func createCmd() *cobra.Command {
 			pidFile, _ := cmd.Flags().GetString("pid-file")
 			rootDir, _ := cmd.Flags().GetString("root")
 			consoleSocket, _ := cmd.Flags().GetString("console-socket")
+			debug, _ := cmd.PersistentFlags().GetBool("debug")
+			logFile, _ := cmd.Flags().GetString("log")
 
-			logFile, _ := cmd.Root().Flags().GetString("log")
+			if err := validation.ContainerID(containerID); err != nil {
+				return fmt.Errorf("failed validation: %w", err)
+			}
 
-			if err := operations.Create(&operations.CreateOpts{
+			if container.Exists(containerID, rootDir) {
+				return fmt.Errorf("container '%s' exists", containerID)
+			}
+
+			spec, err := getContainerSpec(bundle)
+			if err != nil {
+				return fmt.Errorf("failed to get container spec: %w", err)
+			}
+
+			if err := createContainerDirs(rootDir, containerID); err != nil {
+				return fmt.Errorf("failed to make container dirs: %w", err)
+			}
+
+			cntr := container.New(&container.Opts{
 				ID:            containerID,
 				Bundle:        bundle,
+				Spec:          spec,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
 				RootDir:       rootDir,
 				LogFile:       logFile,
-			}); err != nil {
-				return fmt.Errorf("failed to create container: %w", err)
+				Debug:         debug,
+			})
+
+			if err := cntr.Lock(); err != nil {
+				// We should never fail to acquire a lock on a brand new container.
+				return fmt.Errorf("failed to get lock on container: %w", err)
+			}
+			defer cntr.Unlock()
+
+			if err := cntr.Save(); err != nil {
+				return fmt.Errorf("failed to save container state: %w", err)
+			}
+
+			if err := cntr.Init(); err != nil {
+				return fmt.Errorf("failed to initialise container: %w", err)
 			}
 
 			return nil
@@ -45,4 +81,39 @@ func createCmd() *cobra.Command {
 	cmd.Flags().StringP("pid-file", "p", "", "File to write container PID to")
 
 	return cmd
+}
+
+func getContainerSpec(path string) (*specs.Spec, error) {
+	bundlePath, err := filepath.Abs(path)
+	if err != nil {
+		return nil, fmt.Errorf("get absolute bundle path: %w", err)
+	}
+
+	config, err := os.ReadFile(filepath.Join(bundlePath, "config.json"))
+	if err != nil {
+		return nil, fmt.Errorf("read bundle config: %w", err)
+	}
+
+	var spec *specs.Spec
+	if err := json.Unmarshal(config, &spec); err != nil {
+		return nil, fmt.Errorf("parse bundle config: %w", err)
+	}
+
+	return spec, nil
+}
+
+func createContainerDirs(rootDir, containerID string) error {
+	if err := os.MkdirAll(rootDir, 0o755); err != nil {
+		return fmt.Errorf("create root dir: %w", err)
+	}
+
+	containerDir := filepath.Join(rootDir, containerID)
+	if err := os.Mkdir(containerDir, 0o755); err != nil {
+		if errors.Is(err, os.ErrExist) {
+			return fmt.Errorf("container dir exists: %s", containerDir)
+		}
+		return fmt.Errorf("create container dir: %w", err)
+	}
+
+	return nil
 }
