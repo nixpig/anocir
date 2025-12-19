@@ -52,6 +52,7 @@ func RootCmd() *cobra.Command {
 		killCmd(),
 		reexecCmd(),
 		featuresCmd(),
+		listCmd(),
 	)
 
 	cmd.PersistentFlags().StringP(

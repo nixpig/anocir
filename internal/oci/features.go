@@ -10,7 +10,7 @@ import (
 )
 
 func featuresCmd() *cobra.Command {
-	features := &cobra.Command{
+	cmd := &cobra.Command{
 		Use:     "features",
 		Short:   "List supported runtime features",
 		Example: "  anocir features",
@@ -41,5 +41,5 @@ func featuresCmd() *cobra.Command {
 		},
 	}
 
-	return features
+	return cmd
 }
