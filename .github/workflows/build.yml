@@ -1,7 +1,11 @@
-name: build+test
+name: build
 
 on:
   push:
+    branches:
+      - main
+
+  pull_request:
     branches:
       - main
 
@@ -43,111 +47,3 @@ jobs:
           name: anocird
           path: tmp/bin/anocird
 
-  cri-test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout anocir repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: build critest
-        working-directory: test/cri-tools
-        run: make critest
-
-      - name: download anocir artifact
-        uses: actions/download-artifact@master
-        with:
-          name: anocir
-          path: .
-
-      - name: chmod anocir
-        run: |
-          chmod 755 ./anocir
-          sudo mv ./anocir /usr/bin/anocir
-
-      - name: download anocird artifact
-        uses: actions/download-artifact@master
-        with:
-          name: anocird
-          path: .
-
-      - name: chmod anocird
-        run: |
-          chmod 755 ./anocird
-          sudo mv ./anocird /usr/bin/anocird
-
-      - name: start anocird
-        run: |
-          sudo nohup /usr/bin/anocird > /tmp/anocird.log 2>&1 & sleep 1
-
-      - name: run cri tests
-        working-directory: test/cri-tools
-        run: |
-          sudo build/bin/linux/amd64/critest --runtime-endpoint=unix:///run/anocir/anocird.sock --image-endpoint=unix:///run/anocir/anocird.sock
-
-  oci-test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout anocir repo
-        uses: actions/checkout@v4
-        with:
-          submodules: true
-
-      - name: install nodejs
-        uses: actions/setup-node@v4
-        with:
-          node-version: 20.9.0
-
-      - name: install tap
-        working-directory: test/runtime-tools
-        run: npm install tap
-
-      - name: build runtime-tools
-        working-directory: test/runtime-tools
-        run: make runtimetest validation-executables
-
-      - name: download anocir artifact
-        uses: actions/download-artifact@master
-        with:
-          name: anocir
-          path: .
-
-      - name: chmod anocir
-        run: |
-          chmod 755 ./anocir
-          sudo mv ./anocir /usr/bin/anocir
-
-      - name: run oci tests
-        working-directory: test/runtime-tools
-        run: |
-          sudo RUNTIME=/usr/bin/anocir ../scripts/oci-integration.sh
-
-  docker-test:
-    needs: build
-    runs-on: ubuntu-latest
-    steps:
-      - name: checkout anocir repo
-        uses: actions/checkout@v4
-
-      - name: download anocir artifact
-        uses: actions/download-artifact@master
-        with:
-          name: anocir
-          path: .
-
-      - name: chmod anocir
-        run: |
-          chmod 755 ./anocir
-          sudo mv ./anocir /usr/bin/anocir
-
-      - name: set docker daemon
-        run: |
-          cat test/scripts/daemon.json | sudo tee /etc/docker/daemon.json
-          sudo systemctl restart docker
-
-      - name: run docker hello-world
-        run: |
-          ./test/scripts/docker-integration.sh

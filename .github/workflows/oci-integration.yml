@@ -1,0 +1,47 @@
+name: oci-integration
+
+on:
+  workflow_run:
+    workflows: [build]
+    types:
+      - completed
+
+jobs:
+  oci-integration:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: checkout anocir repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: install nodejs
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.9.0
+
+      - name: install tap
+        working-directory: test/runtime-tools
+        run: npm install tap
+
+      - name: build runtime-tools
+        working-directory: test/runtime-tools
+        run: make runtimetest validation-executables
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anocir
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: chmod anocir
+        run: |
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
+
+      - name: run oci tests
+        working-directory: test/runtime-tools
+        run: |
+          sudo RUNTIME=/usr/bin/anocir ../scripts/oci-integration.sh

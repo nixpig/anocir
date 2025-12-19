@@ -1,0 +1,54 @@
+name: cri-integration
+
+on:
+  workflow_run:
+    workflows: [build]
+    types:
+      - completed
+
+jobs:
+  cri-integration:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: checkout anocir repo
+        uses: actions/checkout@v4
+        with:
+          submodules: true
+
+      - name: build critest
+        working-directory: test/cri-tools
+        run: make critest
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anocir
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: chmod anocir
+        run: |
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
+
+      - name: download anocird artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anocird
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: chmod anocird
+        run: |
+          chmod 755 ./anocird
+          sudo mv ./anocird /usr/bin/anocird
+
+      - name: start anocird
+        run: |
+          sudo nohup /usr/bin/anocird > /tmp/anocird.log 2>&1 & sleep 1
+
+      - name: run cri tests
+        working-directory: test/cri-tools
+        run: |
+          sudo build/bin/linux/amd64/critest --runtime-endpoint=unix:///run/anocir/anocird.sock --image-endpoint=unix:///run/anocir/anocird.sock
