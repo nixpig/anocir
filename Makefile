@@ -32,7 +32,7 @@ coverage:
 
 .PHONY: coveralls
 coveralls:
-	go run github.com/mattn/goveralls@latest -coverprofile=coverage.out -service=github
+	go run github.com/mattn/goveralls@latest -coverprofile=coverage.out -service=github -repotoken=$(COVERALLS_TOKEN)
 
 .PHONY: run-cri
 run-cri:
