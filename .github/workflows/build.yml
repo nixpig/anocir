@@ -32,6 +32,11 @@ jobs:
       - name: run unit tests (coverage)
         run: make coverage
 
+      - name: upload coverage to coveralls
+        run: make coveralls
+        env:
+          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
+
       - name: build artifacts
         run: make build
 
@@ -46,4 +51,3 @@ jobs:
         with:
           name: anocird
           path: tmp/bin/anocird
-
