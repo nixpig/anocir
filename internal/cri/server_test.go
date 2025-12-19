@@ -19,12 +19,15 @@ import (
 func TestCRIServer_Basic(t *testing.T) {
 	client := setupTestServerAndClient(t)
 
-	_, err := client.RunPodSandbox(
+	res, err := client.RunPodSandbox(
 		t.Context(),
 		&runtimeapi.RunPodSandboxRequest{},
 	)
 
-	assertGRPCStatus(t, err, codes.Unimplemented)
+	assert.NoError(t, err)
+	assert.IsType(t, &runtimeapi.RunPodSandboxResponse{}, res)
+
+	// assertGRPCStatus(t, err, codes.Unimplemented)
 }
 
 func setupTestServerAndClient(t *testing.T) runtimeapi.RuntimeServiceClient {

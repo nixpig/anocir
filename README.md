@@ -3,10 +3,8 @@
 [![cri-integration](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml)
 [![docker-integration](https://github.com/nixpig/anocir/actions/workflows/docker-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/docker-integration.yml)
 [![Coverage Status](https://coveralls.io/repos/github/nixpig/anocir/badge.svg?branch=main)](https://coveralls.io/github/nixpig/anocir?branch=main)
-[![release](https://img.shields.io/github/v/release/nixpig/anocir)](https://github.com/nixpig/anocir/releases/latest)
-[![license](https://img.shields.io/github/license/nixpig/anocir)](LICENSE)
 
-# 🍪 anocir
+# 🍪 anocir [![release](https://img.shields.io/github/v/release/nixpig/anocir)](https://github.com/nixpig/anocir/releases/latest)
 
 [_an-oh-cheer_] ***An***other ***OCI*** ***R***untime.
 
