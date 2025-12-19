@@ -51,9 +51,3 @@ jobs:
         with:
           name: anocir
           path: tmp/bin/anocir
-
-      - name: upload anocird artifact
-        uses: actions/upload-artifact@master
-        with:
-          name: anocird
-          path: tmp/bin/anocird

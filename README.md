@@ -3,7 +3,7 @@
 [![release](https://img.shields.io/github/v/release/nixpig/anocir)](https://github.com/nixpig/anocir/releases/latest)
 [![build](https://github.com/nixpig/anocir/actions/workflows/build.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/build.yml)
 [![oci-integration](https://github.com/nixpig/anocir/actions/workflows/oci-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/oci-integration.yml)
-[![cri-integration](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml)
+<!-- [![cri-integration](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/cri-integration.yml) -->
 [![docker-integration](https://github.com/nixpig/anocir/actions/workflows/docker-integration.yml/badge.svg?branch=main)](https://github.com/nixpig/anocir/actions/workflows/docker-integration.yml)
 
 [_an-oh-cheer_] ***An***other ***OCI*** ***R***untime.
@@ -22,6 +22,7 @@ The process of building this is being documented in a series of blog posts which
 ## 🗺️ Roadmap
 
 - [x] Implement the [OCI Runtime Spec](https://github.com/opencontainers/runtime-spec/blob/main/spec.md) and pass all tests in the [OCI Runtime Spec test suite](https://github.com/opencontainers/runtime-tools?tab=readme-ov-file#testing-oci-runtimes).
+- [ ] Implement the [containerd shim API](https://github.com/containerd/containerd/blob/main/core/runtime/v2/README.md).
 - [ ] Implement the [Kubernetes CRI API](https://kubernetes.io/docs/concepts/containers/cri/) and pass all tests in the [CRI validation test suite](https://github.com/kubernetes-sigs/cri-tools/blob/master/docs/validation.md).
 
 ## 🚀 Quick start

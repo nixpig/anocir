@@ -48,7 +48,7 @@ func TestContainerLifecycle(t *testing.T) {
 
 	assert.Equal(t, &Container{
 		State: &specs.State{
-			Version: "1.2.0",
+			Version: "1.3.0",
 			ID:      opts.ID,
 			Status:  "creating",
 			Bundle:  opts.Bundle,
