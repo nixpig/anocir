@@ -36,7 +36,7 @@ coveralls:
 
 .PHONY: run-cri
 run-cri:
-	CGO_ENABLED=1 go run-oci ./cmd/anocird
+	CGO_ENABLED=1 sudo -E go run ./cmd/anocird --debug
 
 .PHONY: clean
 clean:

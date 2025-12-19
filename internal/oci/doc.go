@@ -1,4 +1,5 @@
-// Package cli provides a command-line interface for the anocir runtime that
-// implements the OCI Runtime Spec.
-// https://github.com/opencontainers/runtime-spec/blob/main/spec.md
-package cli
+// Package oci provides an implementation of the OCI Runtime Command Line
+// Interface spec for anocir.
+//
+// See: https://github.com/opencontainers/runtime-tools/blob/master/docs/command-line-interface.md
+package oci
