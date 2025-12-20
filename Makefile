@@ -11,15 +11,11 @@ audit:
 	go run golang.org/x/vuln/cmd/govulncheck@latest ./...
 
 .PHONY: build
-build: build-oci build-shim
+build: build-oci
 
 .PHONY: build-oci
 build-oci:
 	CGO_ENABLED=1 go build -o tmp/bin/anocir cmd/anocir/main.go
-
-.PHONY: build-shim
-build-shim:
-	CGO_ENABLED=1 go build -o tmp/bin/containerd-shim-anocir-v0 cmd/containerd-shim-anocir-v0/main.go
 
 .PHONY: test
 test: 
