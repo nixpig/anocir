@@ -3,6 +3,7 @@ package platform
 import (
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -109,26 +110,29 @@ func addV2CGroups(
 	resources *specs.LinuxResources,
 	pid int,
 ) error {
-	systemdCgroupPath := buildSystemdCGroupPath(cgroupsPath, containerID)
+	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
 	cgResources := cgroup2.ToResources(resources)
 
-	cg, err := cgroup2.NewSystemd("/", systemdCgroupPath, -1, cgResources)
-	if err != nil {
+	if _, err := cgroup2.NewSystemd(slice, group, pid, cgResources); err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
-	}
-
-	if err := cg.AddProc(uint64(pid)); err != nil {
-		return fmt.Errorf("add pid to cgroup2: %w", err)
 	}
 
 	return nil
 }
 
 func deleteV2CGroups(containerID, cgroupsPath string) error {
-	systemdCGroupPath := buildSystemdCGroupPath(cgroupsPath, containerID)
+	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
-	cg, err := cgroup2.LoadSystemd("/", systemdCGroupPath)
+	if _, err := os.Stat(filepath.Join("/sys/fs/cgroup", slice, group)); err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil
+		}
+
+		return fmt.Errorf("stat cgroup path (id: %s): %w", containerID, err)
+	}
+
+	cg, err := cgroup2.LoadSystemd(slice, group)
 	if err != nil {
 		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
 	}
@@ -175,4 +179,48 @@ func buildSystemdCGroupPath(cgroupsPath, containerID string) string {
 	}
 
 	return systemdCGroupPath
+}
+
+func buildSystemdCGroupSliceAndGroup(
+	cgroupsPath, containerID string,
+) (string, string) {
+	if cgroupsPath != "" && strings.Contains(cgroupsPath, ":") {
+		parts := strings.SplitN(cgroupsPath, ":", 3)
+
+		slice := parts[0]
+
+		switch slice {
+		case "":
+			slice = "system.slice"
+		case "-":
+			slice = "/"
+		}
+
+		prefix := ""
+		name := containerID
+
+		if len(parts) >= 2 {
+			prefix = parts[1]
+		}
+
+		if len(parts) >= 3 && parts[2] != "" {
+			name = parts[2]
+		}
+
+		if strings.HasSuffix(name, ".slice") {
+			return slice, name
+		}
+
+		if prefix != "" {
+			return slice, fmt.Sprintf("%s-%s.scope", prefix, name)
+		}
+
+		return slice, fmt.Sprintf("%s.scope", name)
+	}
+
+	if containerID == "" {
+		return "system.slice", ""
+	}
+
+	return "anocir.slice", fmt.Sprintf("%s.scope", containerID)
 }
