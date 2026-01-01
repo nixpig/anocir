@@ -1,0 +1,61 @@
+name: containerd-integration
+
+on:
+  workflow_run:
+    workflows: [build]
+    types:
+      - completed
+
+jobs:
+  containerd-integration:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: checkout containerd repo
+        uses: actions/checkout@v4
+        with:
+          repository: containerd/containerd
+          ref: v1.7.24
+          submodules: true
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.5"
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anocir
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: install anocir
+        run: |
+          chmod 755 ./anocir
+          sudo mv ./anocir /usr/bin/anocir
+
+      - name: build containerd
+        run: |
+          make binaries && sudo make install
+
+      - name: configure containerd
+        run: |
+          sudo mkdir -p /etc/containerd
+          sudo tee /etc/containerd/config.toml > /dev/null <<'EOF'
+          version = 2
+          [plugins."io.containerd.grpc.v1.cri".containerd]
+            default_runtime_name = "anocir"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.anocir]
+            runtime_type = "io.containerd.runc.v2"
+          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.anocir.options]
+            BinaryName = "/usr/bin/anocir"
+          EOF
+
+      - name: restart containerd
+        run: |
+          sudo systemctl restart containerd
+
+      - name: run containerd tests
+        run: |
+          sudo make TESTFLAGS="-test.v -test.run=TestContainer" integration
