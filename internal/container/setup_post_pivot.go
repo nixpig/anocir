@@ -57,18 +57,6 @@ func (c *Container) setupPostPivot() error {
 		return fmt.Errorf("set rlimits: %w", err)
 	}
 
-	if c.spec.Process.Capabilities != nil {
-		if err := platform.SetCapabilities(c.spec.Process.Capabilities); err != nil {
-			return fmt.Errorf("set capabilities: %w", err)
-		}
-	}
-
-	if c.spec.Process.NoNewPrivileges {
-		if err := platform.SetNoNewPrivs(); err != nil {
-			return fmt.Errorf("set no new privileges: %w", err)
-		}
-	}
-
 	if c.spec.Process.Scheduler != nil {
 		schedAttr, err := platform.NewSchedAttr(c.spec.Process.Scheduler)
 		if err != nil {
@@ -91,8 +79,38 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
+	if c.spec.Process.Capabilities != nil {
+		if err := platform.DropBoundingCapabilities(c.spec.Process.Capabilities); err != nil {
+			return fmt.Errorf("drop bounding caps: %w", err)
+		}
+	}
+
+	if c.spec.Process.User.UID != 0 && c.spec.Process.Capabilities != nil {
+		if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 1, 0, 0, 0); err != nil {
+			return fmt.Errorf("set KEEPCAPS: %w", err)
+		}
+	}
+
 	if err := platform.SetUser(&c.spec.Process.User); err != nil {
 		return fmt.Errorf("set user: %w", err)
+	}
+
+	if c.spec.Process.Capabilities != nil {
+		if err := platform.SetCapabilities(c.spec.Process.Capabilities); err != nil {
+			return fmt.Errorf("set capabilities: %w", err)
+		}
+
+		if c.spec.Process.User.UID != 0 {
+			if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
+				return fmt.Errorf("clear KEEPCAPS: %w", err)
+			}
+		}
+	}
+
+	if c.spec.Process.NoNewPrivileges {
+		if err := platform.SetNoNewPrivs(); err != nil {
+			return fmt.Errorf("set no new privileges: %w", err)
+		}
 	}
 
 	return nil

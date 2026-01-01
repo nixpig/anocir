@@ -59,19 +59,25 @@ func SetNS(path string) error {
 // ValidateNSPath validates that the suffix of the Path is valid for the Type
 // in the given ns.
 func ValidateNSPath(ns *specs.LinuxNamespace) error {
+	if ns.Path == "" {
+		return nil
+	}
+
+	f, err := os.Open(ns.Path)
+	if err != nil {
+		return fmt.Errorf("open namespace path: %w", err)
+	}
+
+	nsType, err := unix.IoctlRetInt(int(f.Fd()), unix.NS_GET_NSTYPE)
+	if err != nil {
+		return fmt.Errorf("get namespace type from file descriptor: %w", err)
+	}
+
+	if NamespaceFlags[ns.Type] != uintptr(nsType) {
+		return ErrInvalidNamespacePath
+	}
+
 	return nil
-	// suffix := fmt.Sprintf("/%s", NamespaceEnvs[ns.Type])
-	//
-	// if ns.Type == specs.PIDNamespace {
-	// 	if !strings.HasSuffix(ns.Path, suffix) &&
-	// 		!strings.HasSuffix(ns.Path, suffix+"_for_children") {
-	// 		return ErrInvalidNamespacePath
-	// 	}
-	// } else if !strings.HasSuffix(ns.Path, suffix) {
-	// 	return ErrInvalidNamespacePath
-	// }
-	//
-	// return nil
 }
 
 // BuildUserNSMappings converts UID/GID mappings from an OCI spec to

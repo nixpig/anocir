@@ -6,6 +6,7 @@ import (
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/syndtr/gocapability/capability"
+	"golang.org/x/sys/unix"
 )
 
 // capabilities maps CAP_* capability name strings to their corresponding
@@ -62,7 +63,10 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		return fmt.Errorf("initialise capabilities object: %w", err)
 	}
 
-	c.Clear(capability.BOUNDING)
+	if err := c.Load(); err != nil {
+		return fmt.Errorf("load capabilities: %w", err)
+	}
+
 	c.Clear(capability.EFFECTIVE)
 	c.Clear(capability.INHERITABLE)
 	c.Clear(capability.PERMITTED)
@@ -70,10 +74,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 	if caps.Ambient != nil {
 		c.Set(capability.AMBIENT, resolveCaps(caps.Ambient)...)
-	}
-
-	if caps.Bounding != nil {
-		c.Set(capability.BOUNDING, resolveCaps(caps.Bounding)...)
 	}
 
 	if caps.Effective != nil {
@@ -91,11 +91,36 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	if err := c.Apply(
 		capability.INHERITABLE |
 			capability.EFFECTIVE |
-			capability.BOUNDING |
 			capability.PERMITTED |
 			capability.AMBIENT,
 	); err != nil {
 		return fmt.Errorf("apply capabilities: %w", err)
+	}
+
+	return nil
+}
+
+func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
+	if caps.Bounding != nil {
+		retain := make(map[capability.Cap]bool)
+
+		for _, capNum := range resolveCaps(caps.Bounding) {
+			retain[capNum] = true
+		}
+
+		for capNum := capability.Cap(0); capNum <= capability.CAP_LAST_CAP; capNum++ {
+			if !retain[capNum] {
+				if err := unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(capNum), 0, 0, 0); err != nil {
+					if err != unix.EINVAL {
+						return fmt.Errorf(
+							"drop bounding capability '%d': %w",
+							capNum,
+							err,
+						)
+					}
+				}
+			}
+		}
 	}
 
 	return nil

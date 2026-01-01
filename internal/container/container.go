@@ -356,12 +356,9 @@ func (c *Container) Init() error {
 
 	args := []string{
 		"reexec",
-		"--root",
-		c.RootDir,
-		"--log-format",
-		c.LogFormat,
-		"--log",
-		c.LogFile,
+		"--root", c.RootDir,
+		"--log-format", c.LogFormat,
+		"--log", c.LogFile,
 	}
 
 	if c.useTerminal() {
