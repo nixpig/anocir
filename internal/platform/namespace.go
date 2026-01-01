@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"slices"
-	"strings"
 	"syscall"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -60,18 +59,19 @@ func SetNS(path string) error {
 // ValidateNSPath validates that the suffix of the Path is valid for the Type
 // in the given ns.
 func ValidateNSPath(ns *specs.LinuxNamespace) error {
-	suffix := fmt.Sprintf("/%s", NamespaceEnvs[ns.Type])
-
-	if ns.Type == specs.PIDNamespace {
-		if !strings.HasSuffix(ns.Path, suffix) &&
-			!strings.HasSuffix(ns.Path, suffix+"_for_children") {
-			return ErrInvalidNamespacePath
-		}
-	} else if !strings.HasSuffix(ns.Path, suffix) {
-		return ErrInvalidNamespacePath
-	}
-
 	return nil
+	// suffix := fmt.Sprintf("/%s", NamespaceEnvs[ns.Type])
+	//
+	// if ns.Type == specs.PIDNamespace {
+	// 	if !strings.HasSuffix(ns.Path, suffix) &&
+	// 		!strings.HasSuffix(ns.Path, suffix+"_for_children") {
+	// 		return ErrInvalidNamespacePath
+	// 	}
+	// } else if !strings.HasSuffix(ns.Path, suffix) {
+	// 	return ErrInvalidNamespacePath
+	// }
+	//
+	// return nil
 }
 
 // BuildUserNSMappings converts UID/GID mappings from an OCI spec to

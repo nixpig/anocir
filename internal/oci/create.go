@@ -28,6 +28,7 @@ func createCmd() *cobra.Command {
 			consoleSocket, _ := cmd.Flags().GetString("console-socket")
 			debug, _ := cmd.PersistentFlags().GetBool("debug")
 			logFile, _ := cmd.Flags().GetString("log")
+			logFormat, _ := cmd.Flags().GetString("log-format")
 
 			if err := validation.ContainerID(containerID); err != nil {
 				return fmt.Errorf("failed validation: %w", err)
@@ -54,6 +55,7 @@ func createCmd() *cobra.Command {
 				PIDFile:       pidFile,
 				RootDir:       rootDir,
 				LogFile:       logFile,
+				LogFormat:     logFormat,
 				Debug:         debug,
 			})
 

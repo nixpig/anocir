@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"os"
 	"path/filepath"
 )
@@ -23,7 +24,22 @@ func CreateDefaultSymlinks(rootfs string) error {
 
 func createSymlinks(symlinks map[string]string, rootfs string) error {
 	for src, dest := range symlinks {
-		if err := os.Symlink(src, filepath.Join(rootfs, dest)); err != nil {
+		destPath := filepath.Join(rootfs, dest)
+
+		if target, err := os.Readlink(destPath); err == nil {
+			if target == src {
+				continue
+			}
+			if err := os.Remove(destPath); err != nil {
+				return err
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			if err := os.Remove(destPath); err != nil {
+				return err
+			}
+		}
+
+		if err := os.Symlink(src, destPath); err != nil {
 			return err
 		}
 	}

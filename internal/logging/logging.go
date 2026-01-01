@@ -25,7 +25,7 @@ func NewErrorWriter(logger *slog.Logger) *ErrorWriter {
 
 // NewLogger creates a Logger, outputting to the given logfile. If debug is
 // true then the log level is set to DEBUG, else it's INFO.
-func NewLogger(w io.Writer, debug bool) *slog.Logger {
+func NewLogger(w io.Writer, debug bool, format string) *slog.Logger {
 	level := slog.LevelInfo
 	addSource := false
 	if debug {
@@ -33,10 +33,20 @@ func NewLogger(w io.Writer, debug bool) *slog.Logger {
 		addSource = true
 	}
 
-	logger := slog.New(slog.NewTextHandler(w, &slog.HandlerOptions{
+	options := &slog.HandlerOptions{
 		Level:     level,
 		AddSource: addSource,
-	}))
+	}
+
+	var handler slog.Handler
+
+	if format == "json" {
+		handler = slog.NewJSONHandler(w, options)
+	} else {
+		handler = slog.NewTextHandler(w, options)
+	}
+
+	logger := slog.New(handler)
 
 	return logger
 }

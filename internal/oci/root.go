@@ -20,6 +20,7 @@ func RootCmd() *cobra.Command {
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			logfile, _ := cmd.Flags().GetString("log")
 			debug, _ := cmd.Flags().GetBool("debug")
+			logFormat, _ := cmd.Flags().GetString("log-format")
 
 			if logfile != "" {
 				if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
@@ -35,7 +36,7 @@ func RootCmd() *cobra.Command {
 					return fmt.Errorf("open log file %s: %w", logfile, err)
 				}
 
-				logger := logging.NewLogger(f, debug)
+				logger := logging.NewLogger(f, debug, logFormat)
 
 				cmd.Root().SetErr(logging.NewErrorWriter(logger))
 			}

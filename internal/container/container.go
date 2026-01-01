@@ -53,12 +53,13 @@ type Container struct {
 	ConsoleSocket   string
 	ConsoleSocketFD int
 	RootDir         string
+	LogFormat       string
+	LogFile         string
 
 	spec          *specs.Spec
 	pty           *terminal.Pty
 	pidFile       string
 	containerSock string
-	logFile       string
 	lockFile      *os.File
 	debug         bool
 }
@@ -73,6 +74,7 @@ type Opts struct {
 	RootDir       string
 	LogFile       string
 	Debug         bool
+	LogFormat     string
 }
 
 // New creates a Container based on the provided opts and saves its state.
@@ -92,9 +94,10 @@ func New(opts *Opts) *Container {
 		ConsoleSocket: opts.ConsoleSocket,
 		pidFile:       opts.PIDFile,
 		debug:         opts.Debug,
+		LogFormat:     opts.LogFormat,
 
 		RootDir: opts.RootDir,
-		logFile: opts.LogFile,
+		LogFile: opts.LogFile,
 		containerSock: filepath.Join(
 			opts.RootDir,
 			opts.ID,
@@ -194,6 +197,13 @@ func (c *Container) DoWithLock(fn func(*Container) error) error {
 // Delete removes the Container from the system. If force is true then it will
 // delete the Container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
+	if c.State.Pid != 0 {
+		if err := unix.Kill(c.State.Pid, 0); err != nil {
+			// Process is dead, update state
+			c.State.Status = specs.StateStopped
+		}
+	}
+
 	if !force && !c.canBeDeleted() {
 		return fmt.Errorf(
 			"container cannot be deleted in current state (%s) try using '--force'",
@@ -320,7 +330,7 @@ func (c *Container) Kill(sig string) error {
 	if err := platform.SendSignal(
 		c.State.Pid,
 		platform.ParseSignal(sig),
-	); err != nil {
+	); err != nil && !errors.Is(err, unix.ESRCH) {
 		return fmt.Errorf(
 			"send signal '%s' to process '%d': %w",
 			sig,
@@ -344,7 +354,15 @@ func (c *Container) Init() error {
 		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
 
-	args := []string{"reexec", "--root", c.RootDir}
+	args := []string{
+		"reexec",
+		"--root",
+		c.RootDir,
+		"--log-format",
+		c.LogFormat,
+		"--log",
+		c.LogFile,
+	}
 
 	if c.useTerminal() {
 		ptySocket, err := terminal.NewPtySocket(c.ConsoleSocket)
@@ -364,7 +382,7 @@ func (c *Container) Init() error {
 		args = append(args, "--debug")
 	}
 
-	args = append(args, "--log", c.logFile)
+	args = append(args, "--log", c.LogFile)
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)

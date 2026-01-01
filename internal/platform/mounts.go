@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -36,8 +37,41 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 				return fmt.Errorf("exists (%s): %w", dest, err)
 			}
 
-			if err := os.MkdirAll(dest, os.ModeDir); err != nil {
-				return fmt.Errorf("make dir (%s): %w", dest, err)
+			if m.Type == "bind" || slices.Contains(m.Options, "bind") ||
+				slices.Contains(m.Options, "rbind") {
+
+				srcInfo, err := os.Stat(m.Source)
+				if err != nil {
+					return fmt.Errorf("stat mount source: %w", err)
+				}
+
+				if srcInfo.IsDir() {
+					if err := os.MkdirAll(dest, os.ModeDir); err != nil {
+						return fmt.Errorf(
+							"make mount dir target (%s): %w",
+							dest,
+							err,
+						)
+					}
+				} else {
+					if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
+						return fmt.Errorf("make mount parent dir (%s): %w", filepath.Dir(dest), err)
+					}
+
+					f, err := os.Create(dest)
+					if err != nil {
+						return fmt.Errorf("make mount target file (%s): %w", dest, err)
+					}
+					f.Close()
+				}
+			} else {
+				if err := os.MkdirAll(dest, 0o755); err != nil {
+					return fmt.Errorf(
+						"make mount dir (%s): %w",
+						filepath.Dir(dest),
+						err,
+					)
+				}
 			}
 		}
 
