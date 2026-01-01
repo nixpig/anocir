@@ -111,6 +111,13 @@ func TestValidateNSPath(t *testing.T) {
 			},
 			err: platform.ErrInvalidNamespacePath,
 		},
+		"non-existent namespace path": {
+			ns: &specs.LinuxNamespace{
+				Type: specs.PIDNamespace,
+				Path: "/some/non-existent/path",
+			},
+			err: os.ErrNotExist,
+		},
 		"empty namespace": {
 			ns:  &specs.LinuxNamespace{},
 			err: nil,

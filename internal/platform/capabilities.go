@@ -102,22 +102,20 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 
 func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 	if caps.Bounding != nil {
-		retain := make(map[capability.Cap]bool)
+		retain := make(map[capability.Cap]struct{})
 
-		for _, capNum := range resolveCaps(caps.Bounding) {
-			retain[capNum] = true
+		for _, c := range resolveCaps(caps.Bounding) {
+			retain[c] = struct{}{}
 		}
 
-		for capNum := capability.Cap(0); capNum <= capability.CAP_LAST_CAP; capNum++ {
-			if !retain[capNum] {
-				if err := unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(capNum), 0, 0, 0); err != nil {
-					if err != unix.EINVAL {
-						return fmt.Errorf(
-							"drop bounding capability '%d': %w",
-							capNum,
-							err,
-						)
-					}
+		for c := capability.Cap(0); c <= capability.CAP_LAST_CAP; c++ {
+			if _, ok := retain[c]; ok {
+				continue
+			}
+
+			if err := unix.Prctl(unix.PR_CAPBSET_DROP, uintptr(c), 0, 0, 0); err != nil {
+				if err != unix.EINVAL {
+					return fmt.Errorf("drop bounding cap '%d': %w", c, err)
 				}
 			}
 		}
