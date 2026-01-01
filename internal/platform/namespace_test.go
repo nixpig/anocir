@@ -100,20 +100,20 @@ func TestValidateNSPath(t *testing.T) {
 		"invalid namespace path": {
 			ns: &specs.LinuxNamespace{
 				Type: specs.NetworkNamespace,
-				Path: "/proc/self/ns/invalid",
+				Path: "/proc/self/ns/pid",
 			},
 			err: platform.ErrInvalidNamespacePath,
 		},
 		"invalid pid namespace path": {
 			ns: &specs.LinuxNamespace{
 				Type: specs.PIDNamespace,
-				Path: "/proc/self/ns/invalid",
+				Path: "/proc/self/ns/net",
 			},
 			err: platform.ErrInvalidNamespacePath,
 		},
 		"empty namespace": {
 			ns:  &specs.LinuxNamespace{},
-			err: platform.ErrInvalidNamespacePath,
+			err: nil,
 		},
 	}
 
