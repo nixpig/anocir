@@ -33,29 +33,12 @@ jobs:
       - name: install anocir
         run: |
           chmod 755 ./anocir
-          sudo mv ./anocir /usr/bin/anocir
 
       - name: build containerd
         run: |
           make binaries && sudo make install
 
-      - name: configure containerd
-        run: |
-          sudo mkdir -p /etc/containerd
-          sudo tee /etc/containerd/config.toml > /dev/null <<'EOF'
-          version = 2
-          [plugins."io.containerd.grpc.v1.cri".containerd]
-            default_runtime_name = "anocir"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.anocir]
-            runtime_type = "io.containerd.runc.v2"
-          [plugins."io.containerd.grpc.v1.cri".containerd.runtimes.anocir.options]
-            BinaryName = "/usr/bin/anocir"
-          EOF
-
-      - name: restart containerd
-        run: |
-          sudo systemctl restart containerd
-
       - name: run containerd tests
         run: |
-          sudo make TESTFLAGS="-test.v -test.run=TestContainer" integration
+          sudo ln -sf ${{ github.workspace }}/anocir $(which runc) \
+            && sudo make TESTFLAGS="-test.v -test.run=TestContainer" integration
