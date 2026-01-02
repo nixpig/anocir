@@ -24,7 +24,12 @@ func PivotRoot(containerRootfs string) error {
 		containerRootfs,
 		filepath.Join(containerRootfs, oldroot),
 	); err != nil {
-		return fmt.Errorf("pivot to new root: %w", err)
+		return fmt.Errorf(
+			"pivot to new root (%s, %s): %w",
+			containerRootfs,
+			oldroot,
+			err,
+		)
 	}
 
 	if err := os.Chdir("/"); err != nil {

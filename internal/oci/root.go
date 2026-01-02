@@ -54,6 +54,7 @@ func RootCmd() *cobra.Command {
 		reexecCmd(),
 		featuresCmd(),
 		listCmd(),
+		execCmd(),
 	)
 
 	cmd.PersistentFlags().StringP(
@@ -70,14 +71,15 @@ func RootCmd() *cobra.Command {
 		"Destination to write error logs (default \"stderr\")",
 	)
 
-	cmd.PersistentFlags().BoolP("debug", "d", false, "Enable debug logging")
+	cmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 
 	// Flags required by Docker.
 	// systemd is always used, cgroup is cgroupPath from spec or {containerID}.slice
 	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "Not implemented")
-	cmd.PersistentFlags().StringP("log-format", "", "", "Not implemented")
+	cmd.PersistentFlags().StringP("log-format", "", "", "Specify log format")
+
 	// ---
 
 	return cmd

@@ -8,11 +8,11 @@ import (
 )
 
 func (c *Container) setupPrePivot() error {
-	if err := platform.MountRootfs(c.rootFS()); err != nil {
+	if err := platform.MountRootfs(c.RootFS()); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)
 	}
 
-	if err := platform.MountProc(c.rootFS()); err != nil {
+	if err := platform.MountProc(c.RootFS()); err != nil {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
@@ -30,19 +30,19 @@ func (c *Container) setupPrePivot() error {
 		},
 	})
 
-	if err := platform.MountSpecMounts(c.spec.Mounts, c.rootFS()); err != nil {
+	if err := platform.MountSpecMounts(c.spec.Mounts, c.RootFS()); err != nil {
 		return fmt.Errorf("mount spec mounts: %w", err)
 	}
 
-	if err := platform.MountDefaultDevices(c.rootFS()); err != nil {
+	if err := platform.MountDefaultDevices(c.RootFS()); err != nil {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 
-	if err := platform.CreateDeviceNodes(c.spec.Linux.Devices, c.rootFS()); err != nil {
+	if err := platform.CreateDeviceNodes(c.spec.Linux.Devices, c.RootFS()); err != nil {
 		return fmt.Errorf("mount devices from spec: %w", err)
 	}
 
-	if err := platform.CreateDefaultSymlinks(c.rootFS()); err != nil {
+	if err := platform.CreateDefaultSymlinks(c.RootFS()); err != nil {
 		return fmt.Errorf("create default symlinks: %w", err)
 	}
 

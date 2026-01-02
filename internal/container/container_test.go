@@ -96,7 +96,7 @@ func TestRootFS(t *testing.T) {
 				State: &specs.State{Bundle: data.bundlePath},
 			}
 
-			assert.Equal(t, data.rootFS, c.rootFS())
+			assert.Equal(t, data.rootFS, c.RootFS())
 		})
 	}
 }

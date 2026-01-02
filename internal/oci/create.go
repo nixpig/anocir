@@ -79,8 +79,8 @@ func createCmd() *cobra.Command {
 
 	cwd, _ := os.Getwd()
 	cmd.Flags().StringP("bundle", "b", cwd, "Path to bundle directory")
-	cmd.Flags().StringP("console-socket", "s", "", "Console socket path")
-	cmd.Flags().StringP("pid-file", "p", "", "File to write container PID to")
+	cmd.Flags().String("console-socket", "", "Console socket path")
+	cmd.Flags().String("pid-file", "", "File to write container PID to")
 
 	return cmd
 }
