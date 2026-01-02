@@ -3,7 +3,6 @@ package platform
 import (
 	"errors"
 	"fmt"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -124,30 +123,12 @@ func addV2CGroups(
 func deleteV2CGroups(containerID, cgroupsPath string) error {
 	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
-	if _, err := os.Stat(filepath.Join("/sys/fs/cgroup", slice, group)); err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil
-		}
+	// LoadSystemd always returns a nil error
+	cg, _ := cgroup2.LoadSystemd(slice, group)
 
-		return fmt.Errorf("stat cgroup path (id: %s): %w", containerID, err)
-	}
-
-	cg, err := cgroup2.LoadSystemd(slice, group)
-	if err != nil {
-		return fmt.Errorf("load cgroups (id: %s): %w", containerID, err)
-	}
-
-	if err := cg.Kill(); err != nil {
-		return fmt.Errorf(
-			"kill cgroups processes (id: %s): %w",
-			containerID,
-			err,
-		)
-	}
-
-	if err := cg.DeleteSystemd(); err != nil {
-		return fmt.Errorf("delete cgroups (id: %s): %w", containerID, err)
-	}
+	// TODO: Consider logging errors in future. Ignoring for now, as best-effort.
+	_ = cg.Kill()
+	_ = cg.DeleteSystemd()
 
 	return nil
 }
