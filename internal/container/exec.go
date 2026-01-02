@@ -15,25 +15,25 @@ import (
 
 type ExecOpts struct {
 	ContainerPID   int
-	Rootfs         string
 	Cwd            string
 	Args           []string
-	ConsoleSocket  string
 	UID            int
 	GID            int
 	PIDFile        string
 	TTY            bool
 	Detach         bool
-	IgnorePaused   bool
-	PreserveFDs    int
 	Env            []string
 	AdditionalGIDs []int
-	Process        string
-	ProcessLabel   string
-	AppArmor       string
 	NoNewPrivs     bool
 	Capabilities   []string
-	Cgroup         string
+
+	// TODO: Handle these options.
+	ConsoleSocket string
+	IgnorePaused  bool
+	PreserveFDs   int
+	ProcessLabel  string
+	AppArmor      string
+	Cgroup        string
 }
 
 type ChildExecOpts struct {
@@ -155,6 +155,16 @@ func Exec(opts *ExecOpts) (int, error) {
 	pid, err := syscall.ForkExec(execArgs[0], execArgs, procAttr)
 	if err != nil {
 		return 255, fmt.Errorf("reexec child process: %w", err)
+	}
+
+	if opts.PIDFile != "" {
+		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o755); err != nil {
+			return 255, fmt.Errorf(
+				"write pid to file (%s): %w",
+				opts.PIDFile,
+				err,
+			)
+		}
 	}
 
 	if !opts.Detach {

@@ -1,13 +1,16 @@
 package oci
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strconv"
 	"strings"
 
 	"github.com/nixpig/anocir/internal/container"
+	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/spf13/cobra"
+	"github.com/spf13/pflag"
 )
 
 func execCmd() *cobra.Command {
@@ -15,32 +18,37 @@ func execCmd() *cobra.Command {
 		Use:     "exec [flags] CONTAINER_ID COMMAND [args]",
 		Short:   "execute a command in a container",
 		Example: "  anocir exec busybox ps",
-		Args:    cobra.MinimumNArgs(2),
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
-			execArgs := args[1:]
 
+			// Operational flags
 			rootDir, _ := cmd.Flags().GetString("root")
-			cwd, _ := cmd.Flags().GetString("cwd")
-			env, _ := cmd.Flags().GetStringSlice("env")
-			additionalGIDs, _ := cmd.Flags().GetIntSlice("additional-gids")
 			process, _ := cmd.Flags().GetString("process")
-			processLabel, _ := cmd.Flags().GetString("process-label")
-			appArmor, _ := cmd.Flags().GetString("apparmor")
-			noNewPrivs, _ := cmd.Flags().GetBool("no-new-privs")
-			capabilities, _ := cmd.Flags().GetStringSlice("cap")
-			cgroup, _ := cmd.Flags().GetString("cgroup")
 			consoleSocket, _ := cmd.Flags().GetString("console-socket")
-			user, _ := cmd.Flags().GetString("user")
 			pidFile, _ := cmd.Flags().GetString("pid-file")
-			tty, _ := cmd.Flags().GetBool("tty")
 			detach, _ := cmd.Flags().GetBool("detach")
-			ignorePaused, _ := cmd.Flags().GetBool("ignore-paused")
 			preserveFDs, _ := cmd.Flags().GetInt("preserve-fds")
+			cgroup, _ := cmd.Flags().GetString("cgroup")
+			ignorePaused, _ := cmd.Flags().GetBool("ignore-paused")
 
-			uid, gid, err := parseUser(user)
-			if err != nil {
-				return fmt.Errorf("parse user: %w", err)
+			opts := &container.ExecOpts{
+				Cgroup:        cgroup,
+				ConsoleSocket: consoleSocket,
+				PIDFile:       pidFile,
+				Detach:        detach,
+				IgnorePaused:  ignorePaused,
+				PreserveFDs:   preserveFDs,
+			}
+
+			if process != "" {
+				if err := parseProcessFile(opts, process); err != nil {
+					return fmt.Errorf("failed to parse process file: %w", err)
+				}
+			} else {
+				if err := parseProcessFlags(opts, cmd.Flags(), args); err != nil {
+					return fmt.Errorf("failed to parse process flags: %w", err)
+				}
 			}
 
 			cntr, err := container.Load(containerID, rootDir)
@@ -49,29 +57,9 @@ func execCmd() *cobra.Command {
 			}
 
 			return cntr.DoWithLock(func(c *container.Container) error {
-				exitCode, err := container.Exec(
-					&container.ExecOpts{
-						ContainerPID:   c.State.Pid,
-						Cwd:            cwd,
-						Args:           execArgs,
-						Env:            env,
-						AdditionalGIDs: additionalGIDs,
-						Process:        process,
-						ProcessLabel:   processLabel,
-						AppArmor:       appArmor,
-						NoNewPrivs:     noNewPrivs,
-						Capabilities:   capabilities,
-						Cgroup:         cgroup,
-						ConsoleSocket:  consoleSocket,
-						UID:            uid,
-						GID:            gid,
-						PIDFile:        pidFile,
-						TTY:            tty,
-						Detach:         detach,
-						IgnorePaused:   ignorePaused,
-						PreserveFDs:    preserveFDs,
-					},
-				)
+				opts.ContainerPID = c.State.Pid
+
+				exitCode, err := container.Exec(opts)
 				if err != nil {
 					return fmt.Errorf("failed to exec command: %w", err)
 				}
@@ -148,4 +136,71 @@ func parseUser(u string) (int, int, error) {
 	}
 
 	return uid, 0, nil
+}
+
+func parseProcessFile(opts *container.ExecOpts, process string) error {
+	data, err := os.ReadFile(process)
+	if err != nil {
+		return fmt.Errorf("read process file: %w", err)
+	}
+
+	var p specs.Process
+	if err := json.Unmarshal(data, &p); err != nil {
+		return fmt.Errorf("parse process JSON: %w", err)
+	}
+
+	opts.Cwd = p.Cwd
+	opts.Env = p.Env
+	opts.Args = p.Args
+	opts.UID = int(p.User.UID)
+	opts.GID = int(p.User.GID)
+	opts.NoNewPrivs = p.NoNewPrivileges
+	opts.AppArmor = p.ApparmorProfile
+	opts.TTY = p.Terminal
+	opts.ProcessLabel = p.SelinuxLabel
+
+	if p.Capabilities != nil {
+		opts.Capabilities = p.Capabilities.Bounding
+	}
+
+	opts.AdditionalGIDs = make([]int, 0, len(p.User.AdditionalGids))
+	for _, g := range p.User.AdditionalGids {
+		opts.AdditionalGIDs = append(opts.AdditionalGIDs, int(g))
+	}
+
+	return nil
+}
+
+func parseProcessFlags(
+	opts *container.ExecOpts,
+	flags *pflag.FlagSet,
+	args []string,
+) error {
+	if len(args) > 1 {
+		opts.Args = args[1:]
+	}
+
+	opts.Cwd, _ = flags.GetString("cwd")
+	opts.Env, _ = flags.GetStringSlice("env")
+	opts.Capabilities, _ = flags.GetStringSlice("cap")
+	opts.NoNewPrivs, _ = flags.GetBool("no-new-privs")
+	opts.AppArmor, _ = flags.GetString("apparmor")
+	opts.TTY, _ = flags.GetBool("tty")
+	opts.ProcessLabel, _ = flags.GetString("process-label")
+
+	user, _ := flags.GetString("user")
+
+	var err error
+	opts.UID, opts.GID, err = parseUser(user)
+	if err != nil {
+		return fmt.Errorf("parse user: %w", err)
+	}
+
+	additionalGIDs, _ := flags.GetIntSlice("additional-gids")
+	opts.AdditionalGIDs = make([]int, 0, len(additionalGIDs))
+	for _, g := range additionalGIDs {
+		opts.AdditionalGIDs = append(opts.AdditionalGIDs, g)
+	}
+
+	return nil
 }
