@@ -57,9 +57,7 @@ func execCmd() *cobra.Command {
 			}
 
 			return cntr.DoWithLock(func(c *container.Container) error {
-				opts.ContainerPID = c.State.Pid
-
-				exitCode, err := container.Exec(opts)
+				exitCode, err := container.Exec(c.State.Pid, opts)
 				if err != nil {
 					return fmt.Errorf("failed to exec command: %w", err)
 				}
@@ -197,10 +195,7 @@ func parseProcessFlags(
 	}
 
 	additionalGIDs, _ := flags.GetIntSlice("additional-gids")
-	opts.AdditionalGIDs = make([]int, 0, len(additionalGIDs))
-	for _, g := range additionalGIDs {
-		opts.AdditionalGIDs = append(opts.AdditionalGIDs, g)
-	}
+	opts.AdditionalGIDs = append(opts.AdditionalGIDs, additionalGIDs...)
 
 	return nil
 }

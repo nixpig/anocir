@@ -14,7 +14,6 @@ import (
 )
 
 type ExecOpts struct {
-	ContainerPID   int
 	Cwd            string
 	Args           []string
 	UID            int
@@ -56,7 +55,7 @@ var namespaces = []string{
 	"mnt",
 }
 
-func Exec(opts *ExecOpts) (int, error) {
+func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -120,7 +119,7 @@ func Exec(opts *ExecOpts) (int, error) {
 			continue
 		}
 
-		containerNSPath := fmt.Sprintf("/proc/%d/ns/%s", opts.ContainerPID, ns)
+		containerNSPath := fmt.Sprintf("/proc/%d/ns/%s", containerPID, ns)
 		hostNSPath := fmt.Sprintf("/proc/1/ns/%s", ns)
 
 		isSharedNS, err := sharedNamespace(containerNSPath, hostNSPath)
