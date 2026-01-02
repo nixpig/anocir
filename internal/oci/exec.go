@@ -51,7 +51,6 @@ func execCmd() *cobra.Command {
 				if err := container.Exec(
 					&container.ExecOpts{
 						ContainerPID:   c.State.Pid,
-						Rootfs:         c.RootFS(),
 						Cwd:            cwd,
 						Args:           execArgs,
 						Env:            env,

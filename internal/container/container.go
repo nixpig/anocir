@@ -638,7 +638,7 @@ func (c *Container) mountConsole() error {
 		return nil
 	}
 
-	target := filepath.Join(c.RootFS(), "dev/console")
+	target := filepath.Join(c.rootFS(), "dev/console")
 
 	if err := c.pty.MountSlave(target); err != nil {
 		return fmt.Errorf("mount slave: %w", err)
@@ -652,8 +652,8 @@ func (c *Container) connectConsole() error {
 		return nil
 	}
 
-	ptmxPath := filepath.Join(c.RootFS(), "dev/pts/ptmx")
-	ptsDir := filepath.Join(c.RootFS(), "dev/pts")
+	ptmxPath := filepath.Join(c.rootFS(), "dev/pts/ptmx")
+	ptsDir := filepath.Join(c.rootFS(), "dev/pts")
 
 	pty, err := terminal.NewPtyAt(ptmxPath, ptsDir)
 	if err != nil {
@@ -690,7 +690,7 @@ func (c *Container) pivotRoot() error {
 		return ErrMissingProcess
 	}
 
-	if err := platform.PivotRoot(c.RootFS()); err != nil {
+	if err := platform.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}
 	return nil
@@ -709,8 +709,8 @@ func (c *Container) canBeKilled() bool {
 		c.State.Status == specs.StateCreated
 }
 
-// RootFS returns the path to the Container root filesystem.
-func (c *Container) RootFS() string {
+// rootFS returns the path to the Container root filesystem.
+func (c *Container) rootFS() string {
 	if strings.HasPrefix(c.spec.Root.Path, "/") {
 		return c.spec.Root.Path
 	}

@@ -163,15 +163,12 @@ func Exec(opts *ExecOpts) error {
 		}
 
 		if ws.Exited() {
-			exitCode := ws.ExitStatus()
-
-			if exitCode != 0 {
-				return fmt.Errorf("non-zero exit code: %d", exitCode)
-			}
+			os.Exit(ws.ExitStatus())
 		}
 
 		if ws.Signaled() {
-			return fmt.Errorf("killed: %d", ws.Signal())
+			sig := ws.Signal()
+			os.Exit(128 + int(sig))
 		}
 	}
 
