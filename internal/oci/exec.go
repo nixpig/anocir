@@ -2,6 +2,7 @@ package oci
 
 import (
 	"fmt"
+	"os"
 	"strconv"
 	"strings"
 
@@ -48,7 +49,7 @@ func execCmd() *cobra.Command {
 			}
 
 			return cntr.DoWithLock(func(c *container.Container) error {
-				if err := container.Exec(
+				exitCode, err := container.Exec(
 					&container.ExecOpts{
 						ContainerPID:   c.State.Pid,
 						Cwd:            cwd,
@@ -70,8 +71,13 @@ func execCmd() *cobra.Command {
 						IgnorePaused:   ignorePaused,
 						PreserveFDs:    preserveFDs,
 					},
-				); err != nil {
+				)
+				if err != nil {
 					return fmt.Errorf("failed to exec command: %w", err)
+				}
+
+				if exitCode != 0 {
+					os.Exit(exitCode)
 				}
 
 				return nil

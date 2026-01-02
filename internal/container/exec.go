@@ -56,7 +56,7 @@ var namespaces = []string{
 	"mnt",
 }
 
-func Exec(opts *ExecOpts) error {
+func Exec(opts *ExecOpts) (int, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
@@ -123,7 +123,7 @@ func Exec(opts *ExecOpts) error {
 
 		isSharedNS, err := sharedNamespace(containerNSPath, hostNSPath)
 		if err != nil {
-			return fmt.Errorf("check if shared namespace: %w", err)
+			return 255, fmt.Errorf("check if shared namespace: %w", err)
 		}
 
 		if isSharedNS {
@@ -141,7 +141,7 @@ func Exec(opts *ExecOpts) error {
 			procAttr.Env = append(procAttr.Env, gonsEnv)
 		} else {
 			if err := platform.SetNS(containerNSPath); err != nil {
-				return fmt.Errorf("join namespace: %w", err)
+				return 255, fmt.Errorf("join namespace: %w", err)
 			}
 		}
 	}
@@ -153,26 +153,26 @@ func Exec(opts *ExecOpts) error {
 
 	pid, err := syscall.ForkExec(execArgs[0], execArgs, procAttr)
 	if err != nil {
-		return fmt.Errorf("reexec child process: %w", err)
+		return 255, fmt.Errorf("reexec child process: %w", err)
 	}
 
 	if !opts.Detach {
 		var ws unix.WaitStatus
 		if _, err := unix.Wait4(pid, &ws, 0, nil); err != nil {
-			return fmt.Errorf("wait for child process: %w", err)
+			return 255, fmt.Errorf("wait for child process: %w", err)
 		}
 
 		if ws.Exited() {
-			os.Exit(ws.ExitStatus())
+			return ws.ExitStatus(), nil
 		}
 
 		if ws.Signaled() {
 			sig := ws.Signal()
-			os.Exit(128 + int(sig))
+			return 128 + int(sig), nil
 		}
 	}
 
-	return nil
+	return 0, nil
 }
 
 func ChildExec(opts *ChildExecOpts) error {
