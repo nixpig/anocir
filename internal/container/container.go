@@ -708,7 +708,7 @@ func (c *Container) canBeKilled() bool {
 		c.State.Status == specs.StateCreated
 }
 
-// rootFS returns the path to the Container root filesystem.
+// RootFS returns the path to the Container root filesystem.
 func (c *Container) RootFS() string {
 	if strings.HasPrefix(c.spec.Root.Path, "/") {
 		return c.spec.Root.Path
