@@ -9,6 +9,10 @@ import (
 
 // SetUser sets the user and group IDs for the current (container) process.
 func SetUser(user *specs.User) error {
+	if user == nil {
+		return nil
+	}
+
 	if len(user.AdditionalGids) > 0 {
 		additionalGids := make([]int, len(user.AdditionalGids))
 

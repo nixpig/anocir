@@ -42,15 +42,6 @@ func execCmd() *cobra.Command {
 				return fmt.Errorf("parse user: %w", err)
 			}
 
-			if gid != 0 {
-				additionalGIDs = append(additionalGIDs, gid)
-			}
-
-			envs, err := parseEnv(env)
-			if err != nil {
-				return fmt.Errorf("parse env: %w", err)
-			}
-
 			cntr, err := container.Load(containerID, rootDir)
 			if err != nil {
 				return fmt.Errorf("failed to load container: %w", err)
@@ -63,7 +54,7 @@ func execCmd() *cobra.Command {
 						Rootfs:         c.RootFS(),
 						Cwd:            cwd,
 						Args:           execArgs,
-						Env:            envs,
+						Env:            env,
 						AdditionalGIDs: additionalGIDs,
 						Process:        process,
 						ProcessLabel:   processLabel,
@@ -73,6 +64,7 @@ func execCmd() *cobra.Command {
 						Cgroup:         cgroup,
 						ConsoleSocket:  consoleSocket,
 						UID:            uid,
+						GID:            gid,
 						PIDFile:        pidFile,
 						TTY:            tty,
 						Detach:         detach,
@@ -151,19 +143,4 @@ func parseUser(u string) (int, int, error) {
 	}
 
 	return uid, 0, nil
-}
-
-func parseEnv(env []string) (map[string]string, error) {
-	envs := make(map[string]string)
-
-	for _, e := range env {
-		parts := strings.Split(e, "=")
-		if len(parts) != 2 {
-			return nil, fmt.Errorf("invalid env %s", e)
-		}
-
-		envs[parts[0]] = parts[1]
-	}
-
-	return envs, nil
 }

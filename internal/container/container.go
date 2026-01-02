@@ -472,6 +472,7 @@ func (c *Container) Init() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
+	// TODO: Probably want to syscall.ForkExec instead of using exec.Command.
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
