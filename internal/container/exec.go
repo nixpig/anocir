@@ -65,7 +65,9 @@ func Exec(opts *ExecOpts) (int, error) {
 		additionalGIDs = append(additionalGIDs, fmt.Sprintf("%d", g))
 	}
 
-	procAttr := &syscall.ProcAttr{}
+	procAttr := &syscall.ProcAttr{
+		Sys: &syscall.SysProcAttr{},
+	}
 
 	procAttr.Files = []uintptr{
 		os.Stdin.Fd(),
@@ -132,7 +134,6 @@ func Exec(opts *ExecOpts) (int, error) {
 		}
 
 		if ns == "user" {
-			// TODO: Drop this in forked child.
 			procAttr.Sys.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 		}
 
