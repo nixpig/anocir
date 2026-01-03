@@ -24,11 +24,17 @@ func isUnifiedCGroupsMode() bool {
 // AddCGroups creates a cgroup with the configuration from the given spec and
 // adds the process from the given state to it.
 func AddCGroups(state *specs.State, spec *specs.Spec) error {
+	var resources *specs.LinuxResources
+
+	if spec.Linux.Resources != nil {
+		resources = spec.Linux.Resources
+	}
+
 	if isUnifiedCGroupsMode() {
 		if err := addV2CGroups(
 			state.ID,
 			spec.Linux.CgroupsPath,
-			spec.Linux.Resources,
+			resources,
 			state.Pid,
 		); err != nil {
 			return fmt.Errorf("add to v2 cgroup: %w", err)
@@ -36,7 +42,7 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 	} else {
 		if err := addV1CGroups(
 			spec.Linux.CgroupsPath,
-			spec.Linux.Resources,
+			resources,
 			state.Pid,
 		); err != nil {
 			return fmt.Errorf("add to v1 cgroup: %w", err)
@@ -59,6 +65,50 @@ func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 	}
 
 	return nil
+}
+
+func GetProcesses(state *specs.State, spec *specs.Spec) ([]int, error) {
+	var processes []int
+
+	if isUnifiedCGroupsMode() {
+		// TODO: Figure out what to load.
+		slice, group := buildSystemdCGroupSliceAndGroup(
+			spec.Linux.CgroupsPath,
+			state.ID,
+		)
+
+		cg, err := cgroup2.Load(filepath.Join("/", slice, group))
+		if err != nil {
+			return nil, fmt.Errorf("load cgroup2: %w", err)
+		}
+
+		cgProcesses, err := cg.Procs(true)
+		if err != nil {
+			return nil, fmt.Errorf("load cgroup2 processes: %w", err)
+		}
+
+		for _, p := range cgProcesses {
+			processes = append(processes, int(p))
+		}
+	} else {
+		staticPath := cgroup1.StaticPath(spec.Linux.CgroupsPath)
+		cg, err := cgroup1.Load(staticPath)
+		if err != nil {
+			return nil, fmt.Errorf("load cgroup1 from path: %w", err)
+		}
+
+		// TODO: Figure out what to use as Name.
+		cgProcesses, err := cg.Processes(cgroup1.Pids, true)
+		if err != nil {
+			return nil, fmt.Errorf("load cgroup1 processes: %w", err)
+		}
+
+		for _, p := range cgProcesses {
+			processes = append(processes, p.Pid)
+		}
+	}
+
+	return processes, nil
 }
 
 func addV1CGroups(
@@ -145,23 +195,6 @@ func validateCgroupPath(path string) bool {
 	return true
 }
 
-func buildSystemdCGroupPath(cgroupsPath, containerID string) string {
-	systemdCGroupPath := cgroupsPath
-	if systemdCGroupPath == "" {
-		if containerID == "" {
-			return ""
-		}
-
-		systemdCGroupPath = containerID
-	}
-
-	if !strings.HasSuffix(systemdCGroupPath, ".slice") {
-		systemdCGroupPath = fmt.Sprintf("%s.slice", systemdCGroupPath)
-	}
-
-	return systemdCGroupPath
-}
-
 func buildSystemdCGroupSliceAndGroup(
 	cgroupsPath, containerID string,
 ) (string, string) {
@@ -203,5 +236,5 @@ func buildSystemdCGroupSliceAndGroup(
 		return "system.slice", ""
 	}
 
-	return "anocir.slice", fmt.Sprintf("%s.scope", containerID)
+	return "system.slice", fmt.Sprintf("anocir-%s.scope", containerID)
 }

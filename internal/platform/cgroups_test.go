@@ -40,45 +40,6 @@ func TestValidateCgroupPath(t *testing.T) {
 	}
 }
 
-func TestBuildSystemdCgroupPath(t *testing.T) {
-	scenarios := map[string]struct {
-		cgroupsPath       string
-		containerID       string
-		systemdCgroupPath string
-	}{
-		"test cgroupsPath without slice suffix": {
-			cgroupsPath:       "/etc/systemd/system/user-1000",
-			containerID:       "",
-			systemdCgroupPath: "/etc/systemd/system/user-1000.slice",
-		},
-		"test cgroupsPath with slice suffix": {
-			cgroupsPath:       "/etc/systemd/system/user-1000.slice",
-			containerID:       "",
-			systemdCgroupPath: "/etc/systemd/system/user-1000.slice",
-		},
-		"test empty cgroupsPath and valid containerID": {
-			cgroupsPath:       "",
-			containerID:       "test-container",
-			systemdCgroupPath: "test-container.slice",
-		},
-		"test empty cgroupsPath and empty containerID": {
-			cgroupsPath:       "",
-			containerID:       "",
-			systemdCgroupPath: "",
-		},
-	}
-
-	for scenario, data := range scenarios {
-		t.Run(scenario, func(t *testing.T) {
-			assert.Equal(
-				t,
-				data.systemdCgroupPath,
-				buildSystemdCGroupPath(data.cgroupsPath, data.containerID),
-			)
-		})
-	}
-}
-
 func TestBuildSystemdCGroupSliceAndGroup(t *testing.T) {
 	scenarios := map[string]struct {
 		cgroupsPath        string
@@ -107,20 +68,20 @@ func TestBuildSystemdCGroupSliceAndGroup(t *testing.T) {
 		"test valid containerID and cgroupsPath without slice suffix": {
 			cgroupsPath:        "/etc/systemd/system/user-1000",
 			containerID:        "test-container",
-			systemdCgroupSlice: "anocir.slice",
-			systemdCgroupScope: "test-container.scope",
+			systemdCgroupSlice: "system.slice",
+			systemdCgroupScope: "anocir-test-container.scope",
 		},
 		"test valid containerID and cgroupsPath with slice suffix": {
 			cgroupsPath:        "/etc/systemd/system/user-1000.slice",
 			containerID:        "test-container",
-			systemdCgroupSlice: "anocir.slice",
-			systemdCgroupScope: "test-container.scope",
+			systemdCgroupSlice: "system.slice",
+			systemdCgroupScope: "anocir-test-container.scope",
 		},
 		"test valid containerID and empty cgroupsPath": {
 			cgroupsPath:        "",
 			containerID:        "test-container",
-			systemdCgroupSlice: "anocir.slice",
-			systemdCgroupScope: "test-container.scope",
+			systemdCgroupSlice: "system.slice",
+			systemdCgroupScope: "anocir-test-container.scope",
 		},
 		"test colon format with explicit slice prefix and name": {
 			cgroupsPath:        "system.slice:anocir:test-container",

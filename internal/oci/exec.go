@@ -16,7 +16,7 @@ import (
 func execCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "exec [flags] CONTAINER_ID COMMAND [args]",
-		Short:   "execute a command in a container",
+		Short:   "Execute a command in a container",
 		Example: "  anocir exec busybox ps",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -59,11 +59,11 @@ func execCmd() *cobra.Command {
 			return cntr.DoWithLock(func(c *container.Container) error {
 				exitCode, err := container.Exec(c.State.Pid, opts)
 				if err != nil {
-					return fmt.Errorf("failed to exec command: %w", err)
-				}
-
-				if exitCode != 0 {
-					os.Exit(exitCode)
+					fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+					if exitCode != 0 {
+						os.Exit(exitCode)
+					}
+					os.Exit(255)
 				}
 
 				return nil

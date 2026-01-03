@@ -77,7 +77,7 @@ type Opts struct {
 	LogFormat     string
 }
 
-// New creates a Container based on the provided opts and saves its state.
+// New creates a Container based on the provided opts.
 // The Container will be in the 'creating' state.
 func New(opts *Opts) *Container {
 	state := &specs.State{
@@ -211,19 +211,8 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if c.spec.Linux.Resources != nil {
-		if err := platform.DeleteCGroups(c.State, c.spec); err != nil {
-			return fmt.Errorf("delete cgroups: %w", err)
-		}
-	} else if c.State.Pid != 0 {
-		if err := unix.Kill(
-			c.State.Pid,
-			unix.SIGKILL,
-		); err != nil && !errors.Is(err, unix.ESRCH) {
-			return fmt.Errorf("send kill signal to process: %w", err)
-		}
-
-		unix.Wait4(c.State.Pid, nil, 0, nil)
+	if err := platform.DeleteCGroups(c.State, c.spec); err != nil {
+		return fmt.Errorf("delete cgroups: %w", err)
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -265,6 +254,10 @@ func (c *Container) GetState() (string, error) {
 	}
 
 	return string(state), nil
+}
+
+func (c *Container) GetSpec() *specs.Spec {
+	return c.spec
 }
 
 // Start begins the execution of the Container. It executes pre-start and
@@ -485,10 +478,8 @@ func (c *Container) Init() error {
 		return fmt.Errorf("save container state: %w", err)
 	}
 
-	if c.spec.Linux.Resources != nil {
-		if err := platform.AddCGroups(c.State, c.spec); err != nil {
-			return fmt.Errorf("create cgroups: %w", err)
-		}
+	if err := platform.AddCGroups(c.State, c.spec); err != nil {
+		return fmt.Errorf("create cgroups: %w", err)
 	}
 
 	conn, err := ipc.FDToConn(initSockParentFD)

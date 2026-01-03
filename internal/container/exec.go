@@ -124,7 +124,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 		isSharedNS, err := sharedNamespace(containerNSPath, hostNSPath)
 		if err != nil {
-			return 255, fmt.Errorf("check if shared namespace: %w", err)
+			return 0, fmt.Errorf("check if shared namespace: %w", err)
 		}
 
 		if isSharedNS {
@@ -141,7 +141,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			procAttr.Env = append(procAttr.Env, gonsEnv)
 		} else {
 			if err := platform.SetNS(containerNSPath); err != nil {
-				return 255, fmt.Errorf("join namespace: %w", err)
+				return 0, fmt.Errorf("join namespace: %w", err)
 			}
 		}
 	}
@@ -153,12 +153,12 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	pid, err := syscall.ForkExec(execArgs[0], execArgs, procAttr)
 	if err != nil {
-		return 255, fmt.Errorf("reexec child process: %w", err)
+		return 0, fmt.Errorf("reexec child process: %w", err)
 	}
 
 	if opts.PIDFile != "" {
 		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o755); err != nil {
-			return 255, fmt.Errorf(
+			return 0, fmt.Errorf(
 				"write pid to file (%s): %w",
 				opts.PIDFile,
 				err,
@@ -169,7 +169,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	if !opts.Detach {
 		var ws unix.WaitStatus
 		if _, err := unix.Wait4(pid, &ws, 0, nil); err != nil {
-			return 255, fmt.Errorf("wait for child process: %w", err)
+			return 0, fmt.Errorf("wait for child process: %w", err)
 		}
 
 		if ws.Exited() {

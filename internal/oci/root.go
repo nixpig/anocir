@@ -56,6 +56,7 @@ func RootCmd() *cobra.Command {
 		listCmd(),
 		execCmd(),
 		childExecCmd(),
+		psCmd(),
 	)
 
 	cmd.PersistentFlags().StringP(
