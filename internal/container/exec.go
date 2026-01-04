@@ -149,6 +149,11 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	procAttr.Env = append(procAttr.Env, opts.Env...)
 	procAttr.Env = append(procAttr.Env, os.Environ()...)
 
+	_, err := exec.LookPath(opts.Args[0])
+	if err != nil {
+		return 0, fmt.Errorf("check binary exists: %w", err)
+	}
+
 	execArgs := append([]string{"/proc/self/exe"}, args...)
 
 	pid, err := syscall.ForkExec(execArgs[0], execArgs, procAttr)
