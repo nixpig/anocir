@@ -212,7 +212,9 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCGroups(c.State, c.spec); err != nil {
-		return fmt.Errorf("delete cgroups: %w", err)
+		if !force {
+			return fmt.Errorf("delete cgroups: %w", err)
+		}
 	}
 
 	// TODO: Review whether need to remove pidfile.
