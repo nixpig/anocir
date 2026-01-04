@@ -2,6 +2,7 @@ package oci
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 
@@ -37,8 +38,7 @@ func RootCmd() *cobra.Command {
 				}
 
 				logger := logging.NewLogger(f, debug, logFormat)
-
-				cmd.Root().SetErr(logging.NewErrorWriter(logger))
+				slog.SetDefault(logger)
 			}
 
 			return nil

@@ -18,6 +18,7 @@ func killCmd() *cobra.Command {
 			signal := args[1]
 
 			rootDir, _ := cmd.Flags().GetString("root")
+			killAll, _ := cmd.Flags().GetBool("all")
 
 			cntr, err := container.Load(containerID, rootDir)
 			if err != nil {
@@ -25,7 +26,7 @@ func killCmd() *cobra.Command {
 			}
 
 			return cntr.DoWithLock(func(c *container.Container) error {
-				if err := c.Kill(signal); err != nil {
+				if err := c.Kill(signal, killAll); err != nil {
 					return fmt.Errorf("failed to kill container: %w", err)
 				}
 				return nil
@@ -33,7 +34,8 @@ func killCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().BoolP("all", "a", false, "Not implemented")
+	cmd.Flags().
+		BoolP("all", "a", false, "Send signal to all proceses in container cgroup")
 
 	return cmd
 }

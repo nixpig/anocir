@@ -312,24 +312,50 @@ func (c *Container) Start() error {
 }
 
 // Kill sends the given sig to the Container process.
-func (c *Container) Kill(sig string) error {
-	if !c.canBeKilled() {
-		return fmt.Errorf(
-			"container cannot be killed in current state (%s)",
-			c.State.Status,
-		)
+func (c *Container) Kill(sig string, killAll bool) error {
+	if killAll {
+		pids, err := platform.GetProcesses(c.State, c.GetSpec())
+		if err != nil {
+			// cgroup may already be dead
+			return nil
+		}
+
+		for _, pid := range pids {
+			if err := platform.SendSignal(pid, platform.ParseSignal(sig)); err != nil &&
+				!errors.Is(err, unix.ESRCH) {
+				return fmt.Errorf(
+					"send killall signal '%s' to process '%d': %w",
+					sig,
+					c.State.Pid,
+					err,
+				)
+			}
+		}
+	} else {
+		if !c.canBeKilled() {
+			// The contents of this error message are important for passing containerd
+			// integration test which does a string comparison.
+			// https://github.com/containerd/containerd/blob/2d8e4b6d164e7566012fb6080fcc63dcde362628/cmd/containerd-shim-runc-v2/process/utils.go#L115C1-L128C2
+			return fmt.Errorf("container not running (%s)", c.State.Status)
+		}
+
+		if err := platform.SendSignal(
+			c.State.Pid,
+			platform.ParseSignal(sig),
+		); err != nil && !errors.Is(err, unix.ESRCH) {
+			return fmt.Errorf(
+				"send kill signal '%s' to process '%d': %w",
+				sig,
+				c.State.Pid,
+				err,
+			)
+		}
 	}
 
-	if err := platform.SendSignal(
-		c.State.Pid,
-		platform.ParseSignal(sig),
-	); err != nil && !errors.Is(err, unix.ESRCH) {
-		return fmt.Errorf(
-			"send signal '%s' to process '%d': %w",
-			sig,
-			c.State.Pid,
-			err,
-		)
+	// TODO: Should it really be stopped? What if the signal wasn't one that would 'stop' the process?
+	c.State.Status = specs.StateStopped
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("save stopped state: %w", err)
 	}
 
 	return nil

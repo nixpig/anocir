@@ -54,6 +54,8 @@ func AddCGroups(state *specs.State, spec *specs.Spec) error {
 
 // DeleteCGroups deletes a cgroup based on the given state and/or spec.
 func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
+	// TODO: Freeze cgroups?
+
 	if isUnifiedCGroupsMode() {
 		if err := deleteV2CGroups(state.ID, spec.Linux.CgroupsPath); err != nil {
 			return err
