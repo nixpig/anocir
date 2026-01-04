@@ -18,11 +18,12 @@ func childExecCmd() *cobra.Command {
 			cwd, _ := cmd.Flags().GetString("cwd")
 			uid, _ := cmd.Flags().GetInt("uid")
 			gid, _ := cmd.Flags().GetInt("gid")
-			execArgs, _ := cmd.Flags().GetStringSlice("args")
-			_, _ = cmd.Flags().GetStringSlice("envs")
-			caps, _ := cmd.Flags().GetStringSlice("caps")
+			execArgs, _ := cmd.Flags().GetStringArray("args")
+			_, _ = cmd.Flags().GetStringArray("envs")
+			caps, _ := cmd.Flags().GetStringArray("caps")
 			additionalGIDs, _ := cmd.Flags().GetIntSlice("additional-gids")
 			noNewPrivs, _ := cmd.Flags().GetBool("no-new-privs")
+			tty, _ := cmd.Flags().GetBool("tty")
 
 			user := &specs.User{
 				UID: uint32(uid),
@@ -39,6 +40,7 @@ func childExecCmd() *cobra.Command {
 				User:         user,
 				Capabilities: &specs.LinuxCapabilities{Bounding: caps},
 				NoNewPrivs:   noNewPrivs,
+				TTY:          tty,
 			}); err != nil {
 				return fmt.Errorf("fork/exec child: %w", err)
 			}
@@ -50,11 +52,12 @@ func childExecCmd() *cobra.Command {
 	cmd.Flags().String("cwd", "", "")
 	cmd.Flags().Int("uid", 0, "")
 	cmd.Flags().Int("gid", 0, "")
-	cmd.Flags().StringSlice("args", []string{}, "")
-	cmd.Flags().StringSlice("envs", []string{}, "")
-	cmd.Flags().StringSlice("caps", []string{}, "")
+	cmd.Flags().StringArray("args", []string{}, "")
+	cmd.Flags().StringArray("envs", []string{}, "")
+	cmd.Flags().StringArray("caps", []string{}, "")
 	cmd.Flags().IntSlice("additional-gids", []int{}, "")
 	cmd.Flags().Bool("no-new-privs", false, "")
+	cmd.Flags().Bool("tty", false, "")
 
 	return cmd
 }

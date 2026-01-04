@@ -5,10 +5,10 @@ import (
 	"os"
 	"os/exec"
 	"runtime"
-	"strings"
 	"syscall"
 
 	"github.com/nixpig/anocir/internal/platform"
+	"github.com/nixpig/anocir/internal/terminal"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
@@ -28,11 +28,12 @@ type ExecOpts struct {
 
 	// TODO: Handle these options.
 	ConsoleSocket string
-	IgnorePaused  bool
-	PreserveFDs   int
-	ProcessLabel  string
-	AppArmor      string
-	Cgroup        string
+
+	IgnorePaused bool
+	PreserveFDs  int
+	ProcessLabel string
+	AppArmor     string
+	Cgroup       string
 }
 
 type ChildExecOpts struct {
@@ -42,6 +43,7 @@ type ChildExecOpts struct {
 	Capabilities *specs.LinuxCapabilities
 	User         *specs.User
 	NoNewPrivs   bool
+	TTY          bool
 }
 
 var namespaces = []string{
@@ -68,12 +70,6 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		Sys: &syscall.SysProcAttr{},
 	}
 
-	procAttr.Files = []uintptr{
-		os.Stdin.Fd(),
-		os.Stdout.Fd(),
-		os.Stderr.Fd(),
-	}
-
 	args := []string{
 		"childexec",
 		"--cwd", opts.Cwd,
@@ -81,32 +77,52 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		"--gid", fmt.Sprintf("%d", opts.GID),
 	}
 
-	if len(additionalGIDs) > 0 {
-		args = append(
-			args,
-			"--additional-gids", strings.Join(additionalGIDs, ","),
-		)
+	if opts.ConsoleSocket != "" {
+		ptySocket, err := terminal.NewPtySocket(opts.ConsoleSocket)
+		if err != nil {
+			return 0, fmt.Errorf("create pty socket: %w", err)
+		}
+		defer ptySocket.Close()
+
+		pty, err := terminal.NewPty()
+		if err != nil {
+			return 0, fmt.Errorf("create pty pair: %w", err)
+		}
+		defer pty.Master.Close()
+
+		if err := terminal.SendPty(ptySocket.SocketFd, pty); err != nil {
+			return 0, fmt.Errorf("send pty: %w", err)
+		}
+		procAttr.Files = []uintptr{
+			pty.Slave.Fd(),
+			pty.Slave.Fd(),
+			pty.Slave.Fd(),
+		}
+
+		args = append(args, "--tty")
+	} else {
+		// TODO: Is this right?
+		procAttr.Files = []uintptr{
+			os.Stdin.Fd(),
+			os.Stdout.Fd(),
+			os.Stderr.Fd(),
+		}
 	}
 
-	if len(opts.Capabilities) > 0 {
-		args = append(
-			args,
-			"--caps", strings.Join(opts.Capabilities, ","),
-		)
+	for _, gid := range additionalGIDs {
+		args = append(args, "--additional-gids", gid)
 	}
 
-	if len(opts.Env) > 0 {
-		args = append(
-			args,
-			"--envs", strings.Join(opts.Env, ","),
-		)
+	for _, c := range opts.Capabilities {
+		args = append(args, "--caps", c)
 	}
 
-	if len(opts.Args) > 0 {
-		args = append(
-			args,
-			"--args", strings.Join(opts.Args, ","),
-		)
+	for _, env := range opts.Env {
+		args = append(args, "--envs", env)
+	}
+
+	for _, arg := range opts.Args {
+		args = append(args, "--args", arg)
 	}
 
 	if opts.NoNewPrivs {
@@ -231,6 +247,16 @@ func ChildExec(opts *ChildExecOpts) error {
 	if opts.Cwd != "" {
 		if err := os.Chdir(opts.Cwd); err != nil {
 			return fmt.Errorf("change working directory: %w", err)
+		}
+	}
+
+	if opts.TTY {
+		if _, err := unix.Setsid(); err != nil {
+			return fmt.Errorf("setsid: %w", err)
+		}
+
+		if err := unix.IoctlSetInt(0, unix.TIOCSCTTY, 0); err != nil {
+			return fmt.Errorf("set ioctl: %w", err)
 		}
 	}
 

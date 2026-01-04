@@ -72,7 +72,7 @@ func execCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringSliceP("env", "e", []string{}, "Set environment variable (name=value)")
+		StringArrayP("env", "e", []string{}, "Set environment variable (name=value)")
 	cmd.Flags().
 		IntSliceP("additional-gids", "g", []int{}, "Additional GIDs")
 	cmd.Flags().
@@ -84,7 +84,7 @@ func execCmd() *cobra.Command {
 	cmd.Flags().
 		Bool("no-new-privs", false, "Set no new privs")
 	cmd.Flags().
-		StringSlice("cap", []string{}, "Set capability")
+		StringArray("cap", []string{}, "Set capability")
 	cmd.Flags().
 		String("cgroup", "", "Specify cgroup (path | controller[,controller...]:path)")
 	cmd.Flags().
@@ -179,8 +179,8 @@ func parseProcessFlags(
 	}
 
 	opts.Cwd, _ = flags.GetString("cwd")
-	opts.Env, _ = flags.GetStringSlice("env")
-	opts.Capabilities, _ = flags.GetStringSlice("cap")
+	opts.Env, _ = flags.GetStringArray("env")
+	opts.Capabilities, _ = flags.GetStringArray("cap")
 	opts.NoNewPrivs, _ = flags.GetBool("no-new-privs")
 	opts.AppArmor, _ = flags.GetString("apparmor")
 	opts.TTY, _ = flags.GetBool("tty")
