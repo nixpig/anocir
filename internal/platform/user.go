@@ -2,6 +2,8 @@ package platform
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -14,14 +16,25 @@ func SetUser(user *specs.User) error {
 	}
 
 	if len(user.AdditionalGids) > 0 {
-		additionalGids := make([]int, len(user.AdditionalGids))
+		allowAdditionalGroups := true
 
-		for i, gid := range user.AdditionalGids {
-			additionalGids[i] = int(gid)
+		data, err := os.ReadFile("/proc/self/setgroups")
+		if err != nil || strings.TrimSpace(string(data)) == "deny" {
+			allowAdditionalGroups = false
 		}
 
-		if err := unix.Setgroups(additionalGids); err != nil {
-			return fmt.Errorf("set additional GIDs: %w", err)
+		// Silently 'fail' to add additional GIDs if /proc/self/setgroups is
+		// "deny", same as runc and others.
+		if allowAdditionalGroups {
+			additionalGids := make([]int, len(user.AdditionalGids))
+
+			for i, gid := range user.AdditionalGids {
+				additionalGids[i] = int(gid)
+			}
+
+			if err := unix.Setgroups(additionalGids); err != nil {
+				return fmt.Errorf("set additional GIDs: %w", err)
+			}
 		}
 	}
 

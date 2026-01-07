@@ -28,18 +28,18 @@ func (c *Container) execHooks(phase Lifecycle) error {
 
 	switch phase {
 	case LifecycleCreateRuntime:
-		h = append(h, c.spec.Hooks.CreateRuntime...)
+		h = c.spec.Hooks.CreateRuntime
 	case LifecycleCreateContainer:
-		h = append(h, c.spec.Hooks.CreateContainer...)
+		h = c.spec.Hooks.CreateContainer
 	case LifecycleStartContainer:
-		h = append(h, c.spec.Hooks.StartContainer...)
+		h = c.spec.Hooks.StartContainer
 	case LifecyclePrestart:
 		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker.
-		h = append(h, c.spec.Hooks.Prestart...)
+		h = c.spec.Hooks.Prestart
 	case LifecyclePoststart:
-		h = append(h, c.spec.Hooks.Poststart...)
+		h = c.spec.Hooks.Poststart
 	case LifecyclePoststop:
-		h = append(h, c.spec.Hooks.Poststop...)
+		h = c.spec.Hooks.Poststop
 	}
 
 	if len(h) > 0 {

@@ -56,13 +56,10 @@ func (s *Socket) Dial() (net.Conn, error) {
 func (s *Socket) DialWithRetry(
 	interval, timeout time.Duration,
 ) (net.Conn, error) {
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		timeout*time.Millisecond,
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(interval * time.Millisecond)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	var conn net.Conn

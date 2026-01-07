@@ -2,6 +2,7 @@ package container
 
 import (
 	"fmt"
+	"slices"
 
 	"github.com/nixpig/anocir/internal/platform"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -16,7 +17,7 @@ func (c *Container) setupPrePivot() error {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
-	c.spec.Mounts = append(c.spec.Mounts, specs.Mount{
+	mounts := slices.Concat(c.spec.Mounts, []specs.Mount{{
 		Destination: "/dev/pts",
 		Type:        "devpts",
 		Source:      "devpts",
@@ -28,9 +29,9 @@ func (c *Container) setupPrePivot() error {
 			"mode=0620",
 			"gid=5",
 		},
-	})
+	}})
 
-	if err := platform.MountSpecMounts(c.spec.Mounts, c.rootFS()); err != nil {
+	if err := platform.MountSpecMounts(mounts, c.rootFS()); err != nil {
 		return fmt.Errorf("mount spec mounts: %w", err)
 	}
 

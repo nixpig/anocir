@@ -25,7 +25,7 @@ func TestIPCSocket(t *testing.T) {
 
 		msg, err := ReceiveMessage(receiveConn)
 		assert.NoError(t, err)
-		assert.Equal(t, "testing", msg)
+		assert.Equal(t, byte(1), msg)
 
 		msgCh <- msg
 	}()
@@ -38,7 +38,7 @@ func TestIPCSocket(t *testing.T) {
 	assert.NoError(t, err)
 
 	msg := <-msgCh
-	assert.Equal(t, "testing", msg)
+	assert.Equal(t, byte(1), msg)
 }
 
 func TestIPCSocketPair(t *testing.T) {
@@ -56,5 +56,5 @@ func TestIPCSocketPair(t *testing.T) {
 	go SendMessage(sendConn, byte(1))
 	msg, err := ReceiveMessage(receiveConn)
 	assert.NoError(t, err)
-	assert.Equal(t, "testing", msg)
+	assert.Equal(t, byte(1), msg)
 }

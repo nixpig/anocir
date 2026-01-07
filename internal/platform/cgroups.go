@@ -57,16 +57,22 @@ func DeleteCGroups(state *specs.State, spec *specs.Spec) error {
 	// TODO: Freeze cgroups?
 
 	if isUnifiedCGroupsMode() {
-		if err := deleteV2CGroups(state.ID, spec.Linux.CgroupsPath); err != nil {
-			return err
-		}
+		return deleteV2CGroups(state.ID, spec.Linux.CgroupsPath)
 	} else {
-		if err := deleteV1CGroups(spec.Linux.CgroupsPath); err != nil {
-			return err
-		}
+		return deleteV1CGroups(spec.Linux.CgroupsPath)
 	}
+}
 
-	return nil
+func UpdateCgroups(
+	state *specs.State,
+	spec *specs.Spec,
+	resources *specs.LinuxResources,
+) error {
+	if isUnifiedCGroupsMode() {
+		return updateV2CGroups(state.ID, spec.Linux.CgroupsPath, resources)
+	} else {
+		return updateV1CGroups()
+	}
 }
 
 func GetProcesses(state *specs.State, spec *specs.Spec) ([]int, error) {
@@ -181,6 +187,28 @@ func deleteV2CGroups(containerID, cgroupsPath string) error {
 	// TODO: Consider logging errors in future. Ignoring for now, as best-effort.
 	_ = cg.Kill()
 	_ = cg.DeleteSystemd()
+
+	return nil
+}
+
+func updateV1CGroups() error {
+	return errors.New("not implemented yet")
+}
+
+func updateV2CGroups(
+	containerID, cgroupsPath string,
+	resources *specs.LinuxResources,
+) error {
+	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
+
+	// LoadSystemd always returns a nil error
+	cg, _ := cgroup2.LoadSystemd(slice, group)
+
+	cgResources := cgroup2.ToResources(resources)
+
+	if err := cg.Update(cgResources); err != nil {
+		return fmt.Errorf("update cgroup resources: %w", err)
+	}
 
 	return nil
 }

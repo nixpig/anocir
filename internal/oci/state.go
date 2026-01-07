@@ -1,6 +1,7 @@
 package oci
 
 import (
+	"encoding/json"
 	"fmt"
 
 	"github.com/nixpig/anocir/internal/container"
@@ -29,7 +30,12 @@ func stateCmd() *cobra.Command {
 					return fmt.Errorf("failed to get container state: %w", err)
 				}
 
-				if _, err := fmt.Fprintln(cmd.OutOrStdout(), state); err != nil {
+				stateOutput, err := json.Marshal(state)
+				if err != nil {
+					return fmt.Errorf("marshal state: %w", err)
+				}
+
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(stateOutput)); err != nil {
 					return fmt.Errorf("failed to print state: %w", err)
 				}
 

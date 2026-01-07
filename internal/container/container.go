@@ -37,14 +37,9 @@ const (
 	envInitSockFD = "_ANOCIR_INIT_SOCK_FD"
 )
 
-var (
-	// ErrOperationInProgress is returned when the container is locked by another
-	// operation.
-	ErrOperationInProgress = errors.New("operation already in progress")
-
-	// ErrMissingProcess is returned when the provided spec is missing a process.
-	ErrMissingProcess = errors.New("process is required")
-)
+// ErrOperationInProgress is returned when the container is locked by another
+// operation.
+var ErrOperationInProgress = errors.New("operation already in progress")
 
 // Container represents an OCI container, including its state, specification,
 // and other runtime details.
@@ -226,7 +221,11 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := c.execHooks(LifecyclePoststop); err != nil {
-		fmt.Printf("Warning: failed to exec poststop hooks: %s\n", err)
+		fmt.Fprintf(
+			os.Stdout,
+			"Warning: failed to exec poststop hooks: %s\n",
+			err,
+		)
 	}
 
 	return nil
@@ -235,27 +234,22 @@ func (c *Container) Delete(force bool) error {
 // GetState returns the state of the container. In the case the container
 // process no longer exists, it has the side effect of internally modifying
 // the state to be 'stopped' before returning.
-func (c *Container) GetState() (string, error) {
+func (c *Container) GetState() (*specs.State, error) {
 	if c.State.Pid != 0 {
 		process, err := os.FindProcess(c.State.Pid)
 		if err != nil {
-			return "", fmt.Errorf("find container process: %w", err)
+			return nil, fmt.Errorf("find container process: %w", err)
 		}
 
 		if err := process.Signal(unix.Signal(0)); err != nil {
 			c.State.Status = specs.StateStopped
 			if err := c.Save(); err != nil {
-				return "", fmt.Errorf("save stopped state: %w", err)
+				return nil, fmt.Errorf("save stopped state: %w", err)
 			}
 		}
 	}
 
-	state, err := json.Marshal(c.State)
-	if err != nil {
-		return "", fmt.Errorf("marshal state: %w", err)
-	}
-
-	return string(state), nil
+	return c.State, nil
 }
 
 func (c *Container) GetSpec() *specs.Spec {
@@ -286,7 +280,7 @@ func (c *Container) Start() error {
 
 	if err := ipc.SendMessage(conn, ipc.MsgStart); err != nil {
 		return fmt.Errorf(
-			"write '%b' msg to container sock: %w",
+			"write MsgStart ('%b') to container sock: %w",
 			ipc.MsgStart,
 			err,
 		)
@@ -327,9 +321,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 				!errors.Is(err, unix.ESRCH) {
 				return fmt.Errorf(
 					"send killall signal '%s' to process '%d': %w",
-					sig,
-					c.State.Pid,
-					err,
+					sig, pid, err,
 				)
 			}
 		}
@@ -344,20 +336,13 @@ func (c *Container) Kill(sig string, killAll bool) error {
 		if err := platform.SendSignal(
 			c.State.Pid,
 			platform.ParseSignal(sig),
-		); err != nil && !errors.Is(err, unix.ESRCH) {
-			return fmt.Errorf(
-				"send kill signal '%s' to process '%d': %w",
-				sig,
-				c.State.Pid,
-				err,
-			)
-		}
-	}
+		); err != nil {
+			if errors.Is(err, unix.ESRCH) {
+				return fmt.Errorf("container not running: %w", err)
+			}
 
-	// TODO: Should it really be stopped? What if the signal wasn't one that would 'stop' the process?
-	c.State.Status = specs.StateStopped
-	if err := c.Save(); err != nil {
-		return fmt.Errorf("save stopped state: %w", err)
+			return fmt.Errorf("send signal '%s' to process '%d': %w", sig, c.State.Pid, err)
+		}
 	}
 
 	return nil
@@ -381,6 +366,7 @@ func (c *Container) Init() error {
 		}
 
 		c.ConsoleSocketFD = ptySocket.SocketFd
+
 		args = append(
 			args,
 			"--console-socket-fd",
@@ -392,7 +378,6 @@ func (c *Container) Init() error {
 		args = append(args, "--debug")
 	}
 
-	args = append(args, "--log", c.LogFile)
 	args = append(args, c.State.ID)
 
 	cmd := exec.Command("/proc/self/exe", args...)
@@ -424,6 +409,197 @@ func (c *Container) Init() error {
 		}
 	}
 
+	if err := c.configureNamespaces(cmd); err != nil {
+		return fmt.Errorf("configure namespaces: %w", err)
+	}
+
+	if c.spec.Process != nil && c.spec.Process.Env != nil {
+		cmd.Env = append(cmd.Env, c.spec.Process.Env...)
+	}
+
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	// TODO: Probably want to syscall.ForkExec instead of using exec.Command.
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("reexec container process: %w", err)
+	}
+
+	unix.Close(initSockChildFD)
+
+	c.State.Pid = cmd.Process.Pid
+
+	if err := platform.AddCGroups(c.State, c.spec); err != nil {
+		return fmt.Errorf("create cgroups: %w", err)
+	}
+
+	conn, err := ipc.FDToConn(initSockParentFD)
+	if err != nil {
+		return fmt.Errorf("accept on init sock parent: %w", err)
+	}
+	defer conn.Close()
+
+	prePivotMsg, err := ipc.ReceiveMessage(conn)
+	if err != nil {
+		return fmt.Errorf("read prepivot message: %w", err)
+	}
+	if prePivotMsg != ipc.MsgPrePivot {
+		return fmt.Errorf(
+			"expected MsgPrePivot ('%b') but got '%b'",
+			ipc.MsgPrePivot,
+			prePivotMsg,
+		)
+	}
+
+	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
+		return fmt.Errorf("exec createruntime hooks: %w", err)
+	}
+
+	readyMsg, err := ipc.ReceiveMessage(conn)
+	if err != nil {
+		return fmt.Errorf("read ready message: %w", err)
+	}
+	switch readyMsg {
+	case ipc.MsgInvalidBinary:
+		return errors.New("invalid binary")
+	case ipc.MsgReady:
+		// Let's go!
+	default:
+		return fmt.Errorf(
+			"expected MsgReady ('%b') or MsgInvalidBinary ('%b') but got '%b'",
+			ipc.MsgReady,
+			ipc.MsgInvalidBinary,
+			readyMsg,
+		)
+	}
+
+	if err := cmd.Process.Release(); err != nil {
+		return fmt.Errorf("release container process: %w", err)
+	}
+
+	c.State.Status = specs.StateCreated
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("save created state: %w", err)
+	}
+
+	return nil
+}
+
+// Reexec is the entry point for the containerised process. It is responsible
+// for setting up the Container environment, including namespaces, mounts,
+// and security settings, before executing the user-specified process.
+func (c *Container) Reexec() error {
+	// Subsequent syscalls need to happen in a single-threaded context.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
+	initSockFD := os.Getenv(envInitSockFD)
+	if initSockFD == "" {
+		return errors.New("missing init sock fd")
+	}
+
+	initSockFDVal, err := strconv.Atoi(initSockFD)
+	if err != nil {
+		return errors.New("invalid init sock fd")
+	}
+
+	initConn, err := ipc.FDToConn(initSockFDVal)
+	if err != nil {
+		return err
+	}
+
+	if err := ipc.SendMessage(initConn, ipc.MsgPrePivot); err != nil {
+		return fmt.Errorf("failed to send ready message: %w", err)
+	}
+
+	if err := c.setupPrePivot(); err != nil {
+		return err
+	}
+
+	if err := c.connectConsole(); err != nil {
+		return err
+	}
+
+	if err := c.mountConsole(); err != nil {
+		return err
+	}
+
+	containerSock := ipc.NewSocket(c.containerSock)
+	listener, err := containerSock.Listen()
+	if err != nil {
+		return fmt.Errorf("listen on container sock: %w", err)
+	}
+	defer listener.Close()
+
+	hasMountNamespace := platform.ContainsNamespaceType(
+		c.spec.Linux.Namespaces,
+		specs.MountNamespace,
+	)
+
+	if hasMountNamespace {
+		if err := c.pivotRoot(); err != nil {
+			return err
+		}
+
+		if c.spec.Process != nil {
+			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
+				ipc.SendMessage(initConn, ipc.MsgInvalidBinary)
+				return fmt.Errorf("find path of user process binary: %w", err)
+			}
+		}
+	}
+
+	if err := c.execHooks(LifecycleCreateContainer); err != nil {
+		return fmt.Errorf("exec createcontainer hooks: %w", err)
+	}
+
+	if err := ipc.SendMessage(initConn, ipc.MsgReady); err != nil {
+		return fmt.Errorf("failed to send ready message: %w", err)
+	}
+
+	initConn.Close()
+
+	containerConn, err := listener.Accept()
+	if err != nil {
+		return fmt.Errorf("accept on container sock: %w", err)
+	}
+	defer containerConn.Close()
+
+	msg, err := ipc.ReceiveMessage(containerConn)
+	if err != nil {
+		return fmt.Errorf("read from container sock: %w", err)
+	}
+	if msg != ipc.MsgStart {
+		return fmt.Errorf(
+			"expecting MsgStart ('%b') but received '%b'",
+			ipc.MsgStart,
+			msg,
+		)
+	}
+
+	if c.spec.Process != nil {
+		if err := c.setupPostPivot(); err != nil {
+			return err
+		}
+	}
+
+	if err := c.execHooks(LifecycleStartContainer); err != nil {
+		return fmt.Errorf("exec startcontainer hooks: %w", err)
+	}
+
+	if c.spec.Process == nil {
+		return nil
+	}
+
+	if err := c.execUserProcess(); err != nil {
+		return err
+	}
+
+	panic("if you got here then something wrong that is not recoverable")
+}
+
+func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 	cloneFlags := uintptr(0)
 
 	for _, ns := range c.spec.Linux.Namespaces {
@@ -477,198 +653,7 @@ func (c *Container) Init() error {
 
 	cmd.SysProcAttr.Cloneflags = cloneFlags
 
-	if c.spec.Process != nil && c.spec.Process.Env != nil {
-		cmd.Env = append(cmd.Env, c.spec.Process.Env...)
-	}
-
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-
-	// TODO: Probably want to syscall.ForkExec instead of using exec.Command.
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("reexec container process: %w", err)
-	}
-
-	unix.Close(initSockChildFD)
-
-	c.State.Pid = cmd.Process.Pid
-
-	if err := platform.AddCGroups(c.State, c.spec); err != nil {
-		return fmt.Errorf("create cgroups: %w", err)
-	}
-
-	conn, err := ipc.FDToConn(initSockParentFD)
-	if err != nil {
-		return fmt.Errorf("accept on init sock parent: %w", err)
-	}
-	defer conn.Close()
-
-	for {
-		msg, err := ipc.ReceiveMessage(conn)
-		fmt.Fprintf(os.Stderr, "DEBUG: received msg=%q err=%v\n", msg, err)
-		if err != nil {
-			return err
-		}
-		switch msg {
-		case ipc.MsgInvalidBinary:
-			return errors.New("invalid binary")
-		case ipc.MsgPrePivot:
-			if err := c.execHooks(LifecycleCreateRuntime); err != nil {
-				return fmt.Errorf("exec createruntime hooks: %w", err)
-			}
-			continue
-		case ipc.MsgReady:
-		default:
-			return fmt.Errorf(
-				"expecting '%b' but received '%b'",
-				ipc.MsgReady,
-				msg,
-			)
-		}
-		break
-	}
-
-	if err := c.Save(); err != nil {
-		return fmt.Errorf("save container state: %w", err)
-	}
-
-	if err := cmd.Process.Release(); err != nil {
-		return fmt.Errorf("release container process: %w", err)
-	}
-
-	c.State.Status = specs.StateCreated
-	if err := c.Save(); err != nil {
-		return fmt.Errorf("save created state: %w", err)
-	}
-
 	return nil
-}
-
-// Reexec is the entry point for the containerised process. It is responsible
-// for setting up the Container environment, including namespaces, mounts,
-// and security settings, before executing the user-specified process.
-func (c *Container) Reexec() error {
-	// Subsequent syscalls need to happen in a single-threaded context.
-	runtime.LockOSThread()
-	defer runtime.UnlockOSThread()
-
-	initSockFD := os.Getenv(envInitSockFD)
-	if initSockFD == "" {
-		return errors.New("missing init sock fd")
-	}
-
-	initSockFDVal, err := strconv.Atoi(initSockFD)
-	if err != nil {
-		return errors.New("invalid init sock fd")
-	}
-
-	conn1, err := ipc.FDToConn(initSockFDVal)
-	if err != nil {
-		return err
-	}
-
-	if err := ipc.SendMessage(conn1, ipc.MsgPrePivot); err != nil {
-		return fmt.Errorf("failed to send ready message: %w", err)
-	}
-
-	fmt.Fprintln(os.Stderr, "DEBUG child: before setupPrePivot")
-	if err := c.setupPrePivot(); err != nil {
-		return err
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after setupPrePivot")
-
-	if err := c.connectConsole(); err != nil {
-		return err
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after connectConsole")
-
-	if err := c.mountConsole(); err != nil {
-		return err
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after mountConsole")
-
-	containerSock := ipc.NewSocket(c.containerSock)
-	listener, err := containerSock.Listen()
-	if err != nil {
-		return fmt.Errorf("listen on container sock: %w", err)
-	}
-	defer listener.Close()
-	fmt.Fprintln(os.Stderr, "DEBUG child: after newSocket")
-
-	hasMountNamespace := platform.ContainsNamespaceType(
-		c.spec.Linux.Namespaces,
-		specs.MountNamespace,
-	)
-
-	if hasMountNamespace {
-		if err := c.pivotRoot(); err != nil {
-			return err
-		}
-		fmt.Fprintln(os.Stderr, "DEBUG child: after pivotRoot")
-
-		if c.spec.Process != nil {
-			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
-				ipc.SendMessage(conn1, ipc.MsgInvalidBinary)
-				return fmt.Errorf("find path of user process binary: %w", err)
-			}
-		}
-	}
-
-	// if c.spec.Process == nil {
-	// 	return ErrMissingProcess
-	// }
-
-	fmt.Fprintln(os.Stderr, "DEBUG child: after LookPath")
-
-	if err := c.execHooks(LifecycleCreateContainer); err != nil {
-		return fmt.Errorf("exec createcontainer hooks: %w", err)
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after createContainer hooks")
-
-	if err := ipc.SendMessage(conn1, ipc.MsgReady); err != nil {
-		return fmt.Errorf("failed to send ready message: %w", err)
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after readyMsg")
-
-	conn1.Close()
-
-	conn2, err := listener.Accept()
-	if err != nil {
-		return fmt.Errorf("accept on container sock: %w", err)
-	}
-	defer conn2.Close()
-
-	msg, err := ipc.ReceiveMessage(conn2)
-	if err != nil {
-		return fmt.Errorf("read from container sock: %w", err)
-	}
-	if msg != ipc.MsgStart {
-		return fmt.Errorf("expecting '%b' but received '%b'", ipc.MsgStart, msg)
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after startMsg")
-
-	if c.spec.Process != nil {
-		if err := c.setupPostPivot(); err != nil {
-			return err
-		}
-	}
-
-	if err := c.execHooks(LifecycleStartContainer); err != nil {
-		return fmt.Errorf("exec startcontainer hooks: %w", err)
-	}
-
-	fmt.Fprintln(os.Stderr, "DEBUG child: before process check")
-	if c.spec.Process == nil {
-		fmt.Fprintln(os.Stderr, "DEBUG child: process is nil, returning")
-		return nil
-	}
-	fmt.Fprintln(os.Stderr, "DEBUG child: after process check")
-	if err := c.execUserProcess(); err != nil {
-		return err
-	}
-
-	panic("if you got here then something wrong that is not recoverable")
 }
 
 func (c *Container) useTerminal() bool {
@@ -803,6 +788,10 @@ func (c *Container) reloadState() error {
 func Load(id, rootDir string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
 	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("container %s does not exist", id)
+		}
+
 		return nil, fmt.Errorf("read state file: %w", err)
 	}
 

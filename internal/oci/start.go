@@ -27,6 +27,7 @@ func startCmd() *cobra.Command {
 				if err := c.Start(); err != nil {
 					return fmt.Errorf("failed to start container: %w", err)
 				}
+
 				return nil
 			})
 		},
