@@ -41,4 +41,4 @@ jobs:
       - name: run containerd tests
         run: |
           sudo ln -sf ${{ github.workspace }}/anocir $(which runc) \
-            && sudo make TESTFLAGS="-test.v -timeout 10m -test.run=TestContainer" integration
+            && sudo make TESTFLAGS="-test.v -timeout 10m -test.run=*" integration
