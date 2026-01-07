@@ -265,15 +265,6 @@ func (c *Container) GetSpec() *specs.Spec {
 // Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
-	if c.spec.Process == nil {
-		c.State.Status = specs.StateStopped
-		if err := c.Save(); err != nil {
-			return fmt.Errorf("save state stopped: %w", err)
-		}
-		// Nothing to do; silent return.
-		return nil
-	}
-
 	if !c.canBeStarted() {
 		return fmt.Errorf(
 			"container cannot be started in current state (%s)",
@@ -291,6 +282,7 @@ func (c *Container) Start() error {
 	if err != nil {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
+	defer conn.Close()
 
 	if err := ipc.SendMessage(conn, ipc.MsgStart); err != nil {
 		return fmt.Errorf(
@@ -299,7 +291,15 @@ func (c *Container) Start() error {
 			err,
 		)
 	}
-	defer conn.Close()
+
+	if c.spec.Process == nil {
+		c.State.Status = specs.StateStopped
+		if err := c.Save(); err != nil {
+			return fmt.Errorf("save state stopped: %w", err)
+		}
+		// Nothing to do; silent return.
+		return nil
+	}
 
 	c.State.Status = specs.StateRunning
 	if err := c.Save(); err != nil {
@@ -615,6 +615,10 @@ func (c *Container) Reexec() error {
 		}
 	}
 
+	// if c.spec.Process == nil {
+	// 	return ErrMissingProcess
+	// }
+
 	fmt.Fprintln(os.Stderr, "DEBUG child: after LookPath")
 
 	if err := c.execHooks(LifecycleCreateContainer); err != nil {
@@ -654,9 +658,12 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
+	fmt.Fprintln(os.Stderr, "DEBUG child: before process check")
 	if c.spec.Process == nil {
+		fmt.Fprintln(os.Stderr, "DEBUG child: process is nil, returning")
 		return nil
 	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after process check")
 	if err := c.execUserProcess(); err != nil {
 		return err
 	}
@@ -743,10 +750,6 @@ func (c *Container) connectConsole() error {
 }
 
 func (c *Container) pivotRoot() error {
-	if c.spec.Process == nil {
-		return ErrMissingProcess
-	}
-
 	if err := platform.PivotRoot(c.rootFS()); err != nil {
 		return err
 	}

@@ -26,6 +26,7 @@ const (
 	// MsgInvalidBinary is the message sent over the init socketpair when the exec
 	// binary cannot be found.
 	MsgInvalidBinary
+	// MsgPrePivot is the message sent before pivot_root is called.
 	MsgPrePivot
 )
 
