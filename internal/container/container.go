@@ -292,10 +292,10 @@ func (c *Container) Start() error {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
 
-	if err := ipc.SendMessage(conn, ipc.StartMsg); err != nil {
+	if err := ipc.SendMessage(conn, ipc.MsgStart); err != nil {
 		return fmt.Errorf(
-			"write '%s' msg to container sock: %w",
-			ipc.StartMsg,
+			"write '%b' msg to container sock: %w",
+			ipc.MsgStart,
 			err,
 		)
 	}
@@ -367,14 +367,6 @@ func (c *Container) Kill(sig string, killAll bool) error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
-	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
-		return fmt.Errorf("exec createruntime hooks: %w", err)
-	}
-
-	if err := c.execHooks(LifecycleCreateContainer); err != nil {
-		return fmt.Errorf("exec createcontainer hooks: %w", err)
-	}
-
 	args := []string{
 		"reexec",
 		"--root", c.RootDir,
@@ -502,10 +494,6 @@ func (c *Container) Init() error {
 
 	c.State.Pid = cmd.Process.Pid
 
-	if err := c.Save(); err != nil {
-		return fmt.Errorf("save container state: %w", err)
-	}
-
 	if err := platform.AddCGroups(c.State, c.spec); err != nil {
 		return fmt.Errorf("create cgroups: %w", err)
 	}
@@ -516,12 +504,33 @@ func (c *Container) Init() error {
 	}
 	defer conn.Close()
 
-	msg, err := ipc.ReceiveMessage(conn)
-	if err != nil {
-		return err
+	for {
+		msg, err := ipc.ReceiveMessage(conn)
+		fmt.Fprintf(os.Stderr, "DEBUG: received msg=%q err=%v\n", msg, err)
+		if err != nil {
+			return err
+		}
+		switch msg {
+		case ipc.MsgInvalidBinary:
+			return errors.New("invalid binary")
+		case ipc.MsgPrePivot:
+			if err := c.execHooks(LifecycleCreateRuntime); err != nil {
+				return fmt.Errorf("exec createruntime hooks: %w", err)
+			}
+			continue
+		case ipc.MsgReady:
+		default:
+			return fmt.Errorf(
+				"expecting '%b' but received '%b'",
+				ipc.MsgReady,
+				msg,
+			)
+		}
+		break
 	}
-	if msg != ipc.ReadyMsg {
-		return fmt.Errorf("expecting '%s' but received '%s'", ipc.ReadyMsg, msg)
+
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("save container state: %w", err)
 	}
 
 	if err := cmd.Process.Release(); err != nil {
@@ -544,18 +553,6 @@ func (c *Container) Reexec() error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	if err := c.setupPrePivot(); err != nil {
-		return err
-	}
-
-	if err := c.connectConsole(); err != nil {
-		return err
-	}
-
-	if err := c.mountConsole(); err != nil {
-		return err
-	}
-
 	initSockFD := os.Getenv(envInitSockFD)
 	if initSockFD == "" {
 		return errors.New("missing init sock fd")
@@ -566,33 +563,100 @@ func (c *Container) Reexec() error {
 		return errors.New("invalid init sock fd")
 	}
 
-	conn, err := ipc.FDToConn(initSockFDVal)
+	conn1, err := ipc.FDToConn(initSockFDVal)
 	if err != nil {
 		return err
 	}
 
-	if err := ipc.SendMessage(conn, ipc.ReadyMsg); err != nil {
+	if err := ipc.SendMessage(conn1, ipc.MsgPrePivot); err != nil {
 		return fmt.Errorf("failed to send ready message: %w", err)
 	}
 
-	conn.Close()
-
-	if err := c.waitStart(); err != nil {
+	fmt.Fprintln(os.Stderr, "DEBUG child: before setupPrePivot")
+	if err := c.setupPrePivot(); err != nil {
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after setupPrePivot")
 
-	if err := c.pivotRoot(); err != nil {
+	if err := c.connectConsole(); err != nil {
 		return err
 	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after connectConsole")
 
-	if err := c.setupPostPivot(); err != nil {
+	if err := c.mountConsole(); err != nil {
 		return err
+	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after mountConsole")
+
+	containerSock := ipc.NewSocket(c.containerSock)
+	listener, err := containerSock.Listen()
+	if err != nil {
+		return fmt.Errorf("listen on container sock: %w", err)
+	}
+	defer listener.Close()
+	fmt.Fprintln(os.Stderr, "DEBUG child: after newSocket")
+
+	hasMountNamespace := platform.ContainsNamespaceType(
+		c.spec.Linux.Namespaces,
+		specs.MountNamespace,
+	)
+
+	if hasMountNamespace {
+		if err := c.pivotRoot(); err != nil {
+			return err
+		}
+		fmt.Fprintln(os.Stderr, "DEBUG child: after pivotRoot")
+
+		if c.spec.Process != nil {
+			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
+				ipc.SendMessage(conn1, ipc.MsgInvalidBinary)
+				return fmt.Errorf("find path of user process binary: %w", err)
+			}
+		}
+	}
+
+	fmt.Fprintln(os.Stderr, "DEBUG child: after LookPath")
+
+	if err := c.execHooks(LifecycleCreateContainer); err != nil {
+		return fmt.Errorf("exec createcontainer hooks: %w", err)
+	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after createContainer hooks")
+
+	if err := ipc.SendMessage(conn1, ipc.MsgReady); err != nil {
+		return fmt.Errorf("failed to send ready message: %w", err)
+	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after readyMsg")
+
+	conn1.Close()
+
+	conn2, err := listener.Accept()
+	if err != nil {
+		return fmt.Errorf("accept on container sock: %w", err)
+	}
+	defer conn2.Close()
+
+	msg, err := ipc.ReceiveMessage(conn2)
+	if err != nil {
+		return fmt.Errorf("read from container sock: %w", err)
+	}
+	if msg != ipc.MsgStart {
+		return fmt.Errorf("expecting '%b' but received '%b'", ipc.MsgStart, msg)
+	}
+	fmt.Fprintln(os.Stderr, "DEBUG child: after startMsg")
+
+	if c.spec.Process != nil {
+		if err := c.setupPostPivot(); err != nil {
+			return err
+		}
 	}
 
 	if err := c.execHooks(LifecycleStartContainer); err != nil {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
+	if c.spec.Process == nil {
+		return nil
+	}
 	if err := c.execUserProcess(); err != nil {
 		return err
 	}
@@ -626,34 +690,8 @@ func (c *Container) execUserProcess() error {
 	return nil
 }
 
-// waitStart listens on the container socket for the start message.
-func (c *Container) waitStart() error {
-	containerSock := ipc.NewSocket(c.containerSock)
-	listener, err := containerSock.Listen()
-	if err != nil {
-		return fmt.Errorf("listen on container sock: %w", err)
-	}
-	defer listener.Close()
-
-	conn, err := listener.Accept()
-	if err != nil {
-		return fmt.Errorf("accept on container sock: %w", err)
-	}
-	defer conn.Close()
-
-	msg, err := ipc.ReceiveMessage(conn)
-	if err != nil {
-		return fmt.Errorf("read from container sock: %w", err)
-	}
-	if msg != ipc.StartMsg {
-		return fmt.Errorf("expecting '%s' but received '%s'", ipc.StartMsg, msg)
-	}
-
-	return nil
-}
-
 func (c *Container) mountConsole() error {
-	if c.pty == nil || !c.spec.Process.Terminal {
+	if c.pty == nil || c.spec.Process == nil || !c.spec.Process.Terminal {
 		return nil
 	}
 
@@ -679,7 +717,7 @@ func (c *Container) connectConsole() error {
 		return fmt.Errorf("new pty: %w", err)
 	}
 
-	if c.spec.Process.ConsoleSize != nil {
+	if c.spec.Process != nil && c.spec.Process.ConsoleSize != nil {
 		if err := platform.SetWinSize(
 			pty.Slave.Fd(),
 			c.spec.Process.ConsoleSize.Width,
@@ -711,6 +749,10 @@ func (c *Container) pivotRoot() error {
 
 	if err := platform.PivotRoot(c.rootFS()); err != nil {
 		return err
+	}
+
+	if err := os.Chdir("/"); err != nil {
+		return fmt.Errorf("change to root directory: %w", err)
 	}
 	return nil
 }
