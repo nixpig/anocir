@@ -17,14 +17,17 @@ import (
 )
 
 const (
-	bufSize = 128
-
-	// startMsg is the message sent on the container socket to start the created
+	// MsgStart is the message sent on the container socket to start the created
 	// container.
-	StartMsg = "start"
-	// readyMsg is the message sent over the init socketpair when the container
+	MsgStart byte = iota + 1
+	// MsgReady is the message sent over the init socketpair when the container
 	// is created and ready to receive commands.
-	ReadyMsg = "ready"
+	MsgReady
+	// MsgInvalidBinary is the message sent over the init socketpair when the exec
+	// binary cannot be found.
+	MsgInvalidBinary
+	// MsgPrePivot is the message sent before pivot_root is called.
+	MsgPrePivot
 )
 
 // Socket holds a path to use for a unix domain socket.
@@ -53,13 +56,10 @@ func (s *Socket) Dial() (net.Conn, error) {
 func (s *Socket) DialWithRetry(
 	interval, timeout time.Duration,
 ) (net.Conn, error) {
-	ctx, cancel := context.WithTimeout(
-		context.Background(),
-		timeout*time.Millisecond,
-	)
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
-	ticker := time.NewTicker(interval * time.Millisecond)
+	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
 
 	var conn net.Conn
@@ -91,26 +91,18 @@ func FDToConn(fd int) (net.Conn, error) {
 }
 
 // SendMessage writes the given msg to the given conn.
-func SendMessage(conn net.Conn, msg string) error {
-	if len(msg) > bufSize {
-		return fmt.Errorf("message is larger than %d", bufSize)
-	}
-
-	_, err := conn.Write([]byte(msg))
+func SendMessage(conn net.Conn, msg byte) error {
+	_, err := conn.Write([]byte{msg})
 
 	return err
 }
 
 // ReceiveMessage reads from the given conn and returns the read data.
-func ReceiveMessage(conn net.Conn) (string, error) {
-	buf := make([]byte, bufSize)
+func ReceiveMessage(conn net.Conn) (byte, error) {
+	buf := make([]byte, 1)
+	_, err := conn.Read(buf)
 
-	n, err := conn.Read(buf)
-	if err != nil {
-		return "", fmt.Errorf("read message: %w", err)
-	}
-
-	return string(buf[:n]), nil
+	return buf[0], err
 }
 
 // NewSocketPair creates a socket pair and returns the file descriptors.

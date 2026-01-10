@@ -2,7 +2,6 @@ package container
 
 import (
 	"fmt"
-	"slices"
 
 	"github.com/nixpig/anocir/internal/platform"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -36,11 +35,9 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	hasUTSNamespace := slices.ContainsFunc(
+	hasUTSNamespace := platform.ContainsNamespaceType(
 		c.spec.Linux.Namespaces,
-		func(n specs.LinuxNamespace) bool {
-			return n.Type == specs.UTSNamespace
-		},
+		specs.UTSNamespace,
 	)
 
 	if hasUTSNamespace {

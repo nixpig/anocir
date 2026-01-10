@@ -129,3 +129,15 @@ func BuildUserNSMappings(
 
 	return uidMappings, gidMappings
 }
+
+func ContainsNamespaceType(
+	namespaces []specs.LinuxNamespace,
+	namespaceType specs.LinuxNamespaceType,
+) bool {
+	return slices.ContainsFunc(
+		namespaces,
+		func(ns specs.LinuxNamespace) bool {
+			return ns.Type == namespaceType
+		},
+	)
+}

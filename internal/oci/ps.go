@@ -28,7 +28,12 @@ func psCmd() *cobra.Command {
 			}
 
 			return cntr.DoWithLock(func(c *container.Container) error {
-				processes, err := platform.GetProcesses(c.State, c.GetSpec())
+				state, err := c.GetState()
+				if err != nil {
+					return fmt.Errorf("failed to get container state: %w", err)
+				}
+
+				processes, err := platform.GetProcesses(state, c.GetSpec())
 				if err != nil {
 					return fmt.Errorf("failed to get processes: %w", err)
 				}
