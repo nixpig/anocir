@@ -444,6 +444,7 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("read prepivot message: %w", err)
 	}
+
 	if prePivotMsg != ipc.MsgPrePivot {
 		return fmt.Errorf(
 			"expected MsgPrePivot ('%b') but got '%b'",
@@ -460,6 +461,7 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("read ready message: %w", err)
 	}
+
 	switch readyMsg {
 	case ipc.MsgInvalidBinary:
 		return errors.New("invalid binary")
@@ -570,6 +572,7 @@ func (c *Container) Reexec() error {
 	if err != nil {
 		return fmt.Errorf("read from container sock: %w", err)
 	}
+
 	if msg != ipc.MsgStart {
 		return fmt.Errorf(
 			"expecting MsgStart ('%b') but received '%b'",
