@@ -612,6 +612,48 @@ func (c *Container) Reexec() error {
 	panic("if you got here then something wrong that is not recoverable")
 }
 
+func (c *Container) Pause() error {
+	if !c.canBePaused() {
+		return fmt.Errorf(
+			"container cannot be paused in current state (%s)",
+			c.State.Status,
+		)
+	}
+
+	if err := platform.FreezeCgroup(c.State, c.spec); err != nil {
+		return fmt.Errorf("pause cgroup: %w", err)
+	}
+
+	c.State.Status = specs.StateStopped
+
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("save paused state: %w", err)
+	}
+
+	return nil
+}
+
+func (c *Container) Resume() error {
+	if !c.canBeResumed() {
+		return fmt.Errorf(
+			"container cannot be resumed in current state (%s)",
+			c.State.Status,
+		)
+	}
+
+	if err := platform.ThawCgroup(c.State, c.spec); err != nil {
+		return fmt.Errorf("pause cgroup: %w", err)
+	}
+
+	c.State.Status = specs.StateRunning
+
+	if err := c.Save(); err != nil {
+		return fmt.Errorf("save running state: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 	cloneFlags := uintptr(0)
 
@@ -769,6 +811,14 @@ func (c *Container) canBeDeleted() bool {
 func (c *Container) canBeKilled() bool {
 	return c.State.Status == specs.StateRunning ||
 		c.State.Status == specs.StateCreated
+}
+
+func (c *Container) canBePaused() bool {
+	return c.State.Status == specs.StateRunning
+}
+
+func (c *Container) canBeResumed() bool {
+	return c.State.Status == specs.StateStopped
 }
 
 // rootFS returns the path to the Container root filesystem.

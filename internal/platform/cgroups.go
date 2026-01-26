@@ -75,6 +75,52 @@ func UpdateCgroups(
 	}
 }
 
+func FreezeCgroup(state *specs.State, spec *specs.Spec) error {
+	if isUnifiedCGroupsMode() {
+		slice, group := buildSystemdCGroupSliceAndGroup(
+			spec.Linux.CgroupsPath,
+			state.ID,
+		)
+		cg, err := cgroup2.Load(filepath.Join("/", slice, group))
+		if err != nil {
+			return fmt.Errorf("load cgroup2: %w", err)
+		}
+
+		return cg.Freeze()
+	} else {
+		staticPath := cgroup1.StaticPath(spec.Linux.CgroupsPath)
+		cg, err := cgroup1.Load(staticPath)
+		if err != nil {
+			return fmt.Errorf("load cgroup1 from path: %w", err)
+		}
+
+		return cg.Freeze()
+	}
+}
+
+func ThawCgroup(state *specs.State, spec *specs.Spec) error {
+	if isUnifiedCGroupsMode() {
+		slice, group := buildSystemdCGroupSliceAndGroup(
+			spec.Linux.CgroupsPath,
+			state.ID,
+		)
+		cg, err := cgroup2.Load(filepath.Join("/", slice, group))
+		if err != nil {
+			return fmt.Errorf("load cgroup2: %w", err)
+		}
+
+		return cg.Thaw()
+	} else {
+		staticPath := cgroup1.StaticPath(spec.Linux.CgroupsPath)
+		cg, err := cgroup1.Load(staticPath)
+		if err != nil {
+			return fmt.Errorf("load cgroup1 from path: %w", err)
+		}
+
+		return cg.Thaw()
+	}
+}
+
 func GetProcesses(state *specs.State, spec *specs.Spec) ([]int, error) {
 	var processes []int
 
