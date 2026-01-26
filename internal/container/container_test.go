@@ -56,8 +56,8 @@ func TestContainerLifecycle(t *testing.T) {
 		spec:    opts.Spec,
 		RootDir: opts.RootDir,
 		containerSock: filepath.Join(
-			opts.RootDir,
-			opts.ID,
+			"/run/anocir",
+			shortID(opts.Bundle),
 			containerSockFilename,
 		),
 	}, loaded)
