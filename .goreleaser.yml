@@ -11,7 +11,6 @@ builds:
       - CGO_ENABLED=1
     targets:
       - linux_amd64
-      - linux_arm64
   # - id: anocird
   #   main: ./cmd/anocird
   #   binary: anocird
