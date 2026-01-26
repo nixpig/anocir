@@ -3,6 +3,8 @@
 package container
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -94,8 +96,8 @@ func New(opts *Opts) *Container {
 		RootDir: opts.RootDir,
 		LogFile: opts.LogFile,
 		containerSock: filepath.Join(
-			opts.RootDir,
-			opts.ID,
+			"/run/anocir",
+			shortID(opts.Bundle),
 			containerSockFilename,
 		),
 	}
@@ -219,6 +221,9 @@ func (c *Container) Delete(force bool) error {
 	); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
+
+	// Best effort.
+	os.RemoveAll(filepath.Dir(c.containerSock))
 
 	if err := c.execHooks(LifecyclePoststop); err != nil {
 		fmt.Fprintf(
@@ -527,6 +532,11 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
+	os.RemoveAll(filepath.Dir(c.containerSock))
+	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
+		return fmt.Errorf("create container socket directory: %w", err)
+	}
+
 	containerSock := ipc.NewSocket(c.containerSock)
 	listener, err := containerSock.Listen()
 	if err != nil {
@@ -814,10 +824,14 @@ func Load(id, rootDir string) (*Container, error) {
 	}
 
 	c := &Container{
-		State:         state,
-		spec:          spec,
-		RootDir:       rootDir,
-		containerSock: filepath.Join(rootDir, id, containerSockFilename),
+		State:   state,
+		spec:    spec,
+		RootDir: rootDir,
+		containerSock: filepath.Join(
+			"/run/anocir",
+			shortID(state.Bundle),
+			containerSockFilename,
+		),
 	}
 
 	return c, nil
@@ -828,4 +842,9 @@ func Exists(id, rootDir string) bool {
 	_, err := os.Stat(filepath.Join(rootDir, id))
 
 	return err == nil
+}
+
+func shortID(bundle string) string {
+	hash := sha256.Sum256([]byte(bundle))
+	return hex.EncodeToString(hash[:8])
 }
