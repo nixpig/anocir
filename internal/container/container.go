@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,6 +38,8 @@ const (
 	// envInitSockFD is the name of the environment variable used to pass the
 	// init sock file descriptor.
 	envInitSockFD = "_ANOCIR_INIT_SOCK_FD"
+
+	envContainerSockFD = "_ANOCIR_CONTAINER_SOCK_FD"
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -395,7 +398,25 @@ func (c *Container) Init() error {
 	}
 
 	initSockFile := os.NewFile(uintptr(initSockChildFD), "init_sock")
-	cmd.ExtraFiles = []*os.File{initSockFile}
+
+	os.RemoveAll(filepath.Dir(c.containerSock))
+	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
+		return fmt.Errorf("create container socket directory: %w", err)
+	}
+
+	containerSock := ipc.NewSocket(c.containerSock)
+	listener, err := containerSock.Listen()
+	if err != nil {
+		return fmt.Errorf("listen on container sock: %w", err)
+	}
+
+	listenerFile, err := listener.(*net.UnixListener).File()
+	if err != nil {
+		return fmt.Errorf("get listener file: %w", err)
+	}
+	defer listenerFile.Close()
+
+	cmd.ExtraFiles = []*os.File{initSockFile, listenerFile}
 
 	cmd.Env = append(
 		cmd.Env,
@@ -403,6 +424,11 @@ func (c *Container) Init() error {
 			"%s=%d",
 			envInitSockFD,
 			slices.Index(cmd.ExtraFiles, initSockFile)+3,
+		),
+		fmt.Sprintf(
+			"%s=%d",
+			envContainerSockFD,
+			slices.Index(cmd.ExtraFiles, listenerFile)+3,
 		),
 	)
 
@@ -516,6 +542,24 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
+	containerSockFD := os.Getenv(envContainerSockFD)
+	if containerSockFD == "" {
+		return errors.New("missing container sock fd")
+	}
+
+	containerSockFDVal, err := strconv.Atoi(containerSockFD)
+	if err != nil {
+		return errors.New("invalid container sock fd")
+	}
+
+	listenerFile := os.NewFile(uintptr(containerSockFDVal), "container_sock")
+	listener, err := net.FileListener(listenerFile)
+	if err != nil {
+		return fmt.Errorf("create listener from fd: %w", err)
+	}
+	listenerFile.Close()
+	defer listener.Close()
+
 	if err := ipc.SendMessage(initConn, ipc.MsgPrePivot); err != nil {
 		return fmt.Errorf("failed to send ready message: %w", err)
 	}
@@ -531,18 +575,6 @@ func (c *Container) Reexec() error {
 	if err := c.mountConsole(); err != nil {
 		return err
 	}
-
-	os.RemoveAll(filepath.Dir(c.containerSock))
-	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
-		return fmt.Errorf("create container socket directory: %w", err)
-	}
-
-	containerSock := ipc.NewSocket(c.containerSock)
-	listener, err := containerSock.Listen()
-	if err != nil {
-		return fmt.Errorf("listen on container sock: %w", err)
-	}
-	defer listener.Close()
 
 	hasMountNamespace := platform.ContainsNamespaceType(
 		c.spec.Linux.Namespaces,
