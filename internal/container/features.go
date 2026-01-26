@@ -42,6 +42,7 @@ func GetFeatures() *Features {
 			"relatime",
 			"remount",
 			"ro",
+			"rro",
 			"rprivate",
 			"rshared",
 			"rslave",
