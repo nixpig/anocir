@@ -25,20 +25,24 @@ func RootCmd() *cobra.Command {
 
 			if logfile != "" {
 				if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
-					return fmt.Errorf("create log directory: %w", err)
+					fmt.Fprintf(
+						cmd.ErrOrStderr(),
+						"Warning: failed to create log directory: %s",
+						err,
+					)
+				} else {
+					f, err := os.OpenFile(
+						logfile,
+						os.O_CREATE|os.O_APPEND|os.O_WRONLY,
+						0o644,
+					)
+					if err != nil {
+						fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to open log file '%s': %s", logfile, err)
+					} else {
+						logger := logging.NewLogger(f, debug, logFormat)
+						slog.SetDefault(logger)
+					}
 				}
-
-				f, err := os.OpenFile(
-					logfile,
-					os.O_CREATE|os.O_APPEND|os.O_WRONLY,
-					0o644,
-				)
-				if err != nil {
-					return fmt.Errorf("open log file %s: %w", logfile, err)
-				}
-
-				logger := logging.NewLogger(f, debug, logFormat)
-				slog.SetDefault(logger)
 			}
 
 			return nil

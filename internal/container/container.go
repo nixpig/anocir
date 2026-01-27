@@ -561,7 +561,7 @@ func (c *Container) Reexec() error {
 	defer listener.Close()
 
 	if err := ipc.SendMessage(initConn, ipc.MsgPrePivot); err != nil {
-		return fmt.Errorf("failed to send ready message: %w", err)
+		return fmt.Errorf("failed to send prepivot message: %w", err)
 	}
 
 	if err := c.setupPrePivot(); err != nil {
