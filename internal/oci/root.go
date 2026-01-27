@@ -1,29 +1,37 @@
 package oci
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
 	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/logging"
+	"github.com/nixpig/anocir/internal/platform"
 	"github.com/spf13/cobra"
 )
 
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:          "anocir",
-		Short:        "An experimental Linux container runtime",
-		Long:         "An experimental Linux container runtime, implementing the OCI Runtime Spec",
-		Example:      "",
+		Use:     "anocir",
+		Short:   "An experimental Linux container runtime",
+		Long:    "An experimental Linux container runtime, implementing the OCI Runtime Spec",
+		Example: "",
+		// TODO: Bake version in at build time.
 		Version:      "0.0.1",
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			if !platform.IsUnifiedCgroupsMode() {
+				return errors.New("anocir requires cgroup v2 (unified mode)")
+			}
+
 			logfile, _ := cmd.Flags().GetString("log")
 			debug, _ := cmd.Flags().GetBool("debug")
 			logFormat, _ := cmd.Flags().GetString("log-format")
 
 			if logfile != "" {
+				// TODO: Tidy all this logic up. Do we really want to not log?
 				if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
 					fmt.Fprintf(
 						cmd.ErrOrStderr(),

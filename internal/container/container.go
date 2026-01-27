@@ -211,7 +211,7 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if err := platform.DeleteCGroups(c.State, c.spec); err != nil {
+	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		if !force {
 			return fmt.Errorf("delete cgroups: %w", err)
 		}
@@ -318,7 +318,10 @@ func (c *Container) Start() error {
 // Kill sends the given sig to the Container process.
 func (c *Container) Kill(sig string, killAll bool) error {
 	if killAll {
-		pids, err := platform.GetProcesses(c.State, c.GetSpec())
+		pids, err := platform.GetCgroupProcesses(
+			c.spec.Linux.CgroupsPath,
+			c.State.ID,
+		)
 		if err != nil {
 			// cgroup may already be dead
 			return nil
@@ -461,7 +464,12 @@ func (c *Container) Init() error {
 
 	c.State.Pid = cmd.Process.Pid
 
-	if err := platform.AddCGroups(c.State, c.spec); err != nil {
+	if err := platform.CreateCgroup(
+		c.spec.Linux.CgroupsPath,
+		c.State.ID,
+		c.State.Pid,
+		c.spec.Linux.Resources,
+	); err != nil {
 		return fmt.Errorf("create cgroups: %w", err)
 	}
 
@@ -652,7 +660,7 @@ func (c *Container) Pause() error {
 		)
 	}
 
-	if err := platform.FreezeCgroup(c.State, c.spec); err != nil {
+	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("pause cgroup: %w", err)
 	}
 
@@ -673,7 +681,7 @@ func (c *Container) Resume() error {
 		)
 	}
 
-	if err := platform.ThawCgroup(c.State, c.spec); err != nil {
+	if err := platform.ThawCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("pause cgroup: %w", err)
 	}
 

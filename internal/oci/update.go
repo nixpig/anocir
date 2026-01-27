@@ -61,7 +61,11 @@ func updateCmd() *cobra.Command {
 					return fmt.Errorf("failed to get container state: %w", err)
 				}
 
-				if err := platform.UpdateCgroups(state, c.GetSpec(), &linuxResources); err != nil {
+				if err := platform.UpdateCgroup(
+					c.GetSpec().Linux.CgroupsPath,
+					state.ID,
+					&linuxResources,
+				); err != nil {
 					return fmt.Errorf("failed to update cgroups: %w", err)
 				}
 
