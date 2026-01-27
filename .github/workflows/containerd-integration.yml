@@ -40,7 +40,10 @@ jobs:
         run: |
           make binaries && sudo make install
 
+      - name: link anocir
+        run: |
+          sudo ln -sf ${{ github.workspace }}/anocir $(which runc)
+
       - name: run containerd tests
         run: |
-          sudo ln -sf ${{ github.workspace }}/anocir $(which runc) \
-            && RUNC_FLAVOR=anocir sudo -E make TESTFLAGS="-test.v -timeout 10m -test.run=TestContainer" integration
+          sudo make RUNC_FLAVOR=anocir TESTFLAGS="-test.v -timeout 45m" integration
