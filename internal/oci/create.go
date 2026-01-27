@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/container"
+	"github.com/nixpig/anocir/internal/platform"
 	"github.com/nixpig/anocir/internal/validation"
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/spf13/cobra"
@@ -20,7 +21,17 @@ func createCmd() *cobra.Command {
 		Example: "  anocir create busybox",
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !platform.IsUnifiedCgroupsMode() {
+				return errors.New(
+					"anocir requires cgroup v2 (unified mode)",
+				)
+			}
+
 			containerID := args[0]
+
+			if err := validation.ContainerID(containerID); err != nil {
+				return fmt.Errorf("failed validation: %w", err)
+			}
 
 			bundle, _ := cmd.Flags().GetString("bundle")
 			pidFile, _ := cmd.Flags().GetString("pid-file")
@@ -29,10 +40,6 @@ func createCmd() *cobra.Command {
 			debug, _ := cmd.PersistentFlags().GetBool("debug")
 			logFile, _ := cmd.Flags().GetString("log")
 			logFormat, _ := cmd.Flags().GetString("log-format")
-
-			if err := validation.ContainerID(containerID); err != nil {
-				return fmt.Errorf("failed validation: %w", err)
-			}
 
 			if container.Exists(containerID, rootDir) {
 				return fmt.Errorf("container '%s' exists", containerID)

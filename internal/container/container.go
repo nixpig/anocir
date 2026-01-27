@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"net"
 	"os"
 	"os/exec"
@@ -111,6 +112,13 @@ func New(opts *Opts) *Container {
 func (c *Container) Save() error {
 	containerDir := filepath.Join(c.RootDir, c.State.ID)
 
+	slog.Debug(
+		"save state",
+		"container_id", c.State.ID,
+		"container_dir", containerDir,
+		"state_filepath", c.stateFilepath(),
+	)
+
 	if c.spec.Linux != nil &&
 		len(c.spec.Linux.UIDMappings) > 0 &&
 		len(c.spec.Linux.GIDMappings) > 0 {
@@ -137,6 +145,12 @@ func (c *Container) Save() error {
 	}
 
 	if c.pidFile != "" && c.State.Pid > 0 {
+		slog.Debug(
+			"write pid file",
+			"pid_file", c.pidFile,
+			"pid", c.State.Pid,
+		)
+
 		if err := platform.AtomicWriteFile(
 			c.pidFile,
 			[]byte(strconv.Itoa(c.State.Pid)),
@@ -197,8 +211,11 @@ func (c *Container) DoWithLock(fn func(*Container) error) error {
 // Delete removes the Container from the system. If force is true then it will
 // delete the Container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
+	slog.Debug("delete container", "container_id", c.State.ID, "force", force)
+
 	if c.State.Pid != 0 {
 		if err := unix.Kill(c.State.Pid, 0); err != nil {
+			slog.Debug("process already dead", "pid", c.State.Pid)
 			// Process is dead, update state
 			c.State.Status = specs.StateStopped
 		}
@@ -228,6 +245,7 @@ func (c *Container) Delete(force bool) error {
 	// Best effort.
 	os.RemoveAll(filepath.Dir(c.containerSock))
 
+	slog.Debug("execute poststop hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePoststop); err != nil {
 		fmt.Fprintf(
 			os.Stdout,
@@ -267,6 +285,8 @@ func (c *Container) GetSpec() *specs.Spec {
 // Start begins the execution of the Container. It executes pre-start and
 // post-start hooks and sends the "start" message to the runtime process.
 func (c *Container) Start() error {
+	slog.Debug("start container", "container_id", c.State.ID)
+
 	if !c.canBeStarted() {
 		return fmt.Errorf(
 			"container cannot be started in current state (%s)",
@@ -274,6 +294,7 @@ func (c *Container) Start() error {
 		)
 	}
 
+	slog.Debug("execute prestart hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePrestart); err != nil {
 		return fmt.Errorf("execute prestart hooks: %w", err)
 	}
@@ -286,6 +307,7 @@ func (c *Container) Start() error {
 	}
 	defer conn.Close()
 
+	slog.Debug("send start message", "container_id", c.State.ID)
 	if err := ipc.SendMessage(conn, ipc.MsgStart); err != nil {
 		return fmt.Errorf(
 			"write MsgStart ('%b') to container sock: %w",
@@ -308,6 +330,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("save state running: %w", err)
 	}
 
+	slog.Debug("execute poststart hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePoststart); err != nil {
 		return fmt.Errorf("exec poststart hooks: %w", err)
 	}
@@ -317,6 +340,13 @@ func (c *Container) Start() error {
 
 // Kill sends the given sig to the Container process.
 func (c *Container) Kill(sig string, killAll bool) error {
+	slog.Debug(
+		"kill container",
+		"container_id", c.State.ID,
+		"signal", sig,
+		"kill_all", killAll,
+	)
+
 	if killAll {
 		pids, err := platform.GetCgroupProcesses(
 			c.spec.Linux.CgroupsPath,
@@ -328,6 +358,13 @@ func (c *Container) Kill(sig string, killAll bool) error {
 		}
 
 		for _, pid := range pids {
+			slog.Debug(
+				"send kill signal",
+				"container_id", c.State.ID,
+				"pid", pid,
+				"signal", sig,
+			)
+
 			if err := platform.SendSignal(pid, platform.ParseSignal(sig)); err != nil &&
 				!errors.Is(err, unix.ESRCH) {
 				return fmt.Errorf(
@@ -343,6 +380,13 @@ func (c *Container) Kill(sig string, killAll bool) error {
 			// https://github.com/containerd/containerd/blob/2d8e4b6d164e7566012fb6080fcc63dcde362628/cmd/containerd-shim-runc-v2/process/utils.go#L115C1-L128C2
 			return fmt.Errorf("container not running (%s)", c.State.Status)
 		}
+
+		slog.Debug(
+			"send kill signal",
+			"container_id", c.State.ID,
+			"pid", c.State.Pid,
+			"signal", sig,
+		)
 
 		if err := platform.SendSignal(
 			c.State.Pid,
@@ -363,6 +407,12 @@ func (c *Container) Kill(sig string, killAll bool) error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
+	slog.Debug(
+		"init container",
+		"container_id", c.State.ID,
+		"bundle", c.State.Bundle,
+	)
+
 	args := []string{
 		"reexec",
 		"--root", c.RootDir,
@@ -460,10 +510,22 @@ func (c *Container) Init() error {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
 
+	slog.Debug(
+		"container process forked",
+		"container_id", c.State.ID,
+		"pid", cmd.Process.Pid,
+	)
+
 	unix.Close(initSockChildFD)
 
 	c.State.Pid = cmd.Process.Pid
 
+	slog.Debug(
+		"create cgroup",
+		"container_id", c.State.ID,
+		"pid", c.State.Pid,
+		"cgroups_path", c.spec.Linux.CgroupsPath,
+	)
 	if err := platform.CreateCgroup(
 		c.spec.Linux.CgroupsPath,
 		c.State.ID,
@@ -484,6 +546,12 @@ func (c *Container) Init() error {
 		return fmt.Errorf("read prepivot message: %w", err)
 	}
 
+	slog.Debug(
+		"received prepivot message",
+		"container_id", c.State.ID,
+		"message", prePivotMsg,
+	)
+
 	if prePivotMsg != ipc.MsgPrePivot {
 		return fmt.Errorf(
 			"expected MsgPrePivot ('%b') but got '%b'",
@@ -492,6 +560,7 @@ func (c *Container) Init() error {
 		)
 	}
 
+	slog.Debug("execute createruntime hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecycleCreateRuntime); err != nil {
 		return fmt.Errorf("exec createruntime hooks: %w", err)
 	}
@@ -500,6 +569,12 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("read ready message: %w", err)
 	}
+
+	slog.Debug(
+		"received ready message",
+		"container_id", c.State.ID,
+		"message", readyMsg,
+	)
 
 	switch readyMsg {
 	case ipc.MsgInvalidBinary:
@@ -531,6 +606,8 @@ func (c *Container) Init() error {
 // for setting up the Container environment, including namespaces, mounts,
 // and security settings, before executing the user-specified process.
 func (c *Container) Reexec() error {
+	slog.Debug("reexec container", "container_id", c.State.ID)
+
 	// Subsequent syscalls need to happen in a single-threaded context.
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -568,6 +645,7 @@ func (c *Container) Reexec() error {
 	listenerFile.Close()
 	defer listener.Close()
 
+	slog.Debug("send prepivot message", "container_id", c.State.ID)
 	if err := ipc.SendMessage(initConn, ipc.MsgPrePivot); err != nil {
 		return fmt.Errorf("failed to send prepivot message: %w", err)
 	}
@@ -596,15 +674,24 @@ func (c *Container) Reexec() error {
 
 		if c.spec.Process != nil {
 			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
+				slog.Debug(
+					"send invalid binary message",
+					"container_id",
+					c.State.ID,
+				)
+
 				ipc.SendMessage(initConn, ipc.MsgInvalidBinary)
 				return fmt.Errorf("find path of user process binary: %w", err)
 			}
 		}
 	}
 
+	slog.Debug("execute createcontainer hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecycleCreateContainer); err != nil {
 		return fmt.Errorf("exec createcontainer hooks: %w", err)
 	}
+
+	slog.Debug("send ready message", "container_id", c.State.ID)
 
 	if err := ipc.SendMessage(initConn, ipc.MsgReady); err != nil {
 		return fmt.Errorf("failed to send ready message: %w", err)
@@ -618,16 +705,22 @@ func (c *Container) Reexec() error {
 	}
 	defer containerConn.Close()
 
-	msg, err := ipc.ReceiveMessage(containerConn)
+	startMsg, err := ipc.ReceiveMessage(containerConn)
 	if err != nil {
 		return fmt.Errorf("read from container sock: %w", err)
 	}
 
-	if msg != ipc.MsgStart {
+	slog.Debug(
+		"received start message",
+		"container_id", c.State.ID,
+		"message", startMsg,
+	)
+
+	if startMsg != ipc.MsgStart {
 		return fmt.Errorf(
 			"expecting MsgStart ('%b') but received '%b'",
 			ipc.MsgStart,
-			msg,
+			startMsg,
 		)
 	}
 
@@ -637,6 +730,7 @@ func (c *Container) Reexec() error {
 		}
 	}
 
+	slog.Debug("execute startcontainer hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecycleStartContainer); err != nil {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
@@ -767,6 +861,13 @@ func (c *Container) execUserProcess() error {
 		return fmt.Errorf("find path of user process binary: %w", err)
 	}
 
+	slog.Debug(
+		"execute user process",
+		"container_id", c.State.ID,
+		"bin", bin,
+		"args", c.spec.Process.Args,
+	)
+
 	if err := unix.Exec(bin, c.spec.Process.Args, os.Environ()); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
@@ -875,6 +976,8 @@ func (c *Container) stateFilepath() string {
 }
 
 func (c *Container) reloadState() error {
+	slog.Debug("reload container state", "container_id", c.State.ID)
+
 	s, err := os.ReadFile(c.stateFilepath())
 	if err != nil {
 		return fmt.Errorf("read state file: %w", err)

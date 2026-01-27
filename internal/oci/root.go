@@ -1,14 +1,11 @@
 package oci
 
 import (
-	"errors"
 	"fmt"
+	"io"
 	"log/slog"
-	"os"
-	"path/filepath"
 
 	"github.com/nixpig/anocir/internal/logging"
-	"github.com/nixpig/anocir/internal/platform"
 	"github.com/spf13/cobra"
 )
 
@@ -22,36 +19,26 @@ func RootCmd() *cobra.Command {
 		Version:      "0.0.1",
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
-			if !platform.IsUnifiedCgroupsMode() {
-				return errors.New("anocir requires cgroup v2 (unified mode)")
-			}
-
-			logfile, _ := cmd.Flags().GetString("log")
+			logFile, _ := cmd.Flags().GetString("log")
 			debug, _ := cmd.Flags().GetBool("debug")
 			logFormat, _ := cmd.Flags().GetString("log-format")
 
-			if logfile != "" {
-				// TODO: Tidy all this logic up. Do we really want to not log?
-				if err := os.MkdirAll(filepath.Dir(logfile), 0o755); err != nil {
+			w := io.Discard
+			if logFile != "" {
+				f, err := logging.OpenLogFile(logFile)
+				if err != nil {
 					fmt.Fprintf(
 						cmd.ErrOrStderr(),
-						"Warning: failed to create log directory: %s",
+						"Warning: failed to open log file '%s': %s",
+						logFile,
 						err,
 					)
 				} else {
-					f, err := os.OpenFile(
-						logfile,
-						os.O_CREATE|os.O_APPEND|os.O_WRONLY,
-						0o644,
-					)
-					if err != nil {
-						fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to open log file '%s': %s", logfile, err)
-					} else {
-						logger := logging.NewLogger(f, debug, logFormat)
-						slog.SetDefault(logger)
-					}
+					w = f
 				}
 			}
+
+			slog.SetDefault(logging.NewLogger(w, debug, logFormat))
 
 			return nil
 		},
