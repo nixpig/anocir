@@ -215,7 +215,10 @@ func addV2CGroups(
 ) error {
 	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
-	cgResources := cgroup2.ToResources(resources)
+	cgResources := &cgroup2.Resources{}
+	if resources != nil {
+		cgResources = cgroup2.ToResources(resources)
+	}
 
 	if _, err := cgroup2.NewSystemd(slice, group, pid, cgResources); err != nil {
 		return fmt.Errorf("create cgroups (id: %s): %w", containerID, err)
@@ -250,7 +253,10 @@ func updateV2CGroups(
 	// LoadSystemd always returns a nil error
 	cg, _ := cgroup2.LoadSystemd(slice, group)
 
-	cgResources := cgroup2.ToResources(resources)
+	cgResources := &cgroup2.Resources{}
+	if resources != nil {
+		cgResources = cgroup2.ToResources(resources)
+	}
 
 	if err := cg.Update(cgResources); err != nil {
 		return fmt.Errorf("update cgroup resources: %w", err)
