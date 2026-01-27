@@ -46,4 +46,4 @@ jobs:
 
       - name: run containerd tests
         run: |
-          sudo make RUNC_FLAVOR=anocir TESTFLAGS="-test.v -timeout 45m" integration
+          sudo RUNC_FLAVOR=anocir make TESTFLAGS="-test.v -timeout 45m" integration
