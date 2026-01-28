@@ -33,7 +33,7 @@ func deleteCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		BoolP("force", "f", false, "Force container deletion")
+		BoolP("force", "f", false, "force container deletion")
 
 	return cmd
 }

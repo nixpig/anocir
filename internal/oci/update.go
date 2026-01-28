@@ -75,7 +75,7 @@ func updateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringP("resources", "r", "resources.json", "Path to resources JSON file")
+		StringP("resources", "r", "resources.json", "path to resources JSON file")
 
 	return cmd
 }

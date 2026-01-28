@@ -35,7 +35,7 @@ func killCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		BoolP("all", "a", false, "Send signal to all proceses in container cgroup")
+		BoolP("all", "a", false, "send signal to all proceses in container cgroup")
 
 	return cmd
 }

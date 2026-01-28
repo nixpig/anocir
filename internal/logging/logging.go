@@ -24,9 +24,12 @@ func NewLogger(w io.Writer, debug bool, format string) *slog.Logger {
 
 	var handler slog.Handler
 
-	if format == "json" {
+	switch format {
+	case "json":
 		handler = slog.NewJSONHandler(w, options)
-	} else {
+	case "text":
+		handler = slog.NewTextHandler(w, options)
+	default:
 		handler = slog.NewTextHandler(w, options)
 	}
 

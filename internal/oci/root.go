@@ -65,24 +65,26 @@ func RootCmd() *cobra.Command {
 		"root",
 		"",
 		"/run/anocir",
-		"Root directory for container state",
+		"root directory for container state",
 	)
 
 	cmd.PersistentFlags().StringP(
 		"log",
 		"l",
 		"",
-		"Destination to write error logs (default \"stderr\")",
+		"destination to write logs",
 	)
 
-	cmd.PersistentFlags().Bool("debug", false, "Enable debug logging")
+	cmd.PersistentFlags().Bool("debug", false, "enable debug logging")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 
 	// Flags required by Docker.
 	// systemd is always used, cgroup is cgroupPath from spec or {containerID}.slice
-	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "Not implemented")
-	cmd.PersistentFlags().StringP("log-format", "", "", "Specify log format")
+	// TODO: Review implementation for this.
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "not implemented")
+	cmd.PersistentFlags().
+		StringP("log-format", "", "text", "log format (json | text)")
 
 	// ---
 
