@@ -13,7 +13,7 @@ import (
 func psCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "ps [flags] CONTAINER_ID [ps_args]",
-		Short:   "Display the processes inside a container",
+		Short:   "Display the running processes in a container",
 		Example: "  anocir ps busybox",
 		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -47,7 +47,7 @@ func psCmd() *cobra.Command {
 				case "table":
 					var b strings.Builder
 					for _, p := range processes {
-						b.WriteString(fmt.Sprintf("%d", p))
+						fmt.Fprintf(&b, "%d", p)
 					}
 					output = b.String()
 				case "json":
@@ -70,7 +70,7 @@ func psCmd() *cobra.Command {
 	}
 
 	// TODO: Implement.
-	cmd.Flags().StringP("format", "f", "table", "Format for ps output")
+	cmd.Flags().StringP("format", "f", "table", "format for ps output")
 
 	return cmd
 }

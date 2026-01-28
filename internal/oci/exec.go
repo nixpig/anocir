@@ -72,37 +72,37 @@ func execCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringArrayP("env", "e", []string{}, "Set environment variable (name=value)")
+		StringArrayP("env", "e", []string{}, "set environment variable (name=value)")
 	cmd.Flags().
-		IntSliceP("additional-gids", "g", []int{}, "Additional GIDs")
+		IntSliceP("additional-gids", "g", []int{}, "additional GIDs")
 	cmd.Flags().
-		StringP("process", "p", "", "Path to process.json")
+		StringP("process", "p", "", "path to process.json")
 	cmd.Flags().
 		String("process-label", "", "ASM process label")
 	cmd.Flags().
 		String("apparmor", "", "AppArmor profile for the process")
 	cmd.Flags().
-		Bool("no-new-privs", false, "Set no new privs")
+		Bool("no-new-privs", false, "set no new privs")
 	cmd.Flags().
-		StringArray("cap", []string{}, "Set capability")
+		StringArray("cap", []string{}, "set capabilities")
 	cmd.Flags().
-		String("cgroup", "", "Specify cgroup (path | controller[,controller...]:path)")
+		String("cgroup", "", "cgroup (path | controller[,controller...]:path)")
 	cmd.Flags().
-		String("console-socket", "", "Console socket path")
+		String("console-socket", "", "console socket path")
 	cmd.Flags().
-		StringP("user", "u", "", "Run command as user uid[:gid]")
+		StringP("user", "u", "", "run command as user uid[:gid]")
 	cmd.Flags().
-		String("pid-file", "", "File to write container PID to")
+		String("pid-file", "", "file to write container PID to")
 	cmd.Flags().
-		BoolP("tty", "t", false, "Allocate a pseudo-terminal")
+		BoolP("tty", "t", false, "allocate a pseudo-terminal")
 	cmd.Flags().
-		BoolP("detach", "d", false, "Detach from container process")
+		BoolP("detach", "d", false, "detach from container process")
 	cmd.Flags().
-		String("cwd", "", "Path in container to execute command")
+		String("cwd", "", "path in container to execute command")
 	cmd.Flags().
-		Bool("ignore-paused", false, "Allow exec in a paused container")
+		Bool("ignore-paused", false, "allow exec in a paused container")
 	cmd.Flags().
-		Int("preserve-fds", 0, "Pass additional file descriptors to container")
+		Int("preserve-fds", 0, "pass additional file descriptors to container")
 
 	return cmd
 }

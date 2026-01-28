@@ -12,7 +12,7 @@ import (
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [flags]",
-		Short:   "List containers",
+		Short:   "List all containers",
 		Example: "  anocir list",
 		Args:    cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
