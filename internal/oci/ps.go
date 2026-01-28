@@ -33,7 +33,10 @@ func psCmd() *cobra.Command {
 					return fmt.Errorf("failed to get container state: %w", err)
 				}
 
-				processes, err := platform.GetProcesses(state, c.GetSpec())
+				processes, err := platform.GetCgroupProcesses(
+					c.GetSpec().Linux.CgroupsPath,
+					state.ID,
+				)
 				if err != nil {
 					return fmt.Errorf("failed to get processes: %w", err)
 				}

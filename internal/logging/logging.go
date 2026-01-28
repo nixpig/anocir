@@ -1,27 +1,11 @@
 package logging
 
 import (
-	"bytes"
 	"io"
 	"log/slog"
+	"os"
+	"path/filepath"
 )
-
-// ErrorWriter wraps a Logger and implements the Writer interface.
-type ErrorWriter struct {
-	logger *slog.Logger
-}
-
-// Write implements the Writer interface and writes the given bytes to the
-// error logger.
-func (ew *ErrorWriter) Write(p []byte) (int, error) {
-	ew.logger.Error(string(bytes.TrimSpace(p)))
-	return len(p), nil
-}
-
-// NewErrorWriter creates a ErrorWriter for the given logger.
-func NewErrorWriter(logger *slog.Logger) *ErrorWriter {
-	return &ErrorWriter{logger}
-}
 
 // NewLogger creates a Logger, outputting to the given logfile. If debug is
 // true then the log level is set to DEBUG, else it's INFO.
@@ -49,4 +33,16 @@ func NewLogger(w io.Writer, debug bool, format string) *slog.Logger {
 	logger := slog.New(handler)
 
 	return logger
+}
+
+func OpenLogFile(logFile string) (io.Writer, error) {
+	if err := os.MkdirAll(filepath.Dir(logFile), 0o755); err != nil {
+		return nil, err
+	}
+
+	return os.OpenFile(
+		logFile,
+		os.O_CREATE|os.O_APPEND|os.O_WRONLY,
+		0o644,
+	)
 }
