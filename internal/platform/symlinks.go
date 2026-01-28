@@ -16,10 +16,10 @@ var defaultSymlinks = map[string]string{
 	"pts/ptmx":        "dev/ptmx",
 }
 
-// CreateDefaultSymlinks creates the default symlinks inside the container's
-// root filesystem.
-func CreateDefaultSymlinks(rootfs string) error {
-	return createSymlinks(defaultSymlinks, rootfs)
+// CreateDefaultSymlinks creates the default symlinks inside the
+// containerRootfs.
+func CreateDefaultSymlinks(containerRootfs string) error {
+	return createSymlinks(defaultSymlinks, containerRootfs)
 }
 
 func createSymlinks(symlinks map[string]string, rootfs string) error {

@@ -27,7 +27,6 @@ import (
 )
 
 const (
-
 	// containerSockFilename is the filename of the socket used by the runtime to
 	// send messages to the container.
 	containerSockFilename = "c.sock"
@@ -37,9 +36,11 @@ const (
 	lockFilename = "c.lock"
 
 	// envInitSockFD is the name of the environment variable used to pass the
-	// init sock file descriptor.
+	// init socket file descriptor to the reexec'd process.
 	envInitSockFD = "_ANOCIR_INIT_SOCK_FD"
 
+	// envContainerSockFD is the name of the environment variable used to pass
+	// the container socket file descriptor to the reexec'd process.
 	envContainerSockFD = "_ANOCIR_CONTAINER_SOCK_FD"
 )
 
@@ -78,8 +79,8 @@ type Opts struct {
 	LogFormat     string
 }
 
-// New creates a Container based on the provided opts.
-// The Container will be in the 'creating' state.
+// New constructs a Container based on the provided opts. The container will be
+// in the 'creating' state.
 func New(opts *Opts) *Container {
 	state := &specs.State{
 		Version:     specs.Version,
@@ -107,7 +108,7 @@ func New(opts *Opts) *Container {
 	}
 }
 
-// Save persists the Container state to disk. It creates the required directory
+// Save persists the container state to disk. It creates the required directory
 // hierarchy and sets the needed permissions.
 func (c *Container) Save() error {
 	containerDir := filepath.Join(c.RootDir, c.State.ID)
@@ -163,6 +164,7 @@ func (c *Container) Save() error {
 	return nil
 }
 
+// Lock acquires an exclusive lock on the container.
 func (c *Container) Lock() error {
 	lockPath := filepath.Join(c.RootDir, c.State.ID, lockFilename)
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
@@ -184,6 +186,7 @@ func (c *Container) Lock() error {
 	return nil
 }
 
+// Unlock releases the lock on the container.
 func (c *Container) Unlock() error {
 	if c.lockFile == nil {
 		return nil
@@ -208,8 +211,8 @@ func (c *Container) DoWithLock(fn func(*Container) error) error {
 	return fn(c)
 }
 
-// Delete removes the Container from the system. If force is true then it will
-// delete the Container, regardless of the its state.
+// Delete removes the container from the system. If force is true then it will
+// delete the container, regardless of the its state.
 func (c *Container) Delete(force bool) error {
 	slog.Debug("delete container", "container_id", c.State.ID, "force", force)
 
@@ -258,8 +261,8 @@ func (c *Container) Delete(force bool) error {
 }
 
 // GetState returns the state of the container. In the case the container
-// process no longer exists, it has the side effect of internally modifying
-// the state to be 'stopped' before returning.
+// process is no longer running, it updates the container state to be 'stopped'
+// before returning.
 func (c *Container) GetState() (*specs.State, error) {
 	if c.State.Pid != 0 {
 		process, err := os.FindProcess(c.State.Pid)
@@ -282,8 +285,8 @@ func (c *Container) GetSpec() *specs.Spec {
 	return c.spec
 }
 
-// Start begins the execution of the Container. It executes pre-start and
-// post-start hooks and sends the "start" message to the runtime process.
+// Start begins the execution of the container by sending the start message to
+// the runtime process.
 func (c *Container) Start() error {
 	slog.Debug("start container", "container_id", c.State.ID)
 
@@ -338,7 +341,8 @@ func (c *Container) Start() error {
 	return nil
 }
 
-// Kill sends the given sig to the Container process.
+// Kill sends the given sig to the container process. If killAll is true then
+// sig is sent to all processes in the container cgroup.
 func (c *Container) Kill(sig string, killAll bool) error {
 	slog.Debug(
 		"kill container",
@@ -403,7 +407,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 	return nil
 }
 
-// Init prepares the Container for execution. It executes hooks, sets up the
+// Init prepares the container for execution. It executes hooks, sets up the
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
@@ -603,7 +607,7 @@ func (c *Container) Init() error {
 }
 
 // Reexec is the entry point for the containerised process. It is responsible
-// for setting up the Container environment, including namespaces, mounts,
+// for setting up the container environment, including namespaces, mounts,
 // and security settings, before executing the user-specified process.
 func (c *Container) Reexec() error {
 	slog.Debug("reexec container", "container_id", c.State.ID)
@@ -746,6 +750,7 @@ func (c *Container) Reexec() error {
 	panic("if you got here then something wrong that is not recoverable")
 }
 
+// Pause pauses a running container by freezing the cgroup.
 func (c *Container) Pause() error {
 	if !c.canBePaused() {
 		return fmt.Errorf(
@@ -767,6 +772,7 @@ func (c *Container) Pause() error {
 	return nil
 }
 
+// Resume resumes a paused container by thawing the cgroup.
 func (c *Container) Resume() error {
 	if !c.canBeResumed() {
 		return fmt.Errorf(
@@ -990,7 +996,7 @@ func (c *Container) reloadState() error {
 	return nil
 }
 
-// Load retrieves an existing Container with the given id at the given rootDir.
+// Load retrieves an existing container with the given id at the given rootDir.
 func Load(id, rootDir string) (*Container, error) {
 	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
 	if err != nil {
@@ -1037,6 +1043,8 @@ func Exists(id, rootDir string) bool {
 	return err == nil
 }
 
+// shortID constructs a hash of the given bundle. It's used to create the
+// directory for storing IPC socket files.
 func shortID(bundle string) string {
 	hash := sha256.Sum256([]byte(bundle))
 	return hex.EncodeToString(hash[:8])

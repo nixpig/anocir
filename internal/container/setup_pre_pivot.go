@@ -8,6 +8,8 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
+// setupPrePivot performs configuration of the container environment before
+// pivot_root.
 func (c *Container) setupPrePivot() error {
 	if err := platform.MountRootfs(c.rootFS()); err != nil {
 		return fmt.Errorf("mount rootfs: %w", err)

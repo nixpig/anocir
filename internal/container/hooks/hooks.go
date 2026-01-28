@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strings"
 	"time"
@@ -48,6 +49,15 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
 			cmd.Stderr = &stderr
+
+			slog.Debug(
+				"execute hook",
+				"container_id", state.ID,
+				"path", h.Path,
+				"args", h.Args,
+				"env", h.Env,
+				"timeout", h.Timeout,
+			)
 
 			if err := cmd.Run(); err != nil {
 				return fmt.Errorf(

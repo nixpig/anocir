@@ -23,6 +23,8 @@ type Pty struct {
 	Slave *os.File
 }
 
+// NewPty creates a Pty pseudo-terminal pair with master at /dev/ptmx and slave
+// at /dev/pts.
 func NewPty() (*Pty, error) {
 	return NewPtyAt("/dev/ptmx", "/dev/pts")
 }

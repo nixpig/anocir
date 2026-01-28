@@ -11,9 +11,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// MountSpecMounts mounts the specified mounts into the containers root
-// filesystem.
-func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
+// MountSpecMounts mounts the given mounts into the given containers
+// containerRootfs.
+func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 	for _, m := range mounts {
 		var flags uintptr
 
@@ -21,7 +21,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 		if m.Type == "cgroup" && IsUnifiedCgroupsMode() {
 			if err := BindMount(
 				"/sys/fs/cgroup",
-				filepath.Join(rootfs, m.Destination),
+				filepath.Join(containerRootfs, m.Destination),
 				true,
 			); err != nil {
 				return fmt.Errorf("bind mount cgroup2: %w", err)
@@ -30,7 +30,7 @@ func MountSpecMounts(mounts []specs.Mount, rootfs string) error {
 			continue
 		}
 
-		dest := filepath.Join(rootfs, m.Destination)
+		dest := filepath.Join(containerRootfs, m.Destination)
 
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {

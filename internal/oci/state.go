@@ -32,7 +32,7 @@ func stateCmd() *cobra.Command {
 
 				stateOutput, err := json.Marshal(state)
 				if err != nil {
-					return fmt.Errorf("marshal state: %w", err)
+					return fmt.Errorf("failed to marshal state: %w", err)
 				}
 
 				if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(stateOutput)); err != nil {

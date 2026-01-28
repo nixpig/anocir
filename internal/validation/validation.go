@@ -5,7 +5,8 @@ import (
 	"fmt"
 )
 
-// maxLength is somewhat arbitrary, but 64 should be plenty long enough.
+// maxLength is the maximum length of the container ID. It's somewhat
+// arbitrary, but 64 should be plenty long enough.
 const maxLength = 64
 
 // ContainerID validates that the provided ID is not empty, does not exceed the

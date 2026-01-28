@@ -41,26 +41,12 @@ func psCmd() *cobra.Command {
 					return fmt.Errorf("failed to get processes: %w", err)
 				}
 
-				var output string
-
-				switch format {
-				case "table":
-					var b strings.Builder
-					for _, p := range processes {
-						fmt.Fprintf(&b, "%d", p)
-					}
-					output = b.String()
-				case "json":
-					data, err := json.Marshal(processes)
-					if err != nil {
-						return fmt.Errorf("failed to create json: %w", err)
-					}
-					output = string(data)
-				default:
-					return fmt.Errorf("invalid format: %s", format)
+				formattedOutput, err := formatProcessesOutput(format, processes)
+				if err != nil {
+					return fmt.Errorf("failed to format output: %w", err)
 				}
 
-				if _, err := fmt.Fprintf(cmd.OutOrStdout(), "%s\n", output); err != nil {
+				if _, err := fmt.Fprintln(cmd.OutOrStdout(), formattedOutput); err != nil {
 					return fmt.Errorf("failed to print processes: %w", err)
 				}
 
@@ -73,4 +59,23 @@ func psCmd() *cobra.Command {
 	cmd.Flags().StringP("format", "f", "table", "format for ps output")
 
 	return cmd
+}
+
+func formatProcessesOutput(format string, processes []int) (string, error) {
+	switch format {
+	case "table":
+		var b strings.Builder
+		for _, p := range processes {
+			fmt.Fprintf(&b, "%d", p)
+		}
+		return b.String(), nil
+	case "json":
+		data, err := json.Marshal(processes)
+		if err != nil {
+			return "", fmt.Errorf("create processes output json: %w", err)
+		}
+		return string(data), nil
+	default:
+		return "", fmt.Errorf("invalid format: %s", format)
+	}
 }
