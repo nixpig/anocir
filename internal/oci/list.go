@@ -27,8 +27,8 @@ func listCmd() *cobra.Command {
 
 			fmt.Fprint(w, "ID\tPID\tSTATE\t\n")
 
-			for _, containerDir := range containerDirs {
-				id := containerDir.Name()
+			for _, d := range containerDirs {
+				id := d.Name()
 
 				cntr, err := container.Load(id, rootDir)
 				if err != nil {

@@ -20,20 +20,12 @@ func featuresCmd() *cobra.Command {
 				return fmt.Errorf("failed to get features: %w", err)
 			}
 
-			var formattedFeatures bytes.Buffer
-			if err := json.Indent(
-				&formattedFeatures,
-				features,
-				"",
-				"  ",
-			); err != nil {
-				return fmt.Errorf("failed to format features output: %w", err)
+			formattedFeatures, err := formatFeaturesOutput(features)
+			if err != nil {
+				return fmt.Errorf("failed to format output: %w", err)
 			}
 
-			if _, err := fmt.Fprintln(
-				cmd.OutOrStdout(),
-				formattedFeatures.String(),
-			); err != nil {
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), formattedFeatures); err != nil {
 				return fmt.Errorf("failed to print features to stdout: %w", err)
 			}
 
@@ -42,4 +34,18 @@ func featuresCmd() *cobra.Command {
 	}
 
 	return cmd
+}
+
+func formatFeaturesOutput(features []byte) (string, error) {
+	var formattedFeatures bytes.Buffer
+	if err := json.Indent(
+		&formattedFeatures,
+		features,
+		"",
+		"  ",
+	); err != nil {
+		return "", fmt.Errorf("json indent features output: %w", err)
+	}
+
+	return formattedFeatures.String(), nil
 }

@@ -2,9 +2,11 @@ package container
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"os/exec"
 	"runtime"
+	"slices"
 	"syscall"
 
 	"github.com/nixpig/anocir/internal/platform"
@@ -13,6 +15,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ExecOpts holds the options for executing a command in an existing container.
 type ExecOpts struct {
 	Cwd            string
 	Args           []string
@@ -25,10 +28,10 @@ type ExecOpts struct {
 	AdditionalGIDs []int
 	NoNewPrivs     bool
 	Capabilities   []string
+	ConsoleSocket  string
+	ContainerID    string
 
 	// TODO: Handle these options.
-	ConsoleSocket string
-
 	IgnorePaused bool
 	PreserveFDs  int
 	ProcessLabel string
@@ -36,16 +39,21 @@ type ExecOpts struct {
 	Cgroup       string
 }
 
+// ChildExecOpts holds the options for the forked process that executes a
+// command in an existing container.
 type ChildExecOpts struct {
-	Cwd  string
-	Args []string
+	Cwd         string
+	Args        []string
+	ContainerID string
 
+	Env          []string
 	Capabilities *specs.LinuxCapabilities
 	User         *specs.User
 	NoNewPrivs   bool
 	TTY          bool
 }
 
+// Namespaces need to be applied in a specific order. Don't change these.
 var namespaces = []string{
 	"user",
 	"pid",
@@ -57,6 +65,9 @@ var namespaces = []string{
 	"mnt",
 }
 
+// Exec configures the execution of a command with the given opts in an
+// existing container with the given containerPID. It forks a child process to
+// handle the execution and returns the exit code.
 func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -75,6 +86,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		"--cwd", opts.Cwd,
 		"--uid", fmt.Sprintf("%d", opts.UID),
 		"--gid", fmt.Sprintf("%d", opts.GID),
+		"--container-id", opts.ContainerID,
 	}
 
 	if opts.ConsoleSocket != "" {
@@ -101,7 +113,6 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 		args = append(args, "--tty")
 	} else {
-		// TODO: Is this right?
 		procAttr.Files = []uintptr{
 			os.Stdin.Fd(),
 			os.Stdout.Fd(),
@@ -172,6 +183,15 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	execArgs := append([]string{"/proc/self/exe"}, args...)
 
+	slog.Debug(
+		"child fork exec",
+		"container_id", opts.ContainerID,
+		"container_pid", containerPID,
+		"argv0", execArgs[0],
+		"argv", execArgs,
+		"attr", procAttr,
+	)
+
 	pid, err := syscall.ForkExec(execArgs[0], execArgs, procAttr)
 	if err != nil {
 		return 0, fmt.Errorf("reexec child process: %w", err)
@@ -206,6 +226,8 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	return 0, nil
 }
 
+// ChildExec handles the execution of a command in an existing container with
+// the given opts.
 func ChildExec(opts *ChildExecOpts) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
@@ -265,7 +287,16 @@ func ChildExec(opts *ChildExecOpts) error {
 		return fmt.Errorf("find path of binary: %w", err)
 	}
 
-	if err := unix.Exec(bin, opts.Args, os.Environ()); err != nil {
+	slog.Debug(
+		"execute child process",
+		"container_id", opts.ContainerID,
+		"bin", bin,
+		"args", opts.Args,
+		"additional_envs", opts.Env,
+	)
+
+	envs := slices.Concat(os.Environ(), opts.Env)
+	if err := unix.Exec(bin, opts.Args, envs); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
 			bin, opts.Args, os.Environ(), err,
@@ -275,6 +306,8 @@ func ChildExec(opts *ChildExecOpts) error {
 	panic("unreachable")
 }
 
+// sharedNamespace determines whether the host and container share a namespace
+// by checking whether the containerNSPath and hostNSPath are the same file.
 func sharedNamespace(containerNSPath, hostNSPath string) (bool, error) {
 	containerNS, err := os.Stat(containerNSPath)
 	if err != nil {

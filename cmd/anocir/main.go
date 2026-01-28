@@ -10,9 +10,7 @@ import (
 
 func main() {
 	if err := gons.Status(); err != nil {
-		os.Stderr.Write(
-			fmt.Appendf(nil, "failed to join namespaces: %s\n", err),
-		)
+		fmt.Fprintf(os.Stderr, "Error: failed to join namespaces: %s\n", err)
 		os.Exit(1)
 	}
 

@@ -81,7 +81,7 @@ var mountOptions = map[string]mountOption{
 	},
 }
 
-// MountRootfs mounts the container's root filesystem.
+// MountRootfs mounts the container's root filesystem at given containerRootfs.
 func MountRootfs(containerRootfs string) error {
 	if err := SetPropagation("/", unix.MS_PRIVATE|unix.MS_REC); err != nil {
 		return err

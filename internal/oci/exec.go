@@ -22,7 +22,6 @@ func execCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
-			// Operational flags
 			rootDir, _ := cmd.Flags().GetString("root")
 			process, _ := cmd.Flags().GetString("process")
 			consoleSocket, _ := cmd.Flags().GetString("console-socket")
@@ -39,6 +38,7 @@ func execCmd() *cobra.Command {
 				Detach:        detach,
 				IgnorePaused:  ignorePaused,
 				PreserveFDs:   preserveFDs,
+				ContainerID:   containerID,
 			}
 
 			if process != "" {

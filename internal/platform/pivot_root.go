@@ -7,7 +7,7 @@ import (
 )
 
 // PivotRoot changes the root filesystem of the calling process to the
-// specified container rootfs path.
+// given containerRootfs path.
 func PivotRoot(containerRootfs string) error {
 	if err := unix.PivotRoot(containerRootfs, containerRootfs); err != nil {
 		return fmt.Errorf("pivot to new root: %w", err)

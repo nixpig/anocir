@@ -7,8 +7,8 @@ import (
 	"path/filepath"
 )
 
-// NewLogger creates a Logger, outputting to the given logfile. If debug is
-// true then the log level is set to DEBUG, else it's INFO.
+// NewLogger creates a Logger, outputting to the given logfile in the given
+// format. If debug is true then the log level is set to DEBUG, else it's INFO.
 func NewLogger(w io.Writer, debug bool, format string) *slog.Logger {
 	level := slog.LevelInfo
 	addSource := false

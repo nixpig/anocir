@@ -8,6 +8,8 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// setupPostPivot performs configuration of the container environment after
+// pivot_root.
 func (c *Container) setupPostPivot() error {
 	if c.spec.Linux.Sysctl != nil {
 		if err := platform.SetSysctl(c.spec.Linux.Sysctl); err != nil {

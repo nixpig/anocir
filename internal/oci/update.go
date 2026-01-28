@@ -39,6 +39,9 @@ func updateCmd() *cobra.Command {
 				}
 			case "":
 				// TODO: Parse flags.
+				return fmt.Errorf(
+					"resources can currently only be read from a resources.json file or passed via stdin",
+				)
 			default:
 				data, err = os.ReadFile(resources)
 				if err != nil {
@@ -75,7 +78,7 @@ func updateCmd() *cobra.Command {
 	}
 
 	cmd.Flags().
-		StringP("resources", "r", "resources.json", "path to resources JSON file")
+		StringP("resources", "r", "resources.json", "path to resources JSON file, pass \"-\" to read from stdin")
 
 	return cmd
 }

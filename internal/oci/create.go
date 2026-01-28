@@ -18,7 +18,7 @@ func createCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "create [flags] CONTAINER_ID",
 		Short:   "Create a container",
-		Example: "  anocir create busybox",
+		Example: `  anocir create busybox`,
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !platform.IsUnifiedCgroupsMode() {
@@ -51,7 +51,7 @@ func createCmd() *cobra.Command {
 			}
 
 			if err := createContainerDirs(rootDir, containerID); err != nil {
-				return fmt.Errorf("failed to make container dirs: %w", err)
+				return fmt.Errorf("failed to create container dirs: %w", err)
 			}
 
 			cntr := container.New(&container.Opts{

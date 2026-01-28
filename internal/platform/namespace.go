@@ -130,6 +130,8 @@ func BuildUserNSMappings(
 	return uidMappings, gidMappings
 }
 
+// ContainsNamespaceType checks whether the given namespaces contain a
+// namespace of the given namespaceType.
 func ContainsNamespaceType(
 	namespaces []specs.LinuxNamespace,
 	namespaceType specs.LinuxNamespaceType,

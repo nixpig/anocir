@@ -88,10 +88,13 @@ var defaultDevices = []specs.LinuxDevice{
 }
 
 // MountDefaultDevices mounts the default set of devices into the containers
-// root filesystem.
-func MountDefaultDevices(rootfs string) error {
+// root filesystem at the given containerRootfs.
+func MountDefaultDevices(containerRootfs string) error {
 	for _, d := range defaultDevices {
-		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
+		absPath := filepath.Join(
+			containerRootfs,
+			strings.TrimPrefix(d.Path, "/"),
+		)
 
 		f, err := os.Create(absPath)
 		if err != nil && !os.IsExist(err) {
