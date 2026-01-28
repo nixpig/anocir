@@ -3,8 +3,6 @@
 package container
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -42,6 +40,10 @@ const (
 	// envContainerSockFD is the name of the environment variable used to pass
 	// the container socket file descriptor to the reexec'd process.
 	envContainerSockFD = "_ANOCIR_CONTAINER_SOCK_FD"
+
+	// envMountNS is the name of the environment variable used to pass the mount
+	// mount namespace to the reexec'd process.
+	envMountNS = "_ANOCIR_MNT_NS"
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -98,13 +100,9 @@ func New(opts *Opts) *Container {
 		debug:         opts.Debug,
 		LogFormat:     opts.LogFormat,
 
-		RootDir: opts.RootDir,
-		LogFile: opts.LogFile,
-		containerSock: filepath.Join(
-			"/run/anocir",
-			shortID(opts.Bundle),
-			containerSockFilename,
-		),
+		RootDir:       opts.RootDir,
+		LogFile:       opts.LogFile,
+		containerSock: containerSockPath(opts.Bundle),
 	}
 }
 
@@ -231,9 +229,11 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		if !force {
-			return fmt.Errorf("delete cgroups: %w", err)
+	if c.spec.Linux != nil {
+		if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
+			if !force {
+				return fmt.Errorf("delete cgroups: %w", err)
+			}
 		}
 	}
 
@@ -265,12 +265,7 @@ func (c *Container) Delete(force bool) error {
 // before returning.
 func (c *Container) GetState() (*specs.State, error) {
 	if c.State.Pid != 0 {
-		process, err := os.FindProcess(c.State.Pid)
-		if err != nil {
-			return nil, fmt.Errorf("find container process: %w", err)
-		}
-
-		if err := process.Signal(unix.Signal(0)); err != nil {
+		if err := unix.Kill(c.State.Pid, 0); err != nil {
 			c.State.Status = specs.StateStopped
 			if err := c.Save(); err != nil {
 				return nil, fmt.Errorf("save stopped state: %w", err)
@@ -351,7 +346,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 		"kill_all", killAll,
 	)
 
-	if killAll {
+	if killAll && c.spec.Linux != nil {
 		pids, err := platform.GetCgroupProcesses(
 			c.spec.Linux.CgroupsPath,
 			c.State.ID,
@@ -365,6 +360,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 			slog.Debug(
 				"send kill signal",
 				"container_id", c.State.ID,
+				"cgroups_path", c.spec.Linux.CgroupsPath,
 				"pid", pid,
 				"signal", sig,
 			)
@@ -449,12 +445,10 @@ func (c *Container) Init() error {
 
 	cmd.SysProcAttr = &syscall.SysProcAttr{}
 
-	initSockParentFD, initSockChildFD, err := ipc.NewSocketPair()
+	initSockParent, initSockChild, err := ipc.NewSocketPair()
 	if err != nil {
 		return err
 	}
-
-	initSockFile := os.NewFile(uintptr(initSockChildFD), "init_sock")
 
 	os.RemoveAll(filepath.Dir(c.containerSock))
 	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
@@ -473,14 +467,14 @@ func (c *Container) Init() error {
 	}
 	defer listenerFile.Close()
 
-	cmd.ExtraFiles = []*os.File{initSockFile, listenerFile}
+	cmd.ExtraFiles = []*os.File{initSockChild, listenerFile}
 
 	cmd.Env = append(
 		cmd.Env,
 		fmt.Sprintf(
 			"%s=%d",
 			envInitSockFD,
-			slices.Index(cmd.ExtraFiles, initSockFile)+3,
+			slices.Index(cmd.ExtraFiles, initSockChild)+3,
 		),
 		fmt.Sprintf(
 			"%s=%d",
@@ -497,6 +491,10 @@ func (c *Container) Init() error {
 		}
 	}
 
+	// Subsequent syscalls need to happen in a single-threaded context.
+	runtime.LockOSThread()
+	defer runtime.UnlockOSThread()
+
 	if err := c.configureNamespaces(cmd); err != nil {
 		return fmt.Errorf("configure namespaces: %w", err)
 	}
@@ -509,7 +507,6 @@ func (c *Container) Init() error {
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 
-	// TODO: Probably want to syscall.ForkExec instead of using exec.Command.
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
@@ -520,26 +517,28 @@ func (c *Container) Init() error {
 		"pid", cmd.Process.Pid,
 	)
 
-	unix.Close(initSockChildFD)
+	initSockChild.Close()
 
 	c.State.Pid = cmd.Process.Pid
 
-	slog.Debug(
-		"create cgroup",
-		"container_id", c.State.ID,
-		"pid", c.State.Pid,
-		"cgroups_path", c.spec.Linux.CgroupsPath,
-	)
-	if err := platform.CreateCgroup(
-		c.spec.Linux.CgroupsPath,
-		c.State.ID,
-		c.State.Pid,
-		c.spec.Linux.Resources,
-	); err != nil {
-		return fmt.Errorf("create cgroups: %w", err)
+	if c.spec.Linux != nil {
+		slog.Debug(
+			"create cgroup",
+			"container_id", c.State.ID,
+			"pid", c.State.Pid,
+			"cgroups_path", c.spec.Linux.CgroupsPath,
+		)
+		if err := platform.CreateCgroup(
+			c.spec.Linux.CgroupsPath,
+			c.State.ID,
+			c.State.Pid,
+			c.spec.Linux.Resources,
+		); err != nil {
+			return fmt.Errorf("create cgroups: %w", err)
+		}
 	}
 
-	conn, err := ipc.FDToConn(initSockParentFD)
+	conn, err := net.FileConn(initSockParent)
 	if err != nil {
 		return fmt.Errorf("accept on init sock parent: %w", err)
 	}
@@ -626,7 +625,9 @@ func (c *Container) Reexec() error {
 		return errors.New("invalid init sock fd")
 	}
 
-	initConn, err := ipc.FDToConn(initSockFDVal)
+	initConn, err := net.FileConn(
+		os.NewFile(uintptr(initSockFDVal), "init_sock_child"),
+	)
 	if err != nil {
 		return err
 	}
@@ -759,11 +760,15 @@ func (c *Container) Pause() error {
 		)
 	}
 
-	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		return fmt.Errorf("pause cgroup: %w", err)
+	if c.spec.Linux == nil {
+		return errors.New("no Linux spec")
 	}
 
-	c.State.Status = specs.StateStopped
+	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
+		return fmt.Errorf("freeze cgroup: %w", err)
+	}
+
+	c.State.Status = specs.ContainerState("paused")
 
 	if err := c.Save(); err != nil {
 		return fmt.Errorf("save paused state: %w", err)
@@ -781,8 +786,12 @@ func (c *Container) Resume() error {
 		)
 	}
 
+	if c.spec.Linux == nil {
+		return errors.New("no Linux spec")
+	}
+
 	if err := platform.ThawCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		return fmt.Errorf("pause cgroup: %w", err)
+		return fmt.Errorf("thaw cgroup: %w", err)
 	}
 
 	c.State.Status = specs.StateRunning
@@ -832,12 +841,7 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 				// guarantee what thread any newly spawned goroutines will land on,
 				// so this needs to be done in single-threaded context in C before the
 				// reexec.
-				gonsEnv := fmt.Sprintf(
-					"gons_%s=%s",
-					platform.NamespaceEnvs[ns.Type],
-					ns.Path,
-				)
-				cmd.Env = append(cmd.Env, gonsEnv)
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", envMountNS, ns.Path))
 			} else {
 				if err := platform.SetNS(ns.Path); err != nil {
 					return fmt.Errorf("set namespace: %w", err)
@@ -965,7 +969,7 @@ func (c *Container) canBePaused() bool {
 }
 
 func (c *Container) canBeResumed() bool {
-	return c.State.Status == specs.StateStopped
+	return c.State.Status == specs.ContainerState("paused")
 }
 
 // rootFS returns the path to the Container root filesystem.
@@ -994,58 +998,4 @@ func (c *Container) reloadState() error {
 	}
 
 	return nil
-}
-
-// Load retrieves an existing container with the given id at the given rootDir.
-func Load(id, rootDir string) (*Container, error) {
-	s, err := os.ReadFile(filepath.Join(rootDir, id, "state.json"))
-	if err != nil {
-		if errors.Is(err, os.ErrNotExist) {
-			return nil, fmt.Errorf("container %s does not exist", id)
-		}
-
-		return nil, fmt.Errorf("read state file: %w", err)
-	}
-
-	var state *specs.State
-	if err := json.Unmarshal(s, &state); err != nil {
-		return nil, fmt.Errorf("unmarshal state: %w", err)
-	}
-
-	config, err := os.ReadFile(filepath.Join(state.Bundle, "config.json"))
-	if err != nil {
-		return nil, fmt.Errorf("read config file: %w", err)
-	}
-
-	var spec *specs.Spec
-	if err := json.Unmarshal(config, &spec); err != nil {
-		return nil, fmt.Errorf("unmarshal config: %w", err)
-	}
-
-	c := &Container{
-		State:   state,
-		spec:    spec,
-		RootDir: rootDir,
-		containerSock: filepath.Join(
-			"/run/anocir",
-			shortID(state.Bundle),
-			containerSockFilename,
-		),
-	}
-
-	return c, nil
-}
-
-// Exists checks if a container exists with the given id at the given rootDir.
-func Exists(id, rootDir string) bool {
-	_, err := os.Stat(filepath.Join(rootDir, id))
-
-	return err == nil
-}
-
-// shortID constructs a hash of the given bundle. It's used to create the
-// directory for storing IPC socket files.
-func shortID(bundle string) string {
-	hash := sha256.Sum256([]byte(bundle))
-	return hex.EncodeToString(hash[:8])
 }

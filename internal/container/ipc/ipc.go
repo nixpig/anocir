@@ -2,12 +2,10 @@
 // forked container process and the runtime.
 package ipc
 
-// TODO: Now it's clear exactly what IPC is required, this could probably be
-// simplified significantly by using EventFD or some other
-// condition-variable-like mechanism to 'nofify' on "ready" and "start".
-
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -80,16 +78,6 @@ func (s *Socket) DialWithRetry(
 	}
 }
 
-// SetPermissions sets the given mode on the Socket path.
-func (s *Socket) SetPermissions(mode os.FileMode) error {
-	return os.Chmod(s.path, mode)
-}
-
-// FDToConn returns a FileConn to the given fd.
-func FDToConn(fd int) (net.Conn, error) {
-	return net.FileConn(os.NewFile(uintptr(fd), "ipc_socket"))
-}
-
 // SendMessage writes the given msg to the given conn.
 func SendMessage(conn net.Conn, msg byte) error {
 	_, err := conn.Write([]byte{msg})
@@ -106,15 +94,25 @@ func ReceiveMessage(conn net.Conn) (byte, error) {
 }
 
 // NewSocketPair creates a socket pair and returns the file descriptors.
-func NewSocketPair() (int, int, error) {
+func NewSocketPair() (*os.File, *os.File, error) {
 	fds, err := unix.Socketpair(
 		unix.AF_UNIX,
 		unix.SOCK_STREAM|unix.SOCK_CLOEXEC,
 		0,
 	)
 	if err != nil {
-		return 0, 0, fmt.Errorf("new socket pair: %w", err)
+		return nil, nil, fmt.Errorf("new socket pair: %w", err)
 	}
 
-	return fds[0], fds[1], nil
+	parent := os.NewFile(uintptr(fds[0]), "ipc_sock_parent")
+	child := os.NewFile(uintptr(fds[1]), "ipc_sock_child")
+
+	return parent, child, nil
+}
+
+// ShortID constructs a hash of the given bundle. It's used to create the
+// directory for storing IPC socket files.
+func ShortID(bundle string) string {
+	hash := sha256.Sum256([]byte(bundle))
+	return hex.EncodeToString(hash[:8])
 }

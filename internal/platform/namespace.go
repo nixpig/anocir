@@ -67,6 +67,7 @@ func ValidateNSPath(ns *specs.LinuxNamespace) error {
 	if err != nil {
 		return fmt.Errorf("open namespace path: %w", err)
 	}
+	defer f.Close()
 
 	nsType, err := unix.IoctlRetInt(int(f.Fd()), unix.NS_GET_NSTYPE)
 	if err != nil {
@@ -88,12 +89,10 @@ func BuildUserNSMappings(
 	specUIDMappings []specs.LinuxIDMapping,
 	specGIDMappings []specs.LinuxIDMapping,
 ) ([]syscall.SysProcIDMap, []syscall.SysProcIDMap) {
-	uidMappings := make([]syscall.SysProcIDMap, 0, 1)
-	gidMappings := make([]syscall.SysProcIDMap, 0, 1)
+	uidMappings := make([]syscall.SysProcIDMap, 0, max(1, len(specUIDMappings)))
+	gidMappings := make([]syscall.SysProcIDMap, 0, max(1, len(specGIDMappings)))
 
-	if uidCount := len(specUIDMappings); uidCount > 0 {
-		uidMappings = slices.Grow(uidMappings, uidCount-1)
-
+	if len(specUIDMappings) > 0 {
 		for _, m := range specUIDMappings {
 			uidMappings = append(uidMappings, syscall.SysProcIDMap{
 				ContainerID: int(m.ContainerID),
@@ -109,9 +108,7 @@ func BuildUserNSMappings(
 		})
 	}
 
-	if gidCount := len(specGIDMappings); gidCount > 0 {
-		gidMappings = slices.Grow(gidMappings, gidCount-1)
-
+	if len(specGIDMappings) > 0 {
 		for _, m := range specGIDMappings {
 			gidMappings = append(gidMappings, syscall.SysProcIDMap{
 				ContainerID: int(m.ContainerID),

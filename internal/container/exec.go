@@ -120,25 +120,14 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 	}
 
-	for _, gid := range additionalGIDs {
-		args = append(args, "--additional-gids", gid)
-	}
-
-	for _, c := range opts.Capabilities {
-		args = append(args, "--caps", c)
-	}
-
-	for _, env := range opts.Env {
-		args = append(args, "--envs", env)
-	}
-
-	for _, arg := range opts.Args {
-		args = append(args, "--args", arg)
-	}
-
 	if opts.NoNewPrivs {
 		args = append(args, "--no-new-privs")
 	}
+
+	args = appendArgsSlice(args, "--additional-gids", additionalGIDs)
+	args = appendArgsSlice(args, "--caps", opts.Capabilities)
+	args = appendArgsSlice(args, "--envs", opts.Env)
+	args = appendArgsSlice(args, "--args", opts.Args)
 
 	for _, ns := range namespaces {
 		if ns == "time" {
@@ -164,8 +153,10 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 
 		if ns == "mnt" {
-			gonsEnv := fmt.Sprintf("gons_mnt=%s", containerNSPath)
-			procAttr.Env = append(procAttr.Env, gonsEnv)
+			procAttr.Env = append(
+				procAttr.Env,
+				fmt.Sprintf("%s=%s", envMountNS, containerNSPath),
+			)
 		} else {
 			if err := platform.SetNS(containerNSPath); err != nil {
 				return 0, fmt.Errorf("join namespace: %w", err)
@@ -174,6 +165,9 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
+
+	// TODO: This is going to leak host environment into container. Probably not
+	// what we want to do.
 	procAttr.Env = append(procAttr.Env, os.Environ()...)
 
 	_, err := exec.LookPath(opts.Args[0])
@@ -198,7 +192,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	}
 
 	if opts.PIDFile != "" {
-		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o755); err != nil {
+		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o644); err != nil {
 			return 0, fmt.Errorf(
 				"write pid to file (%s): %w",
 				opts.PIDFile,
@@ -324,4 +318,12 @@ func sharedNamespace(containerNSPath, hostNSPath string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func appendArgsSlice(args []string, flag string, values []string) []string {
+	for _, a := range values {
+		args = append(args, flag, a)
+	}
+
+	return args
 }

@@ -134,7 +134,7 @@ func resolveCaps(names []string) []capability.Cap {
 		if v, ok := capabilities[name]; ok {
 			resolved = append(resolved, v)
 		} else {
-			fmt.Fprintf(os.Stdout, "Warning: capability %s cannot be mapped\n", name)
+			fmt.Fprintf(os.Stderr, "Warning: capability %s cannot be mapped\n", name)
 		}
 	}
 

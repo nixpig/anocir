@@ -11,8 +11,14 @@ import (
 // setupPrePivot performs configuration of the container environment before
 // pivot_root.
 func (c *Container) setupPrePivot() error {
-	if err := platform.MountRootfs(c.rootFS()); err != nil {
-		return fmt.Errorf("mount rootfs: %w", err)
+	hasMountNamespace := platform.ContainsNamespaceType(
+		c.spec.Linux.Namespaces,
+		specs.MountNamespace,
+	)
+	if hasMountNamespace {
+		if err := platform.MountRootfs(c.rootFS()); err != nil {
+			return fmt.Errorf("mount rootfs: %w", err)
+		}
 	}
 
 	if err := platform.MountProc(c.rootFS()); err != nil {

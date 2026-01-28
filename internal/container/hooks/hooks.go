@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
-	"strings"
 	"time"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -17,7 +16,7 @@ import (
 // ExecHooks executes a list of OCI hooks, serialising the container state
 // and passing it to each hook as standard input.
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
-	s, err := json.Marshal(state)
+	b, err := json.Marshal(state)
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
 	}
@@ -44,7 +43,7 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 
 			cmd.Args = h.Args
 			cmd.Env = h.Env
-			cmd.Stdin = strings.NewReader(string(s))
+			cmd.Stdin = bytes.NewReader(b)
 
 			var stdout, stderr bytes.Buffer
 			cmd.Stdout = &stdout
