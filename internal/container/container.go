@@ -490,6 +490,8 @@ func (c *Container) Init() error {
 	if err != nil {
 		return err
 	}
+	defer initSockParent.Close()
+	defer initSockChild.Close()
 
 	os.RemoveAll(filepath.Dir(c.containerSock))
 	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
@@ -562,8 +564,6 @@ func (c *Container) Init() error {
 		"container_id", c.State.ID,
 		"pid", cmd.Process.Pid,
 	)
-
-	initSockChild.Close()
 
 	c.State.Pid = cmd.Process.Pid
 
