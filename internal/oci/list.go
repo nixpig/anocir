@@ -32,12 +32,20 @@ func listCmd() *cobra.Command {
 
 				cntr, err := container.Load(id, rootDir)
 				if err != nil {
-					return fmt.Errorf("failed to load %s: %w", id, err)
+					return fmt.Errorf(
+						"failed to load container %s: %w",
+						id,
+						err,
+					)
 				}
 
 				state, err := cntr.GetState()
 				if err != nil {
-					return fmt.Errorf("failed to get state: %w", err)
+					return fmt.Errorf(
+						"failed to get state for container %s: %w",
+						id,
+						err,
+					)
 				}
 
 				fmt.Fprintf(
@@ -47,7 +55,6 @@ func listCmd() *cobra.Command {
 					state.Pid,
 					state.Status,
 				)
-				return nil
 			}
 
 			if err := w.Flush(); err != nil {
