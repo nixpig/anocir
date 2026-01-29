@@ -166,10 +166,6 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
 
-	// TODO: This is going to leak host environment into container. Probably not
-	// what we want to do.
-	procAttr.Env = append(procAttr.Env, os.Environ()...)
-
 	_, err := exec.LookPath(opts.Args[0])
 	if err != nil {
 		return 0, fmt.Errorf("check binary exists: %w", err)
