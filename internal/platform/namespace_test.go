@@ -21,7 +21,7 @@ func TestNamespaceMappings(t *testing.T) {
 	}
 }
 
-func TestValidateNSPath(t *testing.T) {
+func TestOpenNSPath(t *testing.T) {
 	scenarios := map[string]struct {
 		ns  *specs.LinuxNamespace
 		err error
@@ -120,7 +120,7 @@ func TestValidateNSPath(t *testing.T) {
 		},
 		"empty namespace": {
 			ns:  &specs.LinuxNamespace{},
-			err: nil,
+			err: platform.ErrInvalidNamespacePath,
 		},
 	}
 
