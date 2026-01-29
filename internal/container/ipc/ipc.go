@@ -3,13 +3,11 @@
 package ipc
 
 import (
-	"context"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
-	"time"
 
 	"golang.org/x/sys/unix"
 )
@@ -46,36 +44,6 @@ func (s *Socket) Listen() (net.Listener, error) {
 // Dial returns a connection to the Socket path.
 func (s *Socket) Dial() (net.Conn, error) {
 	return net.Dial("unix", s.path)
-}
-
-// DialWithRetry attempts to dial the Socket path, retrying at the given
-// interval until a connection is established and returns the connection or the
-// given timeout is reached and returns an error.
-func (s *Socket) DialWithRetry(
-	interval, timeout time.Duration,
-) (net.Conn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-
-	ticker := time.NewTicker(interval)
-	defer ticker.Stop()
-
-	var conn net.Conn
-	var err error
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("failed to connect after %v", timeout)
-		case <-ticker.C:
-			conn, err = s.Dial()
-			if err != nil {
-				continue
-			}
-
-			return conn, nil
-		}
-	}
 }
 
 // SendMessage writes the given msg to the given conn.

@@ -22,24 +22,25 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	}
 
 	for _, h := range hooks {
-		ctx := context.Background()
-
 		binary, err := exec.LookPath(h.Path)
 		if err != nil {
 			return fmt.Errorf("find path of hook binary: %w", err)
 		}
 
 		if err := func() error {
+			var cmd *exec.Cmd
+
 			if h.Timeout != nil {
-				var cancel context.CancelFunc
-				ctx, cancel = context.WithTimeout(
-					ctx,
+				ctx, cancel := context.WithTimeout(
+					context.Background(),
 					time.Duration(*h.Timeout)*time.Second,
 				)
 				defer cancel()
-			}
 
-			cmd := exec.CommandContext(ctx, binary)
+				cmd = exec.CommandContext(ctx, binary)
+			} else {
+				cmd = exec.Command(binary)
+			}
 
 			cmd.Args = h.Args
 			cmd.Env = h.Env
