@@ -56,20 +56,11 @@ func execCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			var execErr error
-			var execExit int
-
-			execExit, execErr = container.Exec(cntr.State.Pid, opts)
+			exitCode, err := container.Exec(cntr.State.Pid, opts)
 			if err != nil {
-				return fmt.Errorf("failed to lock container: %w", err)
-			}
-
-			// os.Exit calls need to happen outside of DoWithLock callback to ensure
-			// the defered Unlock gets called before exiting.
-			if execErr != nil {
-				fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", execErr)
-				if execExit != 0 {
-					os.Exit(execExit)
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+				if exitCode != 0 {
+					os.Exit(exitCode)
 				}
 				os.Exit(255)
 			}
