@@ -66,16 +66,6 @@ func createCmd() *cobra.Command {
 				Debug:         debug,
 			})
 
-			if err := cntr.Lock(); err != nil {
-				// We should never fail to acquire a lock on a brand new container.
-				return fmt.Errorf("failed to get lock on container: %w", err)
-			}
-			defer cntr.Unlock()
-
-			if err := cntr.Save(); err != nil {
-				return fmt.Errorf("failed to save container state: %w", err)
-			}
-
 			if err := cntr.Init(); err != nil {
 				return fmt.Errorf("failed to initialise container: %w", err)
 			}

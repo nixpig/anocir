@@ -35,17 +35,19 @@ func listCmd() *cobra.Command {
 					return fmt.Errorf("failed to load %s: %w", id, err)
 				}
 
-				if err := cntr.DoWithLock(func(c *container.Container) error {
-					state, err := c.GetState()
-					if err != nil {
-						return fmt.Errorf("failed to get state: %w", err)
-					}
-
-					fmt.Fprintf(w, "%s\t%d\t%s\t\n", state.ID, state.Pid, state.Status)
-					return nil
-				}); err != nil {
-					return fmt.Errorf("failed to load container state: %w", err)
+				state, err := cntr.GetState()
+				if err != nil {
+					return fmt.Errorf("failed to get state: %w", err)
 				}
+
+				fmt.Fprintf(
+					w,
+					"%s\t%d\t%s\t\n",
+					state.ID,
+					state.Pid,
+					state.Status,
+				)
+				return nil
 			}
 
 			if err := w.Flush(); err != nil {

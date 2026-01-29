@@ -23,12 +23,10 @@ func deleteCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				if err := c.Delete(force); err != nil {
-					return fmt.Errorf("failed to delete container: %w", err)
-				}
-				return nil
-			})
+			if err := cntr.Delete(force); err != nil {
+				return fmt.Errorf("failed to delete container: %w", err)
+			}
+			return nil
 		},
 	}
 

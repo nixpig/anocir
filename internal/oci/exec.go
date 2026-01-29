@@ -59,10 +59,8 @@ func execCmd() *cobra.Command {
 			var execErr error
 			var execExit int
 
-			if err := cntr.DoWithLock(func(c *container.Container) error {
-				execExit, execErr = container.Exec(c.State.Pid, opts)
-				return nil
-			}); err != nil {
+			execExit, execErr = container.Exec(cntr.State.Pid, opts)
+			if err != nil {
 				return fmt.Errorf("failed to lock container: %w", err)
 			}
 

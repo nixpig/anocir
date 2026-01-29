@@ -23,13 +23,11 @@ func pauseCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				if err := c.Pause(); err != nil {
-					return fmt.Errorf("failed to pause container: %w", err)
-				}
+			if err := cntr.Pause(); err != nil {
+				return fmt.Errorf("failed to pause container: %w", err)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 

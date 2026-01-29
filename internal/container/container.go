@@ -106,9 +106,7 @@ func New(opts *Opts) *Container {
 	}
 }
 
-// Save persists the container state to disk. It creates the required directory
-// hierarchy and sets the needed permissions.
-func (c *Container) Save() error {
+func (c *Container) save() error {
 	containerDir := filepath.Join(c.RootDir, c.State.ID)
 
 	slog.Debug(
@@ -162,6 +160,17 @@ func (c *Container) Save() error {
 	return nil
 }
 
+// Save persists the container state to disk. It creates the required directory
+// hierarchy and sets the needed permissions.
+func (c *Container) Save() error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	return c.save()
+}
+
 // Lock acquires an exclusive lock on the container.
 func (c *Container) Lock() error {
 	lockPath := filepath.Join(c.RootDir, c.State.ID, lockFilename)
@@ -194,11 +203,11 @@ func (c *Container) Unlock() error {
 	return unix.Flock(int(c.lockFile.Fd()), unix.LOCK_UN)
 }
 
-// DoWithLock acquires an exclusive lock on the container, refreshes the state,
-// and executes the given fn, finally releasing the lock.
-func (c *Container) DoWithLock(fn func(*Container) error) error {
+// Delete removes the container from the system. If force is true then it will
+// delete the container, regardless of the its state.
+func (c *Container) Delete(force bool) error {
 	if err := c.Lock(); err != nil {
-		return fmt.Errorf("lock access to container: %w", err)
+		return fmt.Errorf("acquire container lock: %w", err)
 	}
 	defer c.Unlock()
 
@@ -206,12 +215,6 @@ func (c *Container) DoWithLock(fn func(*Container) error) error {
 		return fmt.Errorf("reload container state: %w", err)
 	}
 
-	return fn(c)
-}
-
-// Delete removes the container from the system. If force is true then it will
-// delete the container, regardless of the its state.
-func (c *Container) Delete(force bool) error {
 	slog.Debug("delete container", "container_id", c.State.ID, "force", force)
 
 	if c.State.Pid != 0 {
@@ -264,10 +267,19 @@ func (c *Container) Delete(force bool) error {
 // process is no longer running, it updates the container state to be 'stopped'
 // before returning.
 func (c *Container) GetState() (*specs.State, error) {
+	if err := c.Lock(); err != nil {
+		return nil, fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return nil, fmt.Errorf("reload container state: %w", err)
+	}
+
 	if c.State.Pid != 0 {
 		if err := unix.Kill(c.State.Pid, 0); err != nil {
 			c.State.Status = specs.StateStopped
-			if err := c.Save(); err != nil {
+			if err := c.save(); err != nil {
 				return nil, fmt.Errorf("save stopped state: %w", err)
 			}
 		}
@@ -283,6 +295,15 @@ func (c *Container) GetSpec() *specs.Spec {
 // Start begins the execution of the container by sending the start message to
 // the runtime process.
 func (c *Container) Start() error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
 	slog.Debug("start container", "container_id", c.State.ID)
 
 	if !c.canBeStarted() {
@@ -316,7 +337,7 @@ func (c *Container) Start() error {
 
 	if c.spec.Process == nil {
 		c.State.Status = specs.StateStopped
-		if err := c.Save(); err != nil {
+		if err := c.save(); err != nil {
 			return fmt.Errorf("save state stopped: %w", err)
 		}
 		// Nothing to do; silent return.
@@ -324,7 +345,7 @@ func (c *Container) Start() error {
 	}
 
 	c.State.Status = specs.StateRunning
-	if err := c.Save(); err != nil {
+	if err := c.save(); err != nil {
 		return fmt.Errorf("save state running: %w", err)
 	}
 
@@ -339,6 +360,15 @@ func (c *Container) Start() error {
 // Kill sends the given sig to the container process. If killAll is true then
 // sig is sent to all processes in the container cgroup.
 func (c *Container) Kill(sig string, killAll bool) error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
 	slog.Debug(
 		"kill container",
 		"container_id", c.State.ID,
@@ -409,6 +439,15 @@ func (c *Container) Kill(sig string, killAll bool) error {
 // terminal if necessary, and re-execs the runtime binary to containerise the
 // process.
 func (c *Container) Init() error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.save(); err != nil {
+		return fmt.Errorf("save initial container state: %w", err)
+	}
+
 	slog.Debug(
 		"init container",
 		"container_id", c.State.ID,
@@ -463,7 +502,12 @@ func (c *Container) Init() error {
 		return fmt.Errorf("listen on container sock: %w", err)
 	}
 
-	listenerFile, err := listener.(*net.UnixListener).File()
+	unixListener, ok := listener.(*net.UnixListener)
+	if !ok {
+		return fmt.Errorf("expected UnixListener, got %T", listener)
+	}
+
+	listenerFile, err := unixListener.File()
 	if err != nil {
 		return fmt.Errorf("get listener file: %w", err)
 	}
@@ -600,7 +644,7 @@ func (c *Container) Init() error {
 	}
 
 	c.State.Status = specs.StateCreated
-	if err := c.Save(); err != nil {
+	if err := c.save(); err != nil {
 		return fmt.Errorf("save created state: %w", err)
 	}
 
@@ -755,6 +799,15 @@ func (c *Container) Reexec() error {
 
 // Pause pauses a running container by freezing the cgroup.
 func (c *Container) Pause() error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
 	if !c.canBePaused() {
 		return fmt.Errorf(
 			"container cannot be paused in current state (%s)",
@@ -772,7 +825,7 @@ func (c *Container) Pause() error {
 
 	c.State.Status = specs.ContainerState("paused")
 
-	if err := c.Save(); err != nil {
+	if err := c.save(); err != nil {
 		return fmt.Errorf("save paused state: %w", err)
 	}
 
@@ -781,6 +834,15 @@ func (c *Container) Pause() error {
 
 // Resume resumes a paused container by thawing the cgroup.
 func (c *Container) Resume() error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
 	if !c.canBeResumed() {
 		return fmt.Errorf(
 			"container cannot be resumed in current state (%s)",
@@ -798,7 +860,7 @@ func (c *Container) Resume() error {
 
 	c.State.Status = specs.StateRunning
 
-	if err := c.Save(); err != nil {
+	if err := c.save(); err != nil {
 		return fmt.Errorf("save running state: %w", err)
 	}
 

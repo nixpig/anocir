@@ -58,22 +58,20 @@ func updateCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				state, err := c.GetState()
-				if err != nil {
-					return fmt.Errorf("failed to get container state: %w", err)
-				}
+			state, err := cntr.GetState()
+			if err != nil {
+				return fmt.Errorf("failed to get container state: %w", err)
+			}
 
-				if err := platform.UpdateCgroup(
-					c.GetSpec().Linux.CgroupsPath,
-					state.ID,
-					&linuxResources,
-				); err != nil {
-					return fmt.Errorf("failed to update cgroups: %w", err)
-				}
+			if err := platform.UpdateCgroup(
+				cntr.GetSpec().Linux.CgroupsPath,
+				state.ID,
+				&linuxResources,
+			); err != nil {
+				return fmt.Errorf("failed to update cgroups: %w", err)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 

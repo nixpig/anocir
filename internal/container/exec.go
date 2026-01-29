@@ -243,7 +243,7 @@ func ChildExec(opts *ChildExecOpts) error {
 			return fmt.Errorf("set capabilities: %w", err)
 		}
 
-		if opts.User.UID != 0 {
+		if opts.User != nil && opts.User.UID != 0 {
 			if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
 				return fmt.Errorf("clear KEEPCAPS: %w", err)
 			}

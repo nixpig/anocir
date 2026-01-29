@@ -23,13 +23,11 @@ func startCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				if err := c.Start(); err != nil {
-					return fmt.Errorf("failed to start container: %w", err)
-				}
+			if err := cntr.Start(); err != nil {
+				return fmt.Errorf("failed to start container: %w", err)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 
