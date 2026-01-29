@@ -346,6 +346,11 @@ func (c *Container) Kill(sig string, killAll bool) error {
 		"kill_all", killAll,
 	)
 
+	unixSig, err := platform.ParseSignal(sig)
+	if err != nil {
+		return fmt.Errorf("parse signal: %w", err)
+	}
+
 	if killAll && c.spec.Linux != nil {
 		pids, err := platform.GetCgroupProcesses(
 			c.spec.Linux.CgroupsPath,
@@ -362,10 +367,10 @@ func (c *Container) Kill(sig string, killAll bool) error {
 				"container_id", c.State.ID,
 				"cgroups_path", c.spec.Linux.CgroupsPath,
 				"pid", pid,
-				"signal", sig,
+				"signal", unixSig,
 			)
 
-			if err := platform.SendSignal(pid, platform.ParseSignal(sig)); err != nil &&
+			if err := platform.SendSignal(pid, unixSig); err != nil &&
 				!errors.Is(err, unix.ESRCH) {
 				return fmt.Errorf(
 					"send killall signal '%s' to process '%d': %w",
@@ -388,10 +393,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 			"signal", sig,
 		)
 
-		if err := platform.SendSignal(
-			c.State.Pid,
-			platform.ParseSignal(sig),
-		); err != nil {
+		if err := platform.SendSignal(c.State.Pid, unixSig); err != nil {
 			if errors.Is(err, unix.ESRCH) {
 				return fmt.Errorf("container not running: %w", err)
 			}
