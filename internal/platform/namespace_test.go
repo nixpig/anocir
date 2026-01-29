@@ -126,7 +126,7 @@ func TestValidateNSPath(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
-			err := platform.ValidateNSPath(data.ns)
+			_, err := platform.OpenNSPath(data.ns)
 			assert.ErrorIs(t, err, data.err)
 		})
 	}
