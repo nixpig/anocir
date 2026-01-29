@@ -152,16 +152,23 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			procAttr.Sys.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 		}
 
+		f, err := os.Open(containerNSPath)
+		if err != nil {
+			return 0, fmt.Errorf("open ns path: %w", err)
+		}
+
 		if ns == "mnt" {
 			procAttr.Env = append(
 				procAttr.Env,
-				fmt.Sprintf("%s=%s", envMountNS, containerNSPath),
+				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
 			)
 		} else {
-			if err := platform.SetNS(containerNSPath); err != nil {
+			if err := platform.SetNS(f.Fd()); err != nil {
 				return 0, fmt.Errorf("join namespace: %w", err)
 			}
 		}
+
+		f.Close()
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)

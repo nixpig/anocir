@@ -896,7 +896,8 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 		if ns.Path == "" {
 			cloneFlags |= platform.NamespaceFlags[ns.Type]
 		} else {
-			if err := platform.ValidateNSPath(&ns); err != nil {
+			f, err := platform.OpenNSPath(&ns)
+			if err != nil {
 				return fmt.Errorf("validate ns path: %w", err)
 			}
 
@@ -905,12 +906,14 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 				// guarantee what thread any newly spawned goroutines will land on,
 				// so this needs to be done in single-threaded context in C before the
 				// reexec.
-				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", envMountNS, ns.Path))
+				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", envMountNS, f.Name()))
 			} else {
-				if err := platform.SetNS(ns.Path); err != nil {
+				if err := platform.SetNS(f.Fd()); err != nil {
 					return fmt.Errorf("set namespace: %w", err)
 				}
 			}
+
+			f.Close()
 		}
 	}
 

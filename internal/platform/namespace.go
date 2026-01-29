@@ -41,44 +41,41 @@ var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 }
 
 // SetNS enters the namespace specified by the given path.
-func SetNS(path string) error {
-	fd, err := unix.Open(path, unix.O_RDONLY, 0o666)
-	if err != nil {
-		return fmt.Errorf("open ns path %s: %w", path, err)
-	}
-	defer unix.Close(fd)
-
+func SetNS(fd uintptr) error {
 	_, _, errno := unix.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
-		return fmt.Errorf("set namespace %s errno: %w", path, errno)
+		return fmt.Errorf("set namespace errno: %w", errno)
 	}
 
 	return nil
 }
 
-// ValidateNSPath validates that the suffix of the Path is valid for the Type
-// in the given ns.
-func ValidateNSPath(ns *specs.LinuxNamespace) error {
+// OpenNSPath opens the path of the given ns and validates it, returning the
+// corresponding file. If validation fails then ErrInvalidNamespacePath error
+// is returned.
+func OpenNSPath(ns *specs.LinuxNamespace) (*os.File, error) {
 	if ns.Path == "" {
-		return nil
+		return nil, ErrInvalidNamespacePath
 	}
 
 	f, err := os.Open(ns.Path)
 	if err != nil {
-		return fmt.Errorf("open namespace path: %w", err)
+		return nil, fmt.Errorf("open namespace path: %w", err)
 	}
-	defer f.Close()
 
 	nsType, err := unix.IoctlRetInt(int(f.Fd()), unix.NS_GET_NSTYPE)
 	if err != nil {
-		return fmt.Errorf("get namespace type from file descriptor: %w", err)
+		return nil, fmt.Errorf(
+			"get namespace type from file descriptor: %w",
+			err,
+		)
 	}
 
 	if NamespaceFlags[ns.Type] != uintptr(nsType) {
-		return ErrInvalidNamespacePath
+		return nil, ErrInvalidNamespacePath
 	}
 
-	return nil
+	return f, nil
 }
 
 // BuildUserNSMappings converts UID/GID mappings from an OCI spec to
