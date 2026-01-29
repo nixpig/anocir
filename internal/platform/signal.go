@@ -1,8 +1,12 @@
 package platform
 
 import (
+	"errors"
+
 	"golang.org/x/sys/unix"
 )
+
+var ErrUnknownSignal = errors.New("unknown signal")
 
 // SendSignal sends a signal to the specified process ID.
 func SendSignal(pid int, sig unix.Signal) error {
@@ -11,69 +15,69 @@ func SendSignal(pid int, sig unix.Signal) error {
 
 // ParseSignal parses the given sig and returns the corresponding a unix.Signal.
 // If the signal is not recognised then unix.Signal(0) is returned.
-func ParseSignal(sig string) unix.Signal {
+func ParseSignal(sig string) (unix.Signal, error) {
 	switch sig {
 	case "SIGHUP", "HUP", "1":
-		return unix.SIGHUP
+		return unix.SIGHUP, nil
 	case "SIGINT", "INT", "2":
-		return unix.SIGINT
+		return unix.SIGINT, nil
 	case "SIGQUIT", "QUIT", "3":
-		return unix.SIGQUIT
+		return unix.SIGQUIT, nil
 	case "SIGILL", "ILL", "4":
-		return unix.SIGILL
+		return unix.SIGILL, nil
 	case "SIGTRAP", "TRAP", "5":
-		return unix.SIGTRAP
+		return unix.SIGTRAP, nil
 	case "SIGIOT", "IOT", "6":
-		return unix.SIGIOT
+		return unix.SIGIOT, nil
 	case "SIGBUS", "BUS", "7":
-		return unix.SIGBUS
+		return unix.SIGBUS, nil
 	case "SIGFPE", "FPE", "8":
-		return unix.SIGFPE
+		return unix.SIGFPE, nil
 	case "SIGKILL", "KILL", "9":
-		return unix.SIGKILL
+		return unix.SIGKILL, nil
 	case "SIGUSR1", "USR1", "10":
-		return unix.SIGUSR1
+		return unix.SIGUSR1, nil
 	case "SIGSEGV", "SEGV", "11":
-		return unix.SIGSEGV
+		return unix.SIGSEGV, nil
 	case "SIGUSR2", "USR2", "12":
-		return unix.SIGUSR2
+		return unix.SIGUSR2, nil
 	case "SIGPIPE", "PIPE", "13":
-		return unix.SIGPIPE
+		return unix.SIGPIPE, nil
 	case "SIGALRM", "ALRM", "14":
-		return unix.SIGALRM
+		return unix.SIGALRM, nil
 	case "SIGTERM", "TERM", "15":
-		return unix.SIGTERM
+		return unix.SIGTERM, nil
 	case "SIGSTKFLT", "STKFLT", "16":
-		return unix.SIGSTKFLT
+		return unix.SIGSTKFLT, nil
 	case "SIGCHLD", "CHLD", "17":
-		return unix.SIGCHLD
+		return unix.SIGCHLD, nil
 	case "SIGCONT", "CONT", "18":
-		return unix.SIGCONT
+		return unix.SIGCONT, nil
 	case "SIGSTOP", "STOP", "19":
-		return unix.SIGSTOP
+		return unix.SIGSTOP, nil
 	case "SIGTSTP", "TSTP", "20":
-		return unix.SIGTSTP
+		return unix.SIGTSTP, nil
 	case "SIGTTIN", "TTIN", "21":
-		return unix.SIGTTIN
+		return unix.SIGTTIN, nil
 	case "SIGTTOU", "TTOU", "22":
-		return unix.SIGTTOU
+		return unix.SIGTTOU, nil
 	case "SIGURG", "URG", "23":
-		return unix.SIGURG
+		return unix.SIGURG, nil
 	case "SIGXCPU", "XCPU", "24":
-		return unix.SIGXCPU
+		return unix.SIGXCPU, nil
 	case "SIGXFSZ", "XFSZ", "25":
-		return unix.SIGXFSZ
+		return unix.SIGXFSZ, nil
 	case "SIGVTALRM", "VTALRM", "26":
-		return unix.SIGVTALRM
+		return unix.SIGVTALRM, nil
 	case "SIGPROF", "PROF", "27":
-		return unix.SIGPROF
+		return unix.SIGPROF, nil
 	case "SIGWINCH", "WINCH", "28":
-		return unix.SIGWINCH
+		return unix.SIGWINCH, nil
 	case "SIGIO", "IO", "29":
-		return unix.SIGIO
+		return unix.SIGIO, nil
 	case "SIGPWR", "PWR", "30":
-		return unix.SIGPWR
+		return unix.SIGPWR, nil
 	}
 
-	return unix.Signal(0)
+	return unix.Signal(0), ErrUnknownSignal
 }

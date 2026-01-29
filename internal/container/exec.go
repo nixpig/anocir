@@ -120,25 +120,14 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 	}
 
-	for _, gid := range additionalGIDs {
-		args = append(args, "--additional-gids", gid)
-	}
-
-	for _, c := range opts.Capabilities {
-		args = append(args, "--caps", c)
-	}
-
-	for _, env := range opts.Env {
-		args = append(args, "--envs", env)
-	}
-
-	for _, arg := range opts.Args {
-		args = append(args, "--args", arg)
-	}
-
 	if opts.NoNewPrivs {
 		args = append(args, "--no-new-privs")
 	}
+
+	args = appendArgsSlice(args, "--additional-gids", additionalGIDs)
+	args = appendArgsSlice(args, "--caps", opts.Capabilities)
+	args = appendArgsSlice(args, "--envs", opts.Env)
+	args = appendArgsSlice(args, "--args", opts.Args)
 
 	for _, ns := range namespaces {
 		if ns == "time" {
@@ -163,18 +152,26 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			procAttr.Sys.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 		}
 
+		f, err := os.Open(containerNSPath)
+		if err != nil {
+			return 0, fmt.Errorf("open ns path: %w", err)
+		}
+
 		if ns == "mnt" {
-			gonsEnv := fmt.Sprintf("gons_mnt=%s", containerNSPath)
-			procAttr.Env = append(procAttr.Env, gonsEnv)
+			procAttr.Env = append(
+				procAttr.Env,
+				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
+			)
 		} else {
-			if err := platform.SetNS(containerNSPath); err != nil {
+			if err := platform.SetNS(f.Fd()); err != nil {
 				return 0, fmt.Errorf("join namespace: %w", err)
 			}
 		}
+
+		f.Close()
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
-	procAttr.Env = append(procAttr.Env, os.Environ()...)
 
 	_, err := exec.LookPath(opts.Args[0])
 	if err != nil {
@@ -198,7 +195,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	}
 
 	if opts.PIDFile != "" {
-		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o755); err != nil {
+		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o644); err != nil {
 			return 0, fmt.Errorf(
 				"write pid to file (%s): %w",
 				opts.PIDFile,
@@ -253,7 +250,7 @@ func ChildExec(opts *ChildExecOpts) error {
 			return fmt.Errorf("set capabilities: %w", err)
 		}
 
-		if opts.User.UID != 0 {
+		if opts.User != nil && opts.User.UID != 0 {
 			if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
 				return fmt.Errorf("clear KEEPCAPS: %w", err)
 			}
@@ -324,4 +321,12 @@ func sharedNamespace(containerNSPath, hostNSPath string) (bool, error) {
 	}
 
 	return false, nil
+}
+
+func appendArgsSlice(args []string, flag string, values []string) []string {
+	for _, a := range values {
+		args = append(args, flag, a)
+	}
+
+	return args
 }

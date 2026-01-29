@@ -53,13 +53,9 @@ func TestContainerLifecycle(t *testing.T) {
 			Status:  "creating",
 			Bundle:  opts.Bundle,
 		},
-		spec:    opts.Spec,
-		RootDir: opts.RootDir,
-		containerSock: filepath.Join(
-			"/run/anocir",
-			shortID(opts.Bundle),
-			containerSockFilename,
-		),
+		spec:          opts.Spec,
+		RootDir:       opts.RootDir,
+		containerSock: containerSockPath(opts.Bundle),
 	}, loaded)
 }
 

@@ -90,18 +90,24 @@ var defaultDevices = []specs.LinuxDevice{
 // MountDefaultDevices mounts the default set of devices into the containers
 // root filesystem at the given containerRootfs.
 func MountDefaultDevices(containerRootfs string) error {
-	for _, d := range defaultDevices {
-		absPath := filepath.Join(
-			containerRootfs,
-			strings.TrimPrefix(d.Path, "/"),
-		)
+	root, err := os.OpenRoot(containerRootfs)
+	if err != nil {
+		return fmt.Errorf("open container rootfs: %w", err)
+	}
+	defer root.Close()
 
-		f, err := os.Create(absPath)
+	for _, d := range defaultDevices {
+		relPath := strings.TrimPrefix(d.Path, "/")
+
+		f, err := root.Create(relPath)
 		if err != nil && !os.IsExist(err) {
 			return err
 		}
-		f.Close()
+		if f != nil {
+			f.Close()
+		}
 
+		absPath := filepath.Join(root.Name(), relPath)
 		if err := BindMount(d.Path, absPath, false); err != nil {
 			return fmt.Errorf("bind mount device: %w", err)
 		}

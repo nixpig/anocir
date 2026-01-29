@@ -35,7 +35,8 @@ func CreateCgroup(
 func DeleteCgroup(cgroupsPath, containerID string) error {
 	cg := loadCgroupManager(cgroupsPath, containerID)
 
-	// TODO: Consider logging errors in future. Ignoring for now, as best-effort.
+	// TODO: Consider logging errors and/or returning final error in future.
+	// Ignoring for now, as best-effort.
 	_ = cg.Freeze()
 	_ = cg.Kill()
 	_ = cg.DeleteSystemd()

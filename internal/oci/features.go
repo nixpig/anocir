@@ -38,12 +38,7 @@ func featuresCmd() *cobra.Command {
 
 func formatFeaturesOutput(features []byte) (string, error) {
 	var formattedFeatures bytes.Buffer
-	if err := json.Indent(
-		&formattedFeatures,
-		features,
-		"",
-		"  ",
-	); err != nil {
+	if err := json.Indent(&formattedFeatures, features, "", "  "); err != nil {
 		return "", fmt.Errorf("json indent features output: %w", err)
 	}
 

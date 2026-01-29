@@ -24,23 +24,21 @@ func stateCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				state, err := c.GetState()
-				if err != nil {
-					return fmt.Errorf("failed to get container state: %w", err)
-				}
+			state, err := cntr.GetState()
+			if err != nil {
+				return fmt.Errorf("failed to get container state: %w", err)
+			}
 
-				stateOutput, err := json.Marshal(state)
-				if err != nil {
-					return fmt.Errorf("failed to marshal state: %w", err)
-				}
+			stateOutput, err := json.Marshal(state)
+			if err != nil {
+				return fmt.Errorf("failed to marshal state: %w", err)
+			}
 
-				if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(stateOutput)); err != nil {
-					return fmt.Errorf("failed to print state: %w", err)
-				}
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), string(stateOutput)); err != nil {
+				return fmt.Errorf("failed to print state: %w", err)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 

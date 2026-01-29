@@ -27,31 +27,29 @@ func psCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				state, err := c.GetState()
-				if err != nil {
-					return fmt.Errorf("failed to get container state: %w", err)
-				}
+			state, err := cntr.GetState()
+			if err != nil {
+				return fmt.Errorf("failed to get container state: %w", err)
+			}
 
-				processes, err := platform.GetCgroupProcesses(
-					c.GetSpec().Linux.CgroupsPath,
-					state.ID,
-				)
-				if err != nil {
-					return fmt.Errorf("failed to get processes: %w", err)
-				}
+			processes, err := platform.GetCgroupProcesses(
+				cntr.GetSpec().Linux.CgroupsPath,
+				state.ID,
+			)
+			if err != nil {
+				return fmt.Errorf("failed to get processes: %w", err)
+			}
 
-				formattedOutput, err := formatProcessesOutput(format, processes)
-				if err != nil {
-					return fmt.Errorf("failed to format output: %w", err)
-				}
+			formattedOutput, err := formatProcessesOutput(format, processes)
+			if err != nil {
+				return fmt.Errorf("failed to format output: %w", err)
+			}
 
-				if _, err := fmt.Fprintln(cmd.OutOrStdout(), formattedOutput); err != nil {
-					return fmt.Errorf("failed to print processes: %w", err)
-				}
+			if _, err := fmt.Fprintln(cmd.OutOrStdout(), formattedOutput); err != nil {
+				return fmt.Errorf("failed to print processes: %w", err)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 

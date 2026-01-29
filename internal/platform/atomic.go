@@ -17,10 +17,7 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 	tempFileName := f.Name()
 
 	defer func() {
-		if closeErr := f.Close(); closeErr != nil && err == nil {
-			err = closeErr
-		}
-
+		_ = f.Close()
 		if _, statErr := os.Stat(tempFileName); statErr == nil {
 			os.Remove(tempFileName)
 		}
@@ -42,5 +39,5 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("rename temp file: %w", err)
 	}
 
-	return err
+	return nil
 }

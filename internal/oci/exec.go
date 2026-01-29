@@ -56,18 +56,16 @@ func execCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			return cntr.DoWithLock(func(c *container.Container) error {
-				exitCode, err := container.Exec(c.State.Pid, opts)
-				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
-					if exitCode != 0 {
-						os.Exit(exitCode)
-					}
-					os.Exit(255)
+			exitCode, err := container.Exec(cntr.State.Pid, opts)
+			if err != nil {
+				fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
+				if exitCode != 0 {
+					os.Exit(exitCode)
 				}
+				os.Exit(255)
+			}
 
-				return nil
-			})
+			return nil
 		},
 	}
 
