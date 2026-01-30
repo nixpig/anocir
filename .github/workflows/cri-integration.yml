@@ -64,7 +64,15 @@ jobs:
 
       - name: start containerd
         run: |
-          sudo containerd & sleep 5
+          sudo containerd &
+          for i in {1..60}; do
+            if sudo ctr version > /dev/null 2>&1; then
+              echo "containerd is ready"
+              break
+            fi
+            echo "Waiting for containerd..."
+            sleep 1
+          done
 
       - name: debug containerd
         run: |
