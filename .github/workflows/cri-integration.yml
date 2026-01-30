@@ -55,7 +55,7 @@ jobs:
       - name: build cri-tools
         working-directory: cri-tools
         run: |
-          make
+          make && sudo make install
 
       - name: configure containerd
         run: |
@@ -86,6 +86,5 @@ jobs:
           sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock version
 
       - name: run cri tests
-        working-directory: cri-tools
         run: |
-          sudo ./build/bin/linux/amd64/critest --runtime-endpoint=unix:///run/containerd/containerd.sock
+          sudo critest --runtime-endpoint=unix:///run/containerd/containerd.sock
