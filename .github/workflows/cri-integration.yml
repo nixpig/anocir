@@ -81,6 +81,10 @@ jobs:
           sudo ctr version
           sudo ctr plugins ls | grep cri
 
+      - name: verify CRI is working
+        run: |
+          sudo crictl --runtime-endpoint unix:///run/containerd/containerd.sock version
+
       - name: run cri tests
         working-directory: cri-tools
         run: |
