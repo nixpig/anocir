@@ -64,7 +64,7 @@ func formatProcessesOutput(format string, processes []int) (string, error) {
 	case "table":
 		var b strings.Builder
 		for _, p := range processes {
-			fmt.Fprintf(&b, "%d", p)
+			fmt.Fprintf(&b, "%d\n", p)
 		}
 		return b.String(), nil
 	case "json":

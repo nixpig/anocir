@@ -17,7 +17,11 @@ func ContainerID(id string) error {
 	}
 
 	if len(id) > maxLength {
-		return fmt.Errorf("max length is %d chars", maxLength)
+		return fmt.Errorf(
+			"%d exceeds max length of %d chars",
+			len(id),
+			maxLength,
+		)
 	}
 
 	for _, c := range id {

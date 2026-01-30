@@ -1,9 +1,8 @@
 package platform
 
 import (
-	"errors"
+	"fmt"
 	"os"
-	"path/filepath"
 )
 
 // defaultSymlinks are the symlinks required by all containers to ensure
@@ -23,24 +22,16 @@ func CreateDefaultSymlinks(containerRootfs string) error {
 }
 
 func createSymlinks(symlinks map[string]string, rootfs string) error {
+	root, err := os.OpenRoot(rootfs)
+	if err != nil {
+		return fmt.Errorf("open rootfs: %w", err)
+	}
+	defer root.Close()
+
 	for src, dest := range symlinks {
-		destPath := filepath.Join(rootfs, dest)
-
-		if target, err := os.Readlink(destPath); err == nil {
-			if target == src {
-				continue
-			}
-			if err := os.Remove(destPath); err != nil {
-				return err
-			}
-		} else if !errors.Is(err, os.ErrNotExist) {
-			if err := os.Remove(destPath); err != nil {
-				return err
-			}
-		}
-
-		if err := os.Symlink(src, destPath); err != nil {
-			return err
+		_ = root.Remove(dest)
+		if err := root.Symlink(src, dest); err != nil {
+			return fmt.Errorf("create symlink %s -> %s: %w", dest, src, err)
 		}
 	}
 

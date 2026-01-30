@@ -56,9 +56,16 @@ func SendMessage(conn net.Conn, msg byte) error {
 // ReceiveMessage reads from the given conn and returns the read data.
 func ReceiveMessage(conn net.Conn) (byte, error) {
 	buf := make([]byte, 1)
-	_, err := conn.Read(buf)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return 0, err
+	}
 
-	return buf[0], err
+	if n != 1 {
+		return 0, fmt.Errorf("invalid number of bytes read: %d", n)
+	}
+
+	return buf[0], nil
 }
 
 // NewSocketPair creates a socket pair and returns the file descriptors.

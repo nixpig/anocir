@@ -37,7 +37,7 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	hasUTSNamespace := platform.ContainsNamespaceType(
+	hasUTSNamespace := platform.ContainsNSType(
 		c.spec.Linux.Namespaces,
 		specs.UTSNamespace,
 	)
@@ -85,7 +85,7 @@ func (c *Container) setupPostPivot() error {
 	}
 
 	if c.spec.Process.User.UID != 0 && c.spec.Process.Capabilities != nil {
-		if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 1, 0, 0, 0); err != nil {
+		if err := platform.SetKeepCaps(1); err != nil {
 			return fmt.Errorf("set KEEPCAPS: %w", err)
 		}
 	}
@@ -100,7 +100,7 @@ func (c *Container) setupPostPivot() error {
 		}
 
 		if c.spec.Process.User.UID != 0 {
-			if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
+			if err := platform.SetKeepCaps(0); err != nil {
 				return fmt.Errorf("clear KEEPCAPS: %w", err)
 			}
 		}

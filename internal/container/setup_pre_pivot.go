@@ -11,7 +11,7 @@ import (
 // setupPrePivot performs configuration of the container environment before
 // pivot_root.
 func (c *Container) setupPrePivot() error {
-	hasMountNamespace := platform.ContainsNamespaceType(
+	hasMountNamespace := platform.ContainsNSType(
 		c.spec.Linux.Namespaces,
 		specs.MountNamespace,
 	)

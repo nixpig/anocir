@@ -54,15 +54,15 @@ type ChildExecOpts struct {
 }
 
 // Namespaces need to be applied in a specific order. Don't change these.
-var namespaces = []string{
-	"user",
-	"pid",
-	"net",
-	"ipc",
-	"uts",
-	"cgroup",
-	"time",
-	"mnt",
+var namespaces = []specs.LinuxNamespaceType{
+	specs.UserNamespace,
+	specs.PIDNamespace,
+	specs.NetworkNamespace,
+	specs.IPCNamespace,
+	specs.UTSNamespace,
+	specs.CgroupNamespace,
+	specs.TimeNamespace,
+	specs.MountNamespace,
 }
 
 // Exec configures the execution of a command with the given opts in an
@@ -105,6 +105,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		if err := terminal.SendPty(ptySocket.SocketFd, pty); err != nil {
 			return 0, fmt.Errorf("send pty: %w", err)
 		}
+
 		procAttr.Files = []uintptr{
 			pty.Slave.Fd(),
 			pty.Slave.Fd(),
@@ -130,13 +131,13 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	args = appendArgsSlice(args, "--args", opts.Args)
 
 	for _, ns := range namespaces {
-		if ns == "time" {
-			// TODO: Apply this - gonna need to be time_for_children or skip, I think.
-			continue
+		nsName, ok := platform.NamespaceEnvs[ns]
+		if !ok {
+			return 0, fmt.Errorf("unknown namespace: %s", ns)
 		}
 
-		containerNSPath := fmt.Sprintf("/proc/%d/ns/%s", containerPID, ns)
-		hostNSPath := fmt.Sprintf("/proc/1/ns/%s", ns)
+		containerNSPath := fmt.Sprintf("/proc/%d/ns/%s", containerPID, nsName)
+		hostNSPath := fmt.Sprintf("/proc/1/ns/%s", nsName)
 
 		isSharedNS, err := sharedNamespace(containerNSPath, hostNSPath)
 		if err != nil {
@@ -148,27 +149,42 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			continue
 		}
 
-		if ns == "user" {
+		if ns == specs.TimeNamespace {
+			// TODO: Apply this - gonna need to be time_for_children or skip, I think.
+			continue
+		}
+
+		if ns == specs.UserNamespace {
 			procAttr.Sys.Credential = &syscall.Credential{Uid: 0, Gid: 0}
+			continue
 		}
 
-		f, err := os.Open(containerNSPath)
-		if err != nil {
-			return 0, fmt.Errorf("open ns path: %w", err)
-		}
+		if ns == specs.MountNamespace {
+			f, err := os.Open(containerNSPath)
+			if err != nil {
+				return 0, fmt.Errorf("open ns path: %w", err)
+			}
 
-		if ns == "mnt" {
 			procAttr.Env = append(
 				procAttr.Env,
 				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
 			)
-		} else {
-			if err := platform.SetNS(f.Fd()); err != nil {
-				return 0, fmt.Errorf("join namespace: %w", err)
-			}
+			f.Close()
+
+			continue
 		}
 
-		f.Close()
+		if err := platform.JoinNS(&specs.LinuxNamespace{
+			Type: ns,
+			Path: containerNSPath,
+		}); err != nil {
+			return 0, fmt.Errorf(
+				"join namespace %s %s: %w",
+				ns,
+				containerNSPath,
+				err,
+			)
+		}
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
@@ -236,7 +252,7 @@ func ChildExec(opts *ChildExecOpts) error {
 	}
 
 	if opts.User != nil && opts.User.UID != 0 && opts.Capabilities != nil {
-		if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 1, 0, 0, 0); err != nil {
+		if err := platform.SetKeepCaps(1); err != nil {
 			return fmt.Errorf("set KEEPCAPS: %w", err)
 		}
 	}
@@ -251,7 +267,7 @@ func ChildExec(opts *ChildExecOpts) error {
 		}
 
 		if opts.User != nil && opts.User.UID != 0 {
-			if err := unix.Prctl(unix.PR_SET_KEEPCAPS, 0, 0, 0, 0); err != nil {
+			if err := platform.SetKeepCaps(0); err != nil {
 				return fmt.Errorf("clear KEEPCAPS: %w", err)
 			}
 		}

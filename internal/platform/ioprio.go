@@ -8,6 +8,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// ioPrioClassShift is used to shift the scheduling class values into the top
+// 3 bits of the field.
+const ioPrioClassShift = 13
+
 // ErrUnknownIOPrioClass is returned when the specified I/O priority class is
 // not recognised.
 var ErrUnknownIOPrioClass = errors.New("ioprio mapping failed")
@@ -40,7 +44,7 @@ func IOPrioToInt(iop *specs.LinuxIOPriority) (int, error) {
 		)
 	}
 
-	ioprio := (class << 13) | iop.Priority
+	ioprio := (class << ioPrioClassShift) | iop.Priority
 
 	return ioprio, nil
 }

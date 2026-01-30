@@ -83,7 +83,11 @@ type Opts struct {
 
 // New constructs a Container based on the provided opts. The container will be
 // in the 'creating' state.
-func New(opts *Opts) *Container {
+func New(opts *Opts) (*Container, error) {
+	if opts.Spec.Linux == nil {
+		return nil, fmt.Errorf("spec must have Linux configuration")
+	}
+
 	state := &specs.State{
 		Version:     specs.Version,
 		ID:          opts.ID,
@@ -103,7 +107,7 @@ func New(opts *Opts) *Container {
 		RootDir:       opts.RootDir,
 		LogFile:       opts.LogFile,
 		containerSock: containerSockPath(opts.Bundle),
-	}
+	}, nil
 }
 
 func (c *Container) save() error {
@@ -116,9 +120,7 @@ func (c *Container) save() error {
 		"state_filepath", c.stateFilepath(),
 	)
 
-	if c.spec.Linux != nil &&
-		len(c.spec.Linux.UIDMappings) > 0 &&
-		len(c.spec.Linux.GIDMappings) > 0 {
+	if len(c.spec.Linux.UIDMappings) > 0 && len(c.spec.Linux.GIDMappings) > 0 {
 		if err := os.Chown(
 			containerDir,
 			int(c.spec.Linux.UIDMappings[0].HostID),
@@ -232,12 +234,8 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if c.spec.Linux != nil {
-		if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-			if !force {
-				return fmt.Errorf("delete cgroups: %w", err)
-			}
-		}
+	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
+		fmt.Fprintf(os.Stderr, "failed to delete cgroup: %s", err.Error())
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -381,7 +379,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 		return fmt.Errorf("parse signal: %w", err)
 	}
 
-	if killAll && c.spec.Linux != nil {
+	if killAll {
 		pids, err := platform.GetCgroupProcesses(
 			c.spec.Linux.CgroupsPath,
 			c.State.ID,
@@ -567,21 +565,19 @@ func (c *Container) Init() error {
 
 	c.State.Pid = cmd.Process.Pid
 
-	if c.spec.Linux != nil {
-		slog.Debug(
-			"create cgroup",
-			"container_id", c.State.ID,
-			"pid", c.State.Pid,
-			"cgroups_path", c.spec.Linux.CgroupsPath,
-		)
-		if err := platform.CreateCgroup(
-			c.spec.Linux.CgroupsPath,
-			c.State.ID,
-			c.State.Pid,
-			c.spec.Linux.Resources,
-		); err != nil {
-			return fmt.Errorf("create cgroups: %w", err)
-		}
+	slog.Debug(
+		"create cgroup",
+		"container_id", c.State.ID,
+		"pid", c.State.Pid,
+		"cgroups_path", c.spec.Linux.CgroupsPath,
+	)
+	if err := platform.CreateCgroup(
+		c.spec.Linux.CgroupsPath,
+		c.State.ID,
+		c.State.Pid,
+		c.spec.Linux.Resources,
+	); err != nil {
+		return fmt.Errorf("create cgroups: %w", err)
 	}
 
 	conn, err := net.FileConn(initSockParent)
@@ -713,7 +709,7 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	hasMountNamespace := platform.ContainsNamespaceType(
+	hasMountNamespace := platform.ContainsNSType(
 		c.spec.Linux.Namespaces,
 		specs.MountNamespace,
 	)
@@ -815,10 +811,6 @@ func (c *Container) Pause() error {
 		)
 	}
 
-	if c.spec.Linux == nil {
-		return errors.New("no Linux spec")
-	}
-
 	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("freeze cgroup: %w", err)
 	}
@@ -850,10 +842,6 @@ func (c *Container) Resume() error {
 		)
 	}
 
-	if c.spec.Linux == nil {
-		return errors.New("no Linux spec")
-	}
-
 	if err := platform.ThawCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("thaw cgroup: %w", err)
 	}
@@ -868,7 +856,7 @@ func (c *Container) Resume() error {
 }
 
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
-	cloneFlags := uintptr(0)
+	cmd.SysProcAttr.Cloneflags = uintptr(0)
 
 	for _, ns := range c.spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
@@ -894,30 +882,33 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 		}
 
 		if ns.Path == "" {
-			cloneFlags |= platform.NamespaceFlags[ns.Type]
-		} else {
+			cmd.SysProcAttr.Cloneflags |= platform.NamespaceFlags[ns.Type]
+			continue
+		}
+
+		if ns.Type == specs.MountNamespace {
+			// Mount namespaces do not work across OS threads and Go cannot
+			// guarantee what thread any newly spawned goroutines will land on,
+			// so this needs to be done in single-threaded context in C before the
+			// reexec.
 			f, err := platform.OpenNSPath(&ns)
 			if err != nil {
-				return fmt.Errorf("validate ns path: %w", err)
+				return fmt.Errorf("validate mount ns path: %w", err)
 			}
 
-			if ns.Type == specs.MountNamespace {
-				// Mount namespaces do not work across OS threads and Go cannot
-				// guarantee what thread any newly spawned goroutines will land on,
-				// so this needs to be done in single-threaded context in C before the
-				// reexec.
-				cmd.Env = append(cmd.Env, fmt.Sprintf("%s=%s", envMountNS, f.Name()))
-			} else {
-				if err := platform.SetNS(f.Fd()); err != nil {
-					return fmt.Errorf("set namespace: %w", err)
-				}
-			}
-
+			cmd.Env = append(
+				cmd.Env,
+				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
+			)
 			f.Close()
+
+			continue
+		}
+
+		if err := platform.JoinNS(&ns); err != nil {
+			return fmt.Errorf("join namespace %s %s: %w", ns.Type, ns.Path, err)
 		}
 	}
-
-	cmd.SysProcAttr.Cloneflags = cloneFlags
 
 	return nil
 }
