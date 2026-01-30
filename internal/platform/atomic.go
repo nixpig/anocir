@@ -16,6 +16,7 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 
 	tempFileName := f.Name()
 
+	// Always close and remove temp file.
 	defer func() {
 		_ = f.Close()
 		if _, statErr := os.Stat(tempFileName); statErr == nil {

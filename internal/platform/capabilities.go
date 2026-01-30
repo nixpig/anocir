@@ -55,8 +55,8 @@ var capabilities = map[string]capability.Cap{
 	"CAP_WAKE_ALARM":         capability.CAP_WAKE_ALARM,
 }
 
-// SetCapabilities sets the process capabilities based on the provided
-// LinuxCapabilities.
+// SetCapabilities sets the process' effective, inheritable, permitted and
+// ambient capabilities based on the provided caps.
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	c, err := capability.NewPid2(0)
 	if err != nil {
@@ -100,6 +100,8 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 	return nil
 }
 
+// DropBoundingCapabilities drops the bounding capabilities specified in caps
+// from the current thread's capability bounding set.
 func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 	if caps.Bounding != nil {
 		retain := make(map[capability.Cap]struct{})
@@ -119,6 +121,16 @@ func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 				}
 			}
 		}
+	}
+
+	return nil
+}
+
+// SetKeepCaps sets the state of the 'keep capabilities' flag using
+// PR_SET_KEEPCAPS. 0 = clear flag, 1 = set flag.
+func SetKeepCaps(state uintptr) error {
+	if err := unix.Prctl(unix.PR_SET_KEEPCAPS, state, 0, 0, 0); err != nil {
+		return fmt.Errorf("set keep capabilities flag: %w", err)
 	}
 
 	return nil

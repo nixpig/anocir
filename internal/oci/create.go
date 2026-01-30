@@ -54,7 +54,7 @@ func createCmd() *cobra.Command {
 				return fmt.Errorf("failed to create container dirs: %w", err)
 			}
 
-			cntr := container.New(&container.Opts{
+			cntr, err := container.New(&container.Opts{
 				ID:            containerID,
 				Bundle:        bundle,
 				Spec:          spec,
@@ -65,6 +65,9 @@ func createCmd() *cobra.Command {
 				LogFormat:     logFormat,
 				Debug:         debug,
 			})
+			if err != nil {
+				return fmt.Errorf("failed to create container: %w", err)
+			}
 
 			if err := cntr.Init(); err != nil {
 				return fmt.Errorf("failed to initialise container: %w", err)

@@ -8,23 +8,25 @@ import (
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestContainerLifecycle(t *testing.T) {
 	opts := &Opts{
 		ID:      "test-container",
 		Bundle:  t.TempDir(),
-		Spec:    &specs.Spec{},
+		Spec:    &specs.Spec{Linux: &specs.Linux{}},
 		RootDir: t.TempDir(),
 		PIDFile: filepath.Join(t.TempDir(), "pid"),
 	}
 
-	config, err := json.Marshal(&specs.Spec{})
+	config, err := json.Marshal(&specs.Spec{Linux: &specs.Linux{}})
 	assert.NoError(t, err, "Spec should marshal to JSON")
 
 	os.WriteFile(filepath.Join(opts.Bundle, "config.json"), config, 0o644)
 
-	c := New(opts)
+	c, err := New(opts)
+	require.NoError(t, err)
 
 	if err := os.MkdirAll(filepath.Join(opts.RootDir, opts.ID), 0o755); err != nil {
 		assert.Fail(t, "must create container directory")
@@ -101,12 +103,13 @@ func TestStateFilePath(t *testing.T) {
 	opts := &Opts{
 		ID:      "test-container",
 		Bundle:  t.TempDir(),
-		Spec:    &specs.Spec{},
+		Spec:    &specs.Spec{Linux: &specs.Linux{}},
 		RootDir: t.TempDir(),
 		PIDFile: filepath.Join(t.TempDir(), "pid"),
 	}
 
-	c := New(opts)
+	c, err := New(opts)
+	require.NoError(t, err)
 
 	assert.Equal(
 		t,

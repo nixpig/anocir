@@ -50,6 +50,16 @@ func SetNS(fd uintptr) error {
 	return nil
 }
 
+func JoinNS(ns *specs.LinuxNamespace) error {
+	f, err := OpenNSPath(ns)
+	if err != nil {
+		return fmt.Errorf("validate mount ns path: %w", err)
+	}
+	defer f.Close()
+
+	return SetNS(f.Fd())
+}
+
 // OpenNSPath opens the path of the given ns and validates it, returning the
 // corresponding file. If validation fails then ErrInvalidNamespacePath error
 // is returned.
@@ -124,9 +134,9 @@ func BuildUserNSMappings(
 	return uidMappings, gidMappings
 }
 
-// ContainsNamespaceType checks whether the given namespaces contain a
+// ContainsNSType checks whether the given namespaces contain a
 // namespace of the given namespaceType.
-func ContainsNamespaceType(
+func ContainsNSType(
 	namespaces []specs.LinuxNamespace,
 	namespaceType specs.LinuxNamespaceType,
 ) bool {
