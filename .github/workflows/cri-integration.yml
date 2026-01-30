@@ -64,7 +64,7 @@ jobs:
 
       - name: start containerd
         run: |
-          sudo containerd &
+          sudo containerd -c /etc/containerd/config.toml -l debug &
           for i in {1..60}; do
             if sudo ctr version > /dev/null 2>&1; then
               echo "containerd is ready"
@@ -76,10 +76,8 @@ jobs:
 
       - name: debug containerd
         run: |
-          cat /etc/containerd/config.toml
-          sudo containerd config dump
-          sudo ctr version
-          sudo ctr plugins ls | grep cri
+          sudo journalctl -u containerd --no-pager || true
+          ps aux | grep containerd
 
       - name: verify CRI is working
         run: |
