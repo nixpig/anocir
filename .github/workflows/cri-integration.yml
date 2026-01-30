@@ -72,7 +72,14 @@ jobs:
 
       - name: start containerd
         run: |
-          sudo containerd &
+          sudo containerd & sleep 5
+
+      - name: debug containerd
+        run: |
+          cat /etc/containerd/config.toml
+          sudo containerd config dump
+          sudo ctr version
+          sudo ctr plugins ls | grep cri
 
       - name: run cri tests
         working-directory: cri-tools
