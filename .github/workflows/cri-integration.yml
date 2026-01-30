@@ -1,0 +1,67 @@
+name: cri-integration
+
+on:
+  workflow_run:
+    workflows: [build]
+    types:
+      - completed
+    branches:
+      - "**"
+
+jobs:
+  cri-integration:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+    steps:
+      - name: checkout cri-tools repo
+        uses: actions/checkout@v4
+        with:
+          repository: kubernetes-sigs/cri-tools
+          ref: v1.35.0
+          path: cri-tools
+
+      - name: checkout containerd repo
+        uses: actions/checkout@v4
+        with:
+          repository: containerd/containerd
+          ref: v2.2.1
+          path: containerd
+
+      - name: setup go
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.25.5"
+
+      - name: download anocir artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: anocir
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: install anocir
+        run: |
+          chmod 755 ./anocir
+
+      - name: link anocir
+        run: |
+          sudo ln -sf ${{ github.workspace }}/anocir $(which runc)
+
+      - name: build containerd
+        working-directory: containerd
+        run: |
+          make binaries && sudo make install
+
+      - name: build cri-tools
+        working-directory: cri-tools
+        run: |
+          make critest
+
+      - name: start containerd
+        run: |
+          sudo containerd &
+
+      - name: run cri tests
+        working-directory: cri-tools
+        run: |
+          sudo ./build/bin/linux/amd64/critest --runtime-endpoint=unix:///run/containerd/containerd.sock
