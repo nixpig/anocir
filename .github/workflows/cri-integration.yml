@@ -62,6 +62,11 @@ jobs:
           sudo mkdir -p /etc/containerd
           sudo containerd config default | sudo tee /etc/containerd/config.toml
 
+      - name: stop system containerd
+        run: |
+          sudo systemctl stop containerd
+          sudo systemctl stop docker
+
       - name: start containerd
         run: |
           sudo containerd -c /etc/containerd/config.toml -l debug &
