@@ -55,7 +55,7 @@ jobs:
       - name: build cri-tools
         working-directory: cri-tools
         run: |
-          make critest
+          make
 
       - name: configure containerd
         run: |
