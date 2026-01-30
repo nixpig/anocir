@@ -60,15 +60,7 @@ jobs:
       - name: configure containerd
         run: |
           sudo mkdir -p /etc/containerd
-          cat <<EOF | sudo tee /etc/containerd/config.toml
-          version = 3
-
-          [plugins."io.containerd.cri.v1.runtime"]
-            [plugins."io.containerd.cri.v1.runtime".containerd]
-              default_runtime_name = "runc"
-              [plugins."io.containerd.cri.v1.runtime".containerd.runtimes.runc]
-                runtime_type = "io.containerd.runc.v2"
-          EOF
+          sudo containerd config default | sudo tee /etc/containerd/config.toml
 
       - name: start containerd
         run: |
