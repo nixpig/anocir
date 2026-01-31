@@ -130,6 +130,8 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	args = appendArgsSlice(args, "--envs", opts.Env)
 	args = appendArgsSlice(args, "--args", opts.Args)
 
+	var joinNSParts []string
+
 	for _, ns := range namespaces {
 		nsName, ok := platform.NamespaceEnvs[ns]
 		if !ok {
@@ -159,32 +161,17 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			continue
 		}
 
-		if ns == specs.MountNamespace {
-			f, err := os.Open(containerNSPath)
-			if err != nil {
-				return 0, fmt.Errorf("open ns path: %w", err)
-			}
-
-			procAttr.Env = append(
-				procAttr.Env,
-				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
-			)
-			f.Close()
-
-			continue
+		f, err := os.Open(containerNSPath)
+		if err != nil {
+			return 0, fmt.Errorf("open ns path: %w", err)
 		}
 
-		if err := platform.JoinNS(&specs.LinuxNamespace{
-			Type: ns,
-			Path: containerNSPath,
-		}); err != nil {
-			return 0, fmt.Errorf(
-				"join namespace %s %s: %w",
-				ns,
-				containerNSPath,
-				err,
-			)
-		}
+		joinNSParts = append(
+			joinNSParts,
+			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], nsName),
+		)
+		f.Close()
+
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)

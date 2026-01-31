@@ -41,9 +41,9 @@ const (
 	// the container socket file descriptor to the reexec'd process.
 	envContainerSockFD = "_ANOCIR_CONTAINER_SOCK_FD"
 
-	// envMountNS is the name of the environment variable used to pass the mount
-	// mount namespace to the reexec'd process.
-	envMountNS = "_ANOCIR_MNT_NS"
+	// envJoinNS is the name of the environment variable used to pass the
+	// namespaces to join to the reexec'd process.
+	envJoinNS = "_ANOCIR_JOIN_NS"
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -858,6 +858,8 @@ func (c *Container) Resume() error {
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 	cmd.SysProcAttr.Cloneflags = uintptr(0)
 
+	var joinNSParts []string
+
 	for _, ns := range c.spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
 			uidMappings, gidMappings := platform.BuildUserNSMappings(
@@ -886,28 +888,30 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 			continue
 		}
 
-		if ns.Type == specs.MountNamespace {
-			// Mount namespaces do not work across OS threads and Go cannot
-			// guarantee what thread any newly spawned goroutines will land on,
-			// so this needs to be done in single-threaded context in C before the
-			// reexec.
-			f, err := platform.OpenNSPath(&ns)
-			if err != nil {
-				return fmt.Errorf("validate mount ns path: %w", err)
+		if ns.Type == specs.PIDNamespace {
+			if err := platform.JoinNS(&ns); err != nil {
+				return fmt.Errorf("join pid namespace: %w", err)
 			}
-
-			cmd.Env = append(
-				cmd.Env,
-				fmt.Sprintf("%s=%s", envMountNS, f.Name()),
-			)
-			f.Close()
-
 			continue
 		}
 
-		if err := platform.JoinNS(&ns); err != nil {
-			return fmt.Errorf("join namespace %s %s: %w", ns.Type, ns.Path, err)
+		f, err := platform.OpenNSPath(&ns)
+		if err != nil {
+			return fmt.Errorf("validate mount ns path: %w", err)
 		}
+
+		joinNSParts = append(
+			joinNSParts,
+			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns.Type], f.Name()),
+		)
+		f.Close()
+	}
+
+	if len(joinNSParts) > 0 {
+		cmd.Env = append(
+			cmd.Env,
+			fmt.Sprintf("%s=%s", envJoinNS, strings.Join(joinNSParts, ",")),
+		)
 	}
 
 	return nil
