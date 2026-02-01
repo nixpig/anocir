@@ -1,6 +1,9 @@
 package container
 
-import "github.com/opencontainers/runtime-spec/specs-go"
+import (
+	"github.com/nixpig/anocir/internal/platform"
+	"github.com/opencontainers/runtime-spec/specs-go"
+)
 
 // GetFeatures returns the Features supported by anocir.
 func GetFeatures() *Features {
@@ -121,7 +124,7 @@ func GetFeatures() *Features {
 				Enabled: false,
 			},
 			AppArmor: &AppArmorFeatures{
-				Enabled: false,
+				Enabled: platform.IsAppArmorEnabled(),
 			},
 			SELinux: &SELinuxFeatures{
 				Enabled: false,

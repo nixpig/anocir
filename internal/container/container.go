@@ -146,6 +146,7 @@ func (c *Container) save() error {
 	if c.pidFile != "" && c.State.Pid > 0 {
 		slog.Debug(
 			"write pid file",
+			"container_id", c.State.ID,
 			"pid_file", c.pidFile,
 			"pid", c.State.Pid,
 		)
@@ -221,7 +222,11 @@ func (c *Container) Delete(force bool) error {
 
 	if c.State.Pid != 0 {
 		if err := unix.Kill(c.State.Pid, 0); err != nil {
-			slog.Debug("process already dead", "pid", c.State.Pid)
+			slog.Debug(
+				"process to kill already dead",
+				"container_id", c.State.ID,
+				"pid", c.State.Pid,
+			)
 			// Process is dead, update state
 			c.State.Status = specs.StateStopped
 		}
@@ -341,6 +346,23 @@ func (c *Container) Start() error {
 		// Nothing to do; silent return.
 		return nil
 	}
+
+	// Wait for container to signal it's ready to exec. This ensures the
+	// container has fully initialized (seccomp loaded, capabilities set, etc.)
+	// before we report it as running.
+	slog.Debug("waiting for exec ready message", "container_id", c.State.ID)
+	execReadyMsg, err := ipc.ReceiveMessage(conn)
+	if err != nil {
+		return fmt.Errorf("receive exec ready message: %w", err)
+	}
+	if execReadyMsg != ipc.MsgExecReady {
+		return fmt.Errorf(
+			"expecting MsgExecReady ('%b') but received '%b'",
+			ipc.MsgExecReady,
+			execReadyMsg,
+		)
+	}
+	slog.Debug("received exec ready message", "container_id", c.State.ID)
 
 	c.State.Status = specs.StateRunning
 	if err := c.save(); err != nil {
@@ -723,8 +745,7 @@ func (c *Container) Reexec() error {
 			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
 				slog.Debug(
 					"send invalid binary message",
-					"container_id",
-					c.State.ID,
+					"container_id", c.State.ID,
 				)
 
 				ipc.SendMessage(initConn, ipc.MsgInvalidBinary)
@@ -773,7 +794,7 @@ func (c *Container) Reexec() error {
 
 	if c.spec.Process != nil {
 		if err := c.setupPostPivot(); err != nil {
-			return err
+			return fmt.Errorf("setup postpivot: %w", err)
 		}
 	}
 
@@ -786,11 +807,17 @@ func (c *Container) Reexec() error {
 		return nil
 	}
 
-	if err := c.execUserProcess(); err != nil {
-		return err
+	// Signal to the parent that we're about to exec, so it knows the container
+	// is fully initialized and ready to receive signals.
+	if err := ipc.SendMessage(containerConn, ipc.MsgExecReady); err != nil {
+		return fmt.Errorf("failed to send exec ready message: %w", err)
 	}
 
-	panic("if you got here then something wrong that is not recoverable")
+	if err := c.execUserProcess(); err != nil {
+		return fmt.Errorf("exec user process: %w", err)
+	}
+
+	panic("unreachable")
 }
 
 // Pause pauses a running container by freezing the cgroup.
@@ -855,6 +882,10 @@ func (c *Container) Resume() error {
 	return nil
 }
 
+func (c *Container) ProcessEnv() []string {
+	return c.spec.Process.Env
+}
+
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 	cmd.SysProcAttr.Cloneflags = uintptr(0)
 
@@ -892,12 +923,13 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 			if err := platform.JoinNS(&ns); err != nil {
 				return fmt.Errorf("join pid namespace: %w", err)
 			}
+			slog.Debug("joined PID namespace", "container_id", c.State.ID)
 			continue
 		}
 
 		f, err := platform.OpenNSPath(&ns)
 		if err != nil {
-			return fmt.Errorf("validate mount ns path: %w", err)
+			return fmt.Errorf("open ns path: %w", err)
 		}
 
 		joinNSParts = append(

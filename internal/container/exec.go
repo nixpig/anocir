@@ -1,12 +1,15 @@
 package container
 
 import (
+	"encoding/json"
 	"fmt"
 	"log/slog"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
+	"strings"
 	"syscall"
 
 	"github.com/nixpig/anocir/internal/platform"
@@ -30,6 +33,7 @@ type ExecOpts struct {
 	Capabilities   []string
 	ConsoleSocket  string
 	ContainerID    string
+	Seccomp        *specs.LinuxSeccomp
 
 	// TODO: Handle these options.
 	IgnorePaused bool
@@ -51,6 +55,7 @@ type ChildExecOpts struct {
 	User         *specs.User
 	NoNewPrivs   bool
 	TTY          bool
+	Seccomp      *specs.LinuxSeccomp
 }
 
 // Namespaces need to be applied in a specific order. Don't change these.
@@ -156,11 +161,23 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			continue
 		}
 
+		if ns == specs.PIDNamespace {
+			// FIXME: setns(CLONE_NEWPID) only affects children, not the current
+			// process. Even joining in C constructor doesn't help because Go's
+			// runtime creates threads that fail with pthread_create after PID ns
+			// change.
+			//
+			// Skip PID namespace - this means /proc/self won't work in exec'd
+			// processes, but this is a known limitation.
+			continue
+		}
+
 		if ns == specs.UserNamespace {
 			procAttr.Sys.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 			continue
 		}
 
+		// TODO: This is exactly the same as in container.go; maybe factor out.
 		f, err := os.Open(containerNSPath)
 		if err != nil {
 			return 0, fmt.Errorf("open ns path: %w", err)
@@ -168,17 +185,62 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 		joinNSParts = append(
 			joinNSParts,
-			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], nsName),
+			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], containerNSPath),
 		)
 		f.Close()
-
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
 
-	_, err := exec.LookPath(opts.Args[0])
-	if err != nil {
-		return 0, fmt.Errorf("check binary exists: %w", err)
+	if len(joinNSParts) > 0 {
+		procAttr.Env = append(
+			procAttr.Env,
+			fmt.Sprintf("_ANOCIR_JOIN_NS=%s", strings.Join(joinNSParts, ",")),
+		)
+	}
+
+	// Pass container PID so C constructor can chroot into container's root.
+	procAttr.Env = append(
+		procAttr.Env,
+		fmt.Sprintf("_ANOCIR_CONTAINER_PID=%d", containerPID),
+	)
+
+	// Pass seccomp profile by writing to container's filesystem,
+	// /proc/<pid>/root/tmp appears as /tmp inside the container.
+	//
+	// TODO: This is pretty hacky and should probably find a cleaner way of
+	// passing the seccomp profile to the exec.
+	if opts.Seccomp != nil {
+		seccompData, err := json.Marshal(opts.Seccomp)
+		if err != nil {
+			return 0, fmt.Errorf("serialise seccomp profile: %w", err)
+		}
+
+		containerTmp := fmt.Sprintf("/proc/%d/root/tmp", containerPID)
+		if err := os.MkdirAll(containerTmp, 0o755); err != nil {
+			return 0, fmt.Errorf("create container tmp dir: %w", err)
+		}
+
+		seccompPath := filepath.Join(containerTmp, fmt.Sprintf("seccomp-%d.json", os.Getpid()))
+		if err := os.WriteFile(seccompPath, seccompData, 0o644); err != nil {
+			return 0, fmt.Errorf("write seccomp profile: %w", err)
+		}
+
+		// The path inside the container is /tmp/seccomp-<pid>.json
+		containerSeccompPath := fmt.Sprintf("/tmp/seccomp-%d.json", os.Getpid())
+		args = append(args, "--seccomp-file", containerSeccompPath)
+	}
+
+	// Check if binary exists in the container's filesystem before forking.
+	// This allows returning an error synchronously (as required by containerd)
+	// rather than deferring failure to later.
+	containerRoot := fmt.Sprintf("/proc/%d/root", containerPID)
+	if err := checkBinaryInContainer(
+		containerRoot,
+		opts.Args[0],
+		opts.Env,
+	); err != nil {
+		return 0, fmt.Errorf("check binary in container: %w", err)
 	}
 
 	execArgs := append([]string{"/proc/self/exe"}, args...)
@@ -232,6 +294,23 @@ func ChildExec(opts *ChildExecOpts) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
+	// Namespace joining and chroot to container root is handled by the
+	// C constructor (nssetup) which runs before Go starts.
+
+	// TODO: We have a lot of overlap between exec and pre-pivot. Review whether
+	// some of this can be factored out to reduce unnecessary duplication.
+
+	// When NoNewPrivileges is false, we load seccomp BEFORE dropping
+	// capabilities because seccomp filter loading is a privileged operation that
+	// requires CAP_SYS_ADMIN when NO_NEW_PRIVS is not set.
+	//
+	// See: https://man7.org/linux/man-pages/man2/seccomp.2.html
+	if opts.Seccomp != nil && !opts.NoNewPrivs {
+		if err := platform.LoadSeccompFilter(opts.Seccomp); err != nil {
+			return fmt.Errorf("load seccomp filter (privileged): %w", err)
+		}
+	}
+
 	if opts.Capabilities != nil {
 		if err := platform.DropBoundingCapabilities(opts.Capabilities); err != nil {
 			return fmt.Errorf("drop bounding caps: %w", err)
@@ -266,6 +345,15 @@ func ChildExec(opts *ChildExecOpts) error {
 		}
 	}
 
+	// When NoNewPrivileges is true, we load seccomp AFTER setting NO_NEW_PRIVS,
+	// as close to execve as possible to minimize the syscall surface. The
+	// NO_NEW_PRIVS bit allows unprivileged seccomp filter loading.
+	if opts.Seccomp != nil && opts.NoNewPrivs {
+		if err := platform.LoadSeccompFilter(opts.Seccomp); err != nil {
+			return fmt.Errorf("load seccomp filter: %w", err)
+		}
+	}
+
 	if opts.Cwd != "" {
 		if err := os.Chdir(opts.Cwd); err != nil {
 			return fmt.Errorf("change working directory: %w", err)
@@ -282,6 +370,16 @@ func ChildExec(opts *ChildExecOpts) error {
 		}
 	}
 
+	envs := slices.Concat(os.Environ(), opts.Env)
+	for _, env := range envs {
+		e := strings.SplitN(env, "=", 2)
+		if len(e) == 2 {
+			os.Setenv(e[0], e[1])
+		} else {
+			slog.Debug("invalid environment var", "env", env)
+		}
+	}
+
 	bin, err := exec.LookPath(opts.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of binary: %w", err)
@@ -295,7 +393,6 @@ func ChildExec(opts *ChildExecOpts) error {
 		"additional_envs", opts.Env,
 	)
 
-	envs := slices.Concat(os.Environ(), opts.Env)
 	if err := unix.Exec(bin, opts.Args, envs); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
@@ -332,4 +429,57 @@ func appendArgsSlice(args []string, flag string, values []string) []string {
 	}
 
 	return args
+}
+
+// checkBinaryInContainer verifies that the binary exists and is executable
+// within the container's filesystem. containerRoot should be /proc/<pid>/root.
+func checkBinaryInContainer(containerRoot, binary string, env []string) error {
+	if strings.HasPrefix(binary, "/") {
+		fullPath := filepath.Join(containerRoot, binary)
+		if err := checkExecutable(fullPath); err != nil {
+			return fmt.Errorf("executable file not found in $PATH: %w", err)
+		}
+		return nil
+	}
+
+	// Get PATH from environment.
+	pathEnv := "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin"
+	for _, e := range env {
+		if after, ok := strings.CutPrefix(e, "PATH="); ok {
+			pathEnv = after
+			break
+		}
+	}
+
+	for _, dir := range filepath.SplitList(pathEnv) {
+		if dir == "" {
+			dir = "."
+		}
+
+		fullPath := filepath.Join(containerRoot, dir, binary)
+		if err := checkExecutable(fullPath); err == nil {
+			return nil
+		}
+	}
+
+	return fmt.Errorf("executable file not found in $PATH")
+}
+
+// checkExecutable verifies that a file exists and is executable.
+func checkExecutable(path string) error {
+	info, err := os.Stat(path)
+	if err != nil {
+		return err
+	}
+
+	if info.IsDir() {
+		return fmt.Errorf("%s is a directory", path)
+	}
+
+	// Check if any execute bit is set.
+	if info.Mode()&0o111 == 0 {
+		return fmt.Errorf("%s is not executable", path)
+	}
+
+	return nil
 }

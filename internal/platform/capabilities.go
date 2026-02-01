@@ -2,99 +2,188 @@ package platform
 
 import (
 	"fmt"
+	"maps"
 	"os"
+	"slices"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/syndtr/gocapability/capability"
 	"golang.org/x/sys/unix"
 )
 
+// Cap represents a Linux capability.
+type Cap int
+
+const (
+	CAP_CHOWN              Cap = 0
+	CAP_DAC_OVERRIDE       Cap = 1
+	CAP_DAC_READ_SEARCH    Cap = 2
+	CAP_FOWNER             Cap = 3
+	CAP_FSETID             Cap = 4
+	CAP_KILL               Cap = 5
+	CAP_SETGID             Cap = 6
+	CAP_SETUID             Cap = 7
+	CAP_SETPCAP            Cap = 8
+	CAP_LINUX_IMMUTABLE    Cap = 9
+	CAP_NET_BIND_SERVICE   Cap = 10
+	CAP_NET_BROADCAST      Cap = 11
+	CAP_NET_ADMIN          Cap = 12
+	CAP_NET_RAW            Cap = 13
+	CAP_IPC_LOCK           Cap = 14
+	CAP_IPC_OWNER          Cap = 15
+	CAP_SYS_MODULE         Cap = 16
+	CAP_SYS_RAWIO          Cap = 17
+	CAP_SYS_CHROOT         Cap = 18
+	CAP_SYS_PTRACE         Cap = 19
+	CAP_SYS_PACCT          Cap = 20
+	CAP_SYS_ADMIN          Cap = 21
+	CAP_SYS_BOOT           Cap = 22
+	CAP_SYS_NICE           Cap = 23
+	CAP_SYS_RESOURCE       Cap = 24
+	CAP_SYS_TIME           Cap = 25
+	CAP_SYS_TTY_CONFIG     Cap = 26
+	CAP_MKNOD              Cap = 27
+	CAP_LEASE              Cap = 28
+	CAP_AUDIT_WRITE        Cap = 29
+	CAP_AUDIT_CONTROL      Cap = 30
+	CAP_SETFCAP            Cap = 31
+	CAP_MAC_OVERRIDE       Cap = 32
+	CAP_MAC_ADMIN          Cap = 33
+	CAP_SYSLOG             Cap = 34
+	CAP_WAKE_ALARM         Cap = 35
+	CAP_BLOCK_SUSPEND      Cap = 36
+	CAP_AUDIT_READ         Cap = 37
+	CAP_PERFMON            Cap = 38
+	CAP_BPF                Cap = 39
+	CAP_CHECKPOINT_RESTORE Cap = 40
+	CAP_LAST_CAP           Cap = 63
+)
+
 // capabilities maps CAP_* capability name strings to their corresponding
-// capability.Cap constant values.
-var capabilities = map[string]capability.Cap{
-	"CAP_AUDIT_CONTROL":      capability.CAP_AUDIT_CONTROL,
-	"CAP_AUDIT_READ":         capability.CAP_AUDIT_READ,
-	"CAP_AUDIT_WRITE":        capability.CAP_AUDIT_WRITE,
-	"CAP_BLOCK_SUSPEND":      capability.CAP_BLOCK_SUSPEND,
-	"CAP_BPF":                capability.CAP_BPF,
-	"CAP_CHECKPOINT_RESTORE": capability.CAP_CHECKPOINT_RESTORE,
-	"CAP_CHOWN":              capability.CAP_CHOWN,
-	"CAP_DAC_OVERRIDE":       capability.CAP_DAC_OVERRIDE,
-	"CAP_DAC_READ_SEARCH":    capability.CAP_DAC_READ_SEARCH,
-	"CAP_FOWNER":             capability.CAP_FOWNER,
-	"CAP_FSETID":             capability.CAP_FSETID,
-	"CAP_IPC_LOCK":           capability.CAP_IPC_LOCK,
-	"CAP_IPC_OWNER":          capability.CAP_IPC_OWNER,
-	"CAP_KILL":               capability.CAP_KILL,
-	"CAP_LEASE":              capability.CAP_LEASE,
-	"CAP_LINUX_IMMUTABLE":    capability.CAP_LINUX_IMMUTABLE,
-	"CAP_MAC_ADMIN":          capability.CAP_MAC_ADMIN,
-	"CAP_MAC_OVERRIDE":       capability.CAP_MAC_OVERRIDE,
-	"CAP_MKNOD":              capability.CAP_MKNOD,
-	"CAP_NET_ADMIN":          capability.CAP_NET_ADMIN,
-	"CAP_NET_BIND_SERVICE":   capability.CAP_NET_BIND_SERVICE,
-	"CAP_NET_BROADCAST":      capability.CAP_NET_BROADCAST,
-	"CAP_NET_RAW":            capability.CAP_NET_RAW,
-	"CAP_PERFMON":            capability.CAP_PERFMON,
-	"CAP_SETGID":             capability.CAP_SETGID,
-	"CAP_SETFCAP":            capability.CAP_SETFCAP,
-	"CAP_SETPCAP":            capability.CAP_SETPCAP,
-	"CAP_SETUID":             capability.CAP_SETUID,
-	"CAP_SYS_ADMIN":          capability.CAP_SYS_ADMIN,
-	"CAP_SYS_BOOT":           capability.CAP_SYS_BOOT,
-	"CAP_SYS_CHROOT":         capability.CAP_SYS_CHROOT,
-	"CAP_SYS_MODULE":         capability.CAP_SYS_MODULE,
-	"CAP_SYS_NICE":           capability.CAP_SYS_NICE,
-	"CAP_SYS_PACCT":          capability.CAP_SYS_PACCT,
-	"CAP_SYS_PTRACE":         capability.CAP_SYS_PTRACE,
-	"CAP_SYS_RAWIO":          capability.CAP_SYS_RAWIO,
-	"CAP_SYS_RESOURCE":       capability.CAP_SYS_RESOURCE,
-	"CAP_SYS_TIME":           capability.CAP_SYS_TIME,
-	"CAP_SYS_TTY_CONFIG":     capability.CAP_SYS_TTY_CONFIG,
-	"CAP_SYSLOG":             capability.CAP_SYSLOG,
-	"CAP_WAKE_ALARM":         capability.CAP_WAKE_ALARM,
+// Cap constant values.
+var capabilities = map[string]Cap{
+	"CAP_AUDIT_CONTROL":      CAP_AUDIT_CONTROL,
+	"CAP_AUDIT_READ":         CAP_AUDIT_READ,
+	"CAP_AUDIT_WRITE":        CAP_AUDIT_WRITE,
+	"CAP_BLOCK_SUSPEND":      CAP_BLOCK_SUSPEND,
+	"CAP_BPF":                CAP_BPF,
+	"CAP_CHECKPOINT_RESTORE": CAP_CHECKPOINT_RESTORE,
+	"CAP_CHOWN":              CAP_CHOWN,
+	"CAP_DAC_OVERRIDE":       CAP_DAC_OVERRIDE,
+	"CAP_DAC_READ_SEARCH":    CAP_DAC_READ_SEARCH,
+	"CAP_FOWNER":             CAP_FOWNER,
+	"CAP_FSETID":             CAP_FSETID,
+	"CAP_IPC_LOCK":           CAP_IPC_LOCK,
+	"CAP_IPC_OWNER":          CAP_IPC_OWNER,
+	"CAP_KILL":               CAP_KILL,
+	"CAP_LEASE":              CAP_LEASE,
+	"CAP_LINUX_IMMUTABLE":    CAP_LINUX_IMMUTABLE,
+	"CAP_MAC_ADMIN":          CAP_MAC_ADMIN,
+	"CAP_MAC_OVERRIDE":       CAP_MAC_OVERRIDE,
+	"CAP_MKNOD":              CAP_MKNOD,
+	"CAP_NET_ADMIN":          CAP_NET_ADMIN,
+	"CAP_NET_BIND_SERVICE":   CAP_NET_BIND_SERVICE,
+	"CAP_NET_BROADCAST":      CAP_NET_BROADCAST,
+	"CAP_NET_RAW":            CAP_NET_RAW,
+	"CAP_PERFMON":            CAP_PERFMON,
+	"CAP_SETGID":             CAP_SETGID,
+	"CAP_SETFCAP":            CAP_SETFCAP,
+	"CAP_SETPCAP":            CAP_SETPCAP,
+	"CAP_SETUID":             CAP_SETUID,
+	"CAP_SYS_ADMIN":          CAP_SYS_ADMIN,
+	"CAP_SYS_BOOT":           CAP_SYS_BOOT,
+	"CAP_SYS_CHROOT":         CAP_SYS_CHROOT,
+	"CAP_SYS_MODULE":         CAP_SYS_MODULE,
+	"CAP_SYS_NICE":           CAP_SYS_NICE,
+	"CAP_SYS_PACCT":          CAP_SYS_PACCT,
+	"CAP_SYS_PTRACE":         CAP_SYS_PTRACE,
+	"CAP_SYS_RAWIO":          CAP_SYS_RAWIO,
+	"CAP_SYS_RESOURCE":       CAP_SYS_RESOURCE,
+	"CAP_SYS_TIME":           CAP_SYS_TIME,
+	"CAP_SYS_TTY_CONFIG":     CAP_SYS_TTY_CONFIG,
+	"CAP_SYSLOG":             CAP_SYSLOG,
+	"CAP_WAKE_ALARM":         CAP_WAKE_ALARM,
+}
+
+func SetAllCapabilities() error {
+	allCaps := slices.Collect(maps.Keys(capabilities))
+
+	return SetCapabilities(&specs.LinuxCapabilities{
+		Bounding:    allCaps,
+		Effective:   allCaps,
+		Inheritable: allCaps,
+		Permitted:   allCaps,
+		Ambient:     allCaps,
+	})
 }
 
 // SetCapabilities sets the process' effective, inheritable, permitted and
 // ambient capabilities based on the provided caps.
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
-	c, err := capability.NewPid2(0)
-	if err != nil {
-		return fmt.Errorf("initialise capabilities object: %w", err)
-	}
-
-	if err := c.Load(); err != nil {
-		return fmt.Errorf("load capabilities: %w", err)
-	}
-
-	c.Clear(capability.EFFECTIVE)
-	c.Clear(capability.INHERITABLE)
-	c.Clear(capability.PERMITTED)
-	c.Clear(capability.AMBIENT)
-
-	if caps.Ambient != nil {
-		c.Set(capability.AMBIENT, resolveCaps(caps.Ambient)...)
-	}
+	// Build capability bitmasks - v3 uses 2x 32-bit words for 64-bit caps.
+	var effective, permitted, inheritable [2]uint32
 
 	if caps.Effective != nil {
-		c.Set(capability.EFFECTIVE, resolveCaps(caps.Effective)...)
+		for _, c := range resolveCaps(caps.Effective) {
+			if c < 32 {
+				effective[0] |= 1 << uint(c)
+			} else {
+				effective[1] |= 1 << uint(c-32)
+			}
+		}
 	}
 
 	if caps.Permitted != nil {
-		c.Set(capability.PERMITTED, resolveCaps(caps.Permitted)...)
+		for _, c := range resolveCaps(caps.Permitted) {
+			if c < 32 {
+				permitted[0] |= 1 << uint(c)
+			} else {
+				permitted[1] |= 1 << uint(c-32)
+			}
+		}
 	}
 
 	if caps.Inheritable != nil {
-		c.Set(capability.INHERITABLE, resolveCaps(caps.Inheritable)...)
+		for _, c := range resolveCaps(caps.Inheritable) {
+			if c < 32 {
+				inheritable[0] |= 1 << uint(c)
+			} else {
+				inheritable[1] |= 1 << uint(c-32)
+			}
+		}
 	}
 
-	if err := c.Apply(
-		capability.INHERITABLE |
-			capability.EFFECTIVE |
-			capability.PERMITTED |
-			capability.AMBIENT,
-	); err != nil {
-		return fmt.Errorf("apply capabilities: %w", err)
+	// Set effective, permitted, inheritable using capset syscall.
+	header := unix.CapUserHeader{
+		Version: unix.LINUX_CAPABILITY_VERSION_3,
+		Pid:     0, // 0 means current thread.
+	}
+	data := [2]unix.CapUserData{
+		{Effective: effective[0], Permitted: permitted[0], Inheritable: inheritable[0]},
+		{Effective: effective[1], Permitted: permitted[1], Inheritable: inheritable[1]},
+	}
+
+	if err := unix.Capset(&header, &data[0]); err != nil {
+		return fmt.Errorf("capset: %w", err)
+	}
+
+	// Set ambient capabilities using prctl (must be done after capset).
+	// First clear all ambient caps, then raise the ones we want.
+	if err := unix.Prctl(unix.PR_CAP_AMBIENT, unix.PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0); err != nil {
+		// Ignore unsupported ambient caps.
+		if err != unix.EINVAL {
+			return fmt.Errorf("clear ambient caps: %w", err)
+		}
+	}
+
+	if caps.Ambient != nil {
+		for _, c := range resolveCaps(caps.Ambient) {
+			if err := unix.Prctl(unix.PR_CAP_AMBIENT, unix.PR_CAP_AMBIENT_RAISE, uintptr(c), 0, 0); err != nil {
+				// Ignore if this specific cap can't be raised.
+				if err != unix.EPERM && err != unix.EINVAL {
+					return fmt.Errorf("raise ambient cap %d: %w", c, err)
+				}
+			}
+		}
 	}
 
 	return nil
@@ -104,13 +193,13 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 // from the current thread's capability bounding set.
 func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 	if caps.Bounding != nil {
-		retain := make(map[capability.Cap]struct{})
+		retain := make(map[Cap]struct{})
 
 		for _, c := range resolveCaps(caps.Bounding) {
 			retain[c] = struct{}{}
 		}
 
-		for c := capability.Cap(0); c <= capability.CAP_LAST_CAP; c++ {
+		for c := Cap(0); c <= CAP_LAST_CAP; c++ {
 			if _, ok := retain[c]; ok {
 				continue
 			}
@@ -137,12 +226,17 @@ func SetKeepCaps(state uintptr) error {
 }
 
 // resolveCaps converts a slice of capability name strings to a slice of their
-// corresponding capability.Cap values. If a capability name can't be mapped,
-// a warning is logged and the capability is skipped.
-func resolveCaps(names []string) []capability.Cap {
-	resolved := []capability.Cap{}
+// corresponding Cap values. If a capability name can't be mapped, a warning is
+// logged and the capability is skipped.
+func resolveCaps(names []string) []Cap {
+	resolved := []Cap{}
 
 	for _, name := range names {
+		if name == "ALL" || name == "CAP_ALL" {
+			resolved = slices.Collect(maps.Values(capabilities))
+			break
+		}
+
 		if v, ok := capabilities[name]; ok {
 			resolved = append(resolved, v)
 		} else {

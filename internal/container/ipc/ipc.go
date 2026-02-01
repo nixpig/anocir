@@ -24,6 +24,9 @@ const (
 	MsgInvalidBinary
 	// MsgPrePivot is the message sent before pivot_root is called.
 	MsgPrePivot
+	// MsgExecReady is the message sent right before execve to indicate the
+	// container is fully initialized and about to execute the user process.
+	MsgExecReady
 )
 
 // Socket holds a path to use for a unix domain socket.

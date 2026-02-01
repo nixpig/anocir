@@ -83,7 +83,12 @@ var mountOptions = map[string]mountOption{
 
 // MountRootfs mounts the container's root filesystem at given containerRootfs.
 func MountRootfs(containerRootfs string) error {
-	if err := SetPropagation("/", unix.MS_PRIVATE|unix.MS_REC); err != nil {
+	// Set "/" to rslave recursively to enable rslave mounts to receive
+	// propagation from host (works) and pivot_root to work correctly.
+	//
+	// FIXME: rshared (bidirectional) propagation is limited because slave
+	// mounts cannot propagate back to their master (the host).
+	if err := SetPropagation("/", unix.MS_SLAVE|unix.MS_REC); err != nil {
 		return err
 	}
 
@@ -104,14 +109,30 @@ func MountRootReadonly() error {
 }
 
 // SetRootfsMountPropagation sets the mount propagation for the root filesystem.
+//
+// Note: We don't use MS_REC here because submounts have their own propagation
+// settings that should be preserved (e.g., rshared volumes).
 func SetRootfsMountPropagation(prop string) error {
-	f, ok := mountOptions[prop]
-	if !ok {
-		return nil
+	var flag uintptr
+
+	switch prop {
+	case "shared", "rshared":
+		flag = unix.MS_SHARED
+	case "private", "rprivate":
+		flag = unix.MS_PRIVATE
+	case "slave", "rslave":
+		flag = unix.MS_SLAVE
+	case "unbindable", "runbindable":
+		flag = unix.MS_UNBINDABLE
+	case "":
+		return nil // No propagation specified
+	default:
+		return nil // Unknown propagation, ignore
 	}
 
-	if err := SetPropagation("/", f.flag); err != nil {
-		return fmt.Errorf("set rootfs mount propagation (%s): %w", prop, err)
+	// Apply to root mount only (not recursively).
+	if err := unix.Mount("", "/", "", flag, ""); err != nil {
+		return fmt.Errorf("set mount propagation %s: %w", prop, err)
 	}
 
 	return nil

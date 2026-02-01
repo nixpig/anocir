@@ -40,6 +40,18 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 			if m.Type == "bind" || slices.Contains(m.Options, "bind") ||
 				slices.Contains(m.Options, "rbind") {
 
+				if info, err := os.Lstat(dest); err == nil && info.Mode()&os.ModeSymlink != 0 {
+					if err := os.Remove(dest); err != nil {
+						return fmt.Errorf("remove symlink before mount (%s): %w", dest, err)
+					}
+
+					f, err := os.Create(dest)
+					if err != nil {
+						return fmt.Errorf("recreate symlink as regular file for mount (%s): %w", dest, err)
+					}
+					f.Close()
+				}
+
 				srcInfo, err := os.Stat(m.Source)
 				if err != nil {
 					return fmt.Errorf("stat mount source: %w", err)
@@ -76,17 +88,29 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 		}
 
 		var dataOptions []string
+		var propagationFlag uintptr
+		var recursiveReadonly bool
 
 		for _, opt := range m.Options {
-			if f, ok := mountOptions[opt]; ok {
-				if propagateBindMount(opt) {
-					if f.invert {
-						flags &= f.flag
-					} else {
-						flags |= f.flag
-					}
-				}
+			// Handle propagation options separately.
+			if pf := getPropagationFlag(opt); pf != 0 {
+				propagationFlag = pf
+				continue
+			}
 
+			// Handle recursive readonly (rro) separately - requires mount_setattr.
+			if opt == "rro" {
+				recursiveReadonly = true
+				flags |= unix.MS_RDONLY // Set regular readonly.
+				continue
+			}
+
+			if f, ok := mountOptions[opt]; ok {
+				if f.invert {
+					flags &^= f.flag
+				} else {
+					flags |= f.flag
+				}
 				if f.recursive {
 					flags |= unix.MS_REC
 				}
@@ -104,15 +128,56 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 		); err != nil {
 			return fmt.Errorf("mount spec mount: %w", err)
 		}
+
+		// Apply propagation after the initial mount.
+		if propagationFlag != 0 {
+			if err := SetPropagation(dest, propagationFlag); err != nil {
+				return fmt.Errorf("set mount propagation: %w", err)
+			}
+		}
+
+		// Apply recursive readonly using mount_setattr.
+		if recursiveReadonly {
+			if err := setRecursiveReadonly(dest); err != nil {
+				return fmt.Errorf("set recursive readonly: %w", err)
+			}
+		}
 	}
 
 	return nil
 }
 
-func propagateBindMount(opt string) bool {
-	return opt != "private" && opt != "rprivate" &&
-		opt != "shared" &&
-		opt != "rshared" &&
-		opt != "slave" &&
-		opt != "rslave"
+// getPropagationFlag returns the mount propagation flag for the given opt.
+// Returns 0 if not a propagation option.
+func getPropagationFlag(opt string) uintptr {
+	switch opt {
+	case "private":
+		return unix.MS_PRIVATE
+	case "rprivate":
+		return unix.MS_PRIVATE | unix.MS_REC
+	case "shared":
+		return unix.MS_SHARED
+	case "rshared":
+		return unix.MS_SHARED | unix.MS_REC
+	case "slave":
+		return unix.MS_SLAVE
+	case "rslave":
+		return unix.MS_SLAVE | unix.MS_REC
+	case "unbindable":
+		return unix.MS_UNBINDABLE
+	case "runbindable":
+		return unix.MS_UNBINDABLE | unix.MS_REC
+	default:
+		return 0
+	}
+}
+
+// setRecursiveReadonly makes a mount and all its submounts read-only
+// using the mount_setattr syscall with AT_RECURSIVE.
+func setRecursiveReadonly(path string) error {
+	attr := unix.MountAttr{
+		Attr_set: unix.MOUNT_ATTR_RDONLY,
+	}
+
+	return unix.MountSetattr(-1, path, unix.AT_RECURSIVE, &attr)
 }

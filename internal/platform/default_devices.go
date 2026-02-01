@@ -122,21 +122,44 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 	for _, d := range devices {
 		absPath := filepath.Join(rootfs, strings.TrimPrefix(d.Path, "/"))
 
+		// Check if device already exists with correct major/minor.
+		if stat, err := os.Stat(absPath); err == nil {
+			if sysStat, ok := stat.Sys().(*unix.Stat_t); ok {
+				existingMajor := unix.Major(sysStat.Rdev)
+				existingMinor := unix.Minor(sysStat.Rdev)
+				if existingMajor == uint32(d.Major) && existingMinor == uint32(d.Minor) {
+					continue
+				}
+			}
+		}
+
+		if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+			return fmt.Errorf("create device parent hierarchy: %w", err)
+		}
+
+		// Remove existing file/device if it exists (mknod fails on existing files).
+		if _, err := os.Lstat(absPath); err == nil {
+			if err := os.Remove(absPath); err != nil {
+				// If removal fails (device busy / bind-mounted), skip this device.
+				continue
+			}
+		}
+
 		if err := unix.Mknod(
 			absPath,
 			deviceType[d.Type],
 			int(unix.Mkdev(uint32(d.Major), uint32(d.Minor))),
 		); err != nil {
-			return err
+			return fmt.Errorf("mknod %s: %w", absPath, err)
 		}
 
 		if err := unix.Chmod(absPath, uint32(*d.FileMode)); err != nil {
-			return err
+			return fmt.Errorf("chmod %s: %w", absPath, err)
 		}
 
 		if d.UID != nil && d.GID != nil {
 			if err := os.Chown(absPath, int(*d.UID), int(*d.GID)); err != nil {
-				return err
+				return fmt.Errorf("chown %s: %w", absPath, err)
 			}
 		}
 	}

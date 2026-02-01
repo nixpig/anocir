@@ -1,7 +1,9 @@
 package oci
 
 import (
+	"encoding/json"
 	"fmt"
+	"os"
 
 	"github.com/nixpig/anocir/internal/container"
 	"github.com/opencontainers/runtime-spec/specs-go"
@@ -25,6 +27,7 @@ func childExecCmd() *cobra.Command {
 			noNewPrivs, _ := cmd.Flags().GetBool("no-new-privs")
 			tty, _ := cmd.Flags().GetBool("tty")
 			containerID, _ := cmd.Flags().GetString("container-id")
+			seccompFile, _ := cmd.Flags().GetString("seccomp-file")
 
 			user := &specs.User{
 				UID: uint32(uid),
@@ -33,6 +36,22 @@ func childExecCmd() *cobra.Command {
 
 			for _, g := range additionalGIDs {
 				user.AdditionalGids = append(user.AdditionalGids, uint32(g))
+			}
+
+			// TODO: Not really happy about passing the seccomp profile via a file
+			// that we delete after reading. Find a cleaner way.
+			var seccomp *specs.LinuxSeccomp
+			if seccompFile != "" {
+				data, err := os.ReadFile(seccompFile)
+				if err != nil {
+					return fmt.Errorf("read seccomp file: %w", err)
+				}
+				os.Remove(seccompFile)
+
+				seccomp = &specs.LinuxSeccomp{}
+				if err := json.Unmarshal(data, seccomp); err != nil {
+					return fmt.Errorf("parse seccomp profile: %w", err)
+				}
 			}
 
 			if err := container.ChildExec(&container.ChildExecOpts{
@@ -44,6 +63,7 @@ func childExecCmd() *cobra.Command {
 				NoNewPrivs:   noNewPrivs,
 				TTY:          tty,
 				ContainerID:  containerID,
+				Seccomp:      seccomp,
 			}); err != nil {
 				return fmt.Errorf("fork/exec child: %w", err)
 			}
@@ -62,6 +82,7 @@ func childExecCmd() *cobra.Command {
 	cmd.Flags().Bool("no-new-privs", false, "")
 	cmd.Flags().Bool("tty", false, "")
 	cmd.Flags().String("container-id", "", "")
+	cmd.Flags().String("seccomp-file", "", "")
 
 	return cmd
 }

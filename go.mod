@@ -5,10 +5,10 @@ go 1.25.5
 require (
 	github.com/containerd/cgroups/v3 v3.1.2
 	github.com/opencontainers/runtime-spec v1.3.0
+	github.com/seccomp/libseccomp-golang v0.11.1
 	github.com/spf13/cobra v1.8.1
 	github.com/spf13/pflag v1.0.5
 	github.com/stretchr/testify v1.11.1
-	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635
 	golang.org/x/sys v0.38.0
 )
 
