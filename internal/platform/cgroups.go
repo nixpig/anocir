@@ -37,8 +37,19 @@ func CreateCgroup(
 		cgResources = cgroup2.ToResources(resources)
 	}
 
-	_, err := cgroup2.NewSystemd(slice, group, containerPID, cgResources)
-	return err
+	manager, err := cgroup2.NewSystemd(slice, group, containerPID, cgResources)
+	if err != nil {
+		return err
+	}
+
+	// NewSystemd sets some resources via systemd properties (e.g., MemoryMax)
+	// but doesn't set all resources like memory.swap.max. Call Update() to
+	// write remaining resources directly to cgroup files.
+	if err := manager.Update(cgResources); err != nil {
+		return fmt.Errorf("update cgroup resources: %w", err)
+	}
+
+	return nil
 }
 
 // DeleteCgroup loads the cgroup manager using the given cgroupsPath and

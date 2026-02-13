@@ -1,0 +1,231 @@
+---
+- name: Provision development environment
+  hosts: all
+  become: true
+
+  vars:
+    synced_folder: "/anocir"
+    ubuntu_version: "24.04"
+    ubuntu_codename: "noble"
+    go_version: "1.25.5"
+    containerd_version: "v2.2.1"
+    cri_tools_version: "v1.35.0"
+    cni_version: "v1.6.2"
+    runtime_tools_commit: "f7e3563b0271e5cd52d5c915684ea11ef2779572"
+    docker_version: "27.3.1-1"
+    docker_buildx_version: "0.17.1-1"
+    docker_compose_version: "2.29.7-1"
+    docker_containerd_version: "2.2.1-1"
+    docker_base_url: "https://download.docker.com/linux/ubuntu/dists/{{ ubuntu_codename }}/pool/stable/amd64"
+    docker_packages:
+      - "containerd.io_{{ docker_containerd_version }}~ubuntu.{{ ubuntu_version }}~{{ ubuntu_codename }}_amd64.deb"
+      - "docker-ce-cli_{{ docker_version }}~ubuntu.{{ ubuntu_version }}~{{ ubuntu_codename }}_amd64.deb"
+      - "docker-ce_{{ docker_version }}~ubuntu.{{ ubuntu_version }}~{{ ubuntu_codename }}_amd64.deb"
+      - "docker-buildx-plugin_{{ docker_buildx_version }}~ubuntu.{{ ubuntu_version }}~{{ ubuntu_codename }}_amd64.deb"
+      - "docker-compose-plugin_{{ docker_compose_version }}~ubuntu.{{ ubuntu_version }}~{{ ubuntu_codename }}_amd64.deb"
+    cni_config: |
+      {
+        "cniVersion": "1.0.0",
+        "name": "containerd-net",
+        "plugins": [
+          {
+            "type": "bridge",
+            "bridge": "cni0",
+            "isGateway": true,
+            "ipMasq": true,
+            "ipam": {
+              "type": "host-local",
+              "ranges": [
+                [{"subnet": "10.88.0.0/16"}]
+              ],
+              "routes": [
+                {"dst": "0.0.0.0/0"}
+              ]
+            }
+          },
+          {
+            "type": "portmap",
+            "capabilities": {"portMappings": true}
+          }
+        ]
+      }
+
+  tasks:
+    - name: Install system packages
+      ansible.builtin.apt:
+        name:
+          - git
+          - ca-certificates
+          - wget
+          - make
+          - vim
+          - gcc
+          - libseccomp-dev
+          - pkg-config
+        state: present
+        update_cache: true
+
+    - name: Check if Go is installed
+      ansible.builtin.command: /usr/local/go/bin/go version
+      register: go_check
+      changed_when: false
+      failed_when: false
+
+    - name: Download and extract Go
+      ansible.builtin.unarchive:
+        src: "https://go.dev/dl/go{{ go_version }}.linux-amd64.tar.gz"
+        dest: /usr/local
+        remote_src: true
+      when: go_check.rc != 0
+
+    - name: Add Go to PATH in bashrc
+      ansible.builtin.lineinfile:
+        path: /home/vagrant/.bashrc
+        line: "export PATH=$PATH:/usr/local/go/bin"
+        state: present
+
+    - name: Check if Docker is installed
+      ansible.builtin.command: docker --version
+      register: docker_check
+      changed_when: false
+      failed_when: false
+
+    - name: Install Docker packages
+      ansible.builtin.apt:
+        deb: "{{ docker_base_url }}/{{ item }}"
+      loop: "{{ docker_packages }}"
+      when: docker_check.rc != 0
+
+    - name: Add vagrant user to docker group
+      ansible.builtin.user:
+        name: vagrant
+        groups: docker
+        append: true
+
+    - name: Clone runtime-tools repository
+      ansible.builtin.git:
+        repo: https://github.com/opencontainers/runtime-tools.git
+        dest: /home/vagrant/runtime-tools
+        version: "{{ runtime_tools_commit }}"
+
+    - name: Build runtime-tools
+      ansible.builtin.command:
+        cmd: make runtimetest validation-executables
+        chdir: /home/vagrant/runtime-tools
+        creates: /home/vagrant/runtime-tools/runtimetest
+      environment:
+        PATH: "{{ ansible_facts['env']['PATH'] }}:/usr/local/go/bin"
+
+    - name: Clone containerd repository
+      ansible.builtin.git:
+        repo: https://github.com/containerd/containerd.git
+        dest: "{{ synced_folder }}/tmp/containerd"
+        version: "{{ containerd_version }}"
+
+    - name: Build containerd
+      ansible.builtin.shell:
+        cmd: make binaries && make install
+        chdir: "{{ synced_folder }}/tmp/containerd"
+        creates: /usr/local/bin/containerd
+      environment:
+        PATH: "{{ ansible_facts['env']['PATH'] }}:/usr/local/go/bin"
+
+    - name: Clone cri-tools repository
+      ansible.builtin.git:
+        repo: https://github.com/kubernetes-sigs/cri-tools.git
+        dest: "{{ synced_folder }}/tmp/cri-tools"
+        version: "{{ cri_tools_version }}"
+
+    - name: Build cri-tools
+      ansible.builtin.shell:
+        cmd: make && make install
+        chdir: "{{ synced_folder }}/tmp/cri-tools"
+        creates: /usr/local/bin/crictl
+      environment:
+        PATH: "{{ ansible_facts['env']['PATH'] }}:/usr/local/go/bin"
+
+    - name: Get runc path
+      ansible.builtin.command: which runc
+      register: runc_path
+      changed_when: false
+
+    - name: Link anocir to runc
+      ansible.builtin.file:
+        src: "{{ synced_folder }}/tmp/bin/anocir"
+        dest: "{{ runc_path.stdout }}"
+        state: link
+        force: true
+
+    - name: Create CNI bin directory
+      ansible.builtin.file:
+        path: /opt/cni/bin
+        state: directory
+        mode: "0755"
+
+    - name: Install CNI plugins
+      ansible.builtin.unarchive:
+        src: "https://github.com/containernetworking/plugins/releases/download/{{ cni_version }}/cni-plugins-linux-amd64-{{ cni_version }}.tgz"
+        dest: /opt/cni/bin
+        remote_src: true
+        creates: /opt/cni/bin/bridge
+
+    - name: Create CNI config directory
+      ansible.builtin.file:
+        path: /etc/cni/net.d
+        state: directory
+        mode: "0755"
+
+    - name: Configure CNI
+      ansible.builtin.copy:
+        content: "{{ cni_config }}"
+        dest: /etc/cni/net.d/10-containerd-net.conflist
+        mode: "0644"
+
+    - name: Create containerd config directory
+      ansible.builtin.file:
+        path: /etc/containerd
+        state: directory
+        mode: "0755"
+
+    - name: Generate containerd config
+      ansible.builtin.shell:
+        cmd: containerd config default > /etc/containerd/config.toml
+        creates: /etc/containerd/config.toml
+
+    - name: Enable CRI plugin in containerd config
+      ansible.builtin.lineinfile:
+        path: /etc/containerd/config.toml
+        regexp: '^disabled_plugins\s*='
+        line: "disabled_plugins = []"
+
+    - name: Stop system containerd
+      ansible.builtin.service:
+        name: containerd
+        state: stopped
+      ignore_errors: true
+
+    - name: Start containerd
+      ansible.builtin.shell:
+        cmd: containerd -c /etc/containerd/config.toml -l debug &
+
+    - name: Mount systemd cgroup
+      ansible.posix.mount:
+        path: /sys/fs/cgroup/systemd
+        src: cgroup
+        fstype: cgroup
+        opts: none,name=systemd
+        state: mounted
+
+    - name: Restart docker
+      ansible.builtin.service:
+        name: docker
+        state: restarted
+
+    - name: Add test command aliases
+      ansible.builtin.blockinfile:
+        path: /home/vagrant/.bashrc
+        marker: "# {mark} ANSIBLE MANAGED - test aliases"
+        block: |
+          alias containerd-integration='(cd {{ synced_folder }}/tmp/containerd && RUNC_FLAVOR=anocir sudo -E make TESTFLAGS="-test.v -timeout 45m" integration)'
+          alias oci-integration='(cd {{ synced_folder }}/test/runtime-tools && sudo RUNTIME={{ synced_folder }}/tmp/bin/anocir ../scripts/oci-integration.sh)'
+          alias cri-integration='sudo critest --runtime-endpoint=unix:///run/containerd/containerd.sock'
