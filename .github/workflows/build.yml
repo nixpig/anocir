@@ -23,6 +23,9 @@ jobs:
         with:
           go-version: "1.25.5"
 
+      - name: install system dependencies
+        run: sudo apt-get update && sudo apt-get install -y libseccomp-dev
+
       - name: download dependencies
         run: make install
 
