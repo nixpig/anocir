@@ -19,7 +19,7 @@ func SetUser(user *specs.User) error {
 		allowAdditionalGroups := true
 
 		data, err := os.ReadFile("/proc/self/setgroups")
-		if err != nil || strings.TrimSpace(string(data)) == "deny" {
+		if err == nil && strings.TrimSpace(string(data)) == "deny" {
 			allowAdditionalGroups = false
 		}
 
