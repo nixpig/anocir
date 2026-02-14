@@ -38,12 +38,15 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	hasUTSNamespace := platform.ContainsNSType(
+	// Only set hostname if we created a new UTS namespace (Path is empty).
+	// If we're joining an existing UTS namespace (Path is set), the hostname
+	// was already set by the namespace creator.
+	createdUTSNamespace := platform.HasNewNamespace(
 		c.spec.Linux.Namespaces,
 		specs.UTSNamespace,
 	)
 
-	if hasUTSNamespace {
+	if createdUTSNamespace {
 		if err := unix.Sethostname([]byte(c.spec.Hostname)); err != nil {
 			return fmt.Errorf("set hostname: %w", err)
 		}

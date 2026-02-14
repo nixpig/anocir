@@ -162,13 +162,18 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 
 		if ns == specs.PIDNamespace {
-			// FIXME: setns(CLONE_NEWPID) only affects children, not the current
-			// process. Even joining in C constructor doesn't help because Go's
-			// runtime creates threads that fail with pthread_create after PID ns
-			// change.
-			//
-			// Skip PID namespace - this means /proc/self won't work in exec'd
-			// processes, but this is a known limitation.
+			// For PID namespace, we call setns() here in the parent so the
+			// subsequent ForkExec will create a child that is actually in the
+			// container's PID namespace.
+			pidNSFile, err := os.Open(containerNSPath)
+			if err != nil {
+				return 0, fmt.Errorf("open pid namespace: %w", err)
+			}
+			defer pidNSFile.Close()
+
+			if err := unix.Setns(int(pidNSFile.Fd()), unix.CLONE_NEWPID); err != nil {
+				return 0, fmt.Errorf("setns to pid namespace: %w", err)
+			}
 			continue
 		}
 

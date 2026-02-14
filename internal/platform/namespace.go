@@ -134,8 +134,8 @@ func BuildUserNSMappings(
 	return uidMappings, gidMappings
 }
 
-// ContainsNSType checks whether the given namespaces contain a
-// namespace of the given namespaceType.
+// ContainsNSType checks whether the given namespaces contain a namespace of
+// the given namespaceType.
 func ContainsNSType(
 	namespaces []specs.LinuxNamespace,
 	namespaceType specs.LinuxNamespaceType,
@@ -144,6 +144,21 @@ func ContainsNSType(
 		namespaces,
 		func(ns specs.LinuxNamespace) bool {
 			return ns.Type == namespaceType
+		},
+	)
+}
+
+// HasNewNamespace checks whether the given namespaces contain a newly created
+// namespace of the given namespaceType (if Path is empty, then a new namespace
+// would be created, thus it 'has' a new namespace).
+func HasNewNamespace(
+	namespaces []specs.LinuxNamespace,
+	namespaceType specs.LinuxNamespaceType,
+) bool {
+	return slices.ContainsFunc(
+		namespaces,
+		func(ns specs.LinuxNamespace) bool {
+			return ns.Type == namespaceType && ns.Path == ""
 		},
 	)
 }

@@ -82,12 +82,11 @@ var mountOptions = map[string]mountOption{
 }
 
 // MountRootfs mounts the container's root filesystem at given containerRootfs.
+// Sets "/" to rslave recursively to allow mounts from the host to propagate
+// into the container (for rslave mounts) while preventing container mounts
+// from affecting the host. Individual mount propagation settings (rshared,
+// rslave, etc...) need to be applied to specific mounts separately.
 func MountRootfs(containerRootfs string) error {
-	// Set "/" to rslave recursively to enable rslave mounts to receive
-	// propagation from host (works) and pivot_root to work correctly.
-	//
-	// FIXME: rshared (bidirectional) propagation is limited because slave
-	// mounts cannot propagate back to their master (the host).
 	if err := SetPropagation("/", unix.MS_SLAVE|unix.MS_REC); err != nil {
 		return err
 	}
