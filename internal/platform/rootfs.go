@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"golang.org/x/sys/unix"
 )
@@ -82,20 +83,64 @@ var mountOptions = map[string]mountOption{
 }
 
 // MountRootfs mounts the container's root filesystem at given containerRootfs.
-// Sets "/" to rslave recursively to allow mounts from the host to propagate
-// into the container (for rslave mounts) while preventing container mounts
-// from affecting the host. Individual mount propagation settings (rshared,
-// rslave, etc...) need to be applied to specific mounts separately.
-func MountRootfs(containerRootfs string) error {
-	if err := SetPropagation("/", unix.MS_SLAVE|unix.MS_REC); err != nil {
-		return err
-	}
-
-	if err := BindMount(containerRootfs, containerRootfs, true); err != nil {
-		return fmt.Errorf("bind mount rootfs: %w", err)
-	}
-
+//
+// NOTE: The actual mount operations are performed by the C constructor
+// (nssetup.c) BEFORE Go starts. This ensures mount operations happen in a
+// single-threaded context, which is critical for mount propagation to work
+// correctly (especially for rshared).
+//
+// The C code follows runc's prepareRoot sequence:
+// 1. Set "/" propagation based on rootfsPropagation (default: rslave)
+// 2. Make rootfs's parent mount private (isolates rootfs from "/" propagation)
+// 3. Bind mount rootfs to itself (makes it a proper mount point for pivot_root)
+//
+// This function is now a no-op but is kept for API compatibility.
+func MountRootfs(containerRootfs string, rootfsPropagation string) error {
+	// Mount operations are performed by the C constructor before Go starts.
 	return nil
+}
+
+// rootfsParentMountPrivate makes the nearest parent mount point of path private.
+// This prevents subsequent bind mounts from propagating to other namespaces.
+func rootfsParentMountPrivate(path string) error {
+	for {
+		if err := unix.Mount("", path, "", unix.MS_PRIVATE, ""); err == nil {
+			return nil
+		} else if err != unix.EINVAL {
+			return fmt.Errorf("remount-private %s: %w", path, err)
+		}
+		// EINVAL means not a mount point, try parent.
+		if path == "/" {
+			// Reached root - "/" is always a mount point so this shouldn't happen,
+			// but if it does, just return nil as "/" being private is safe.
+			return nil
+		}
+		path = filepath.Dir(path)
+	}
+}
+
+// ParseRootfsPropagation converts a propagation string to mount flags.
+func ParseRootfsPropagation(prop string) uintptr {
+	switch prop {
+	case "shared":
+		return unix.MS_SHARED
+	case "rshared":
+		return unix.MS_SHARED | unix.MS_REC
+	case "private":
+		return unix.MS_PRIVATE
+	case "rprivate":
+		return unix.MS_PRIVATE | unix.MS_REC
+	case "slave":
+		return unix.MS_SLAVE
+	case "rslave":
+		return unix.MS_SLAVE | unix.MS_REC
+	case "unbindable":
+		return unix.MS_UNBINDABLE
+	case "runbindable":
+		return unix.MS_UNBINDABLE | unix.MS_REC
+	default:
+		return 0
+	}
 }
 
 // MountRootReadonly remounts the root filesystem as read-only.

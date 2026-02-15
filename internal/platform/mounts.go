@@ -119,6 +119,21 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 			}
 		}
 
+		// For rshared mounts, we need to ensure the source is shared BEFORE
+		// the bind mount so the new mount joins the source's peer group.
+		// This enables bidirectional propagation between host and container.
+		isRshared := propagationFlag == (unix.MS_SHARED | unix.MS_REC)
+		if isRshared && (m.Type == "bind" || slices.Contains(m.Options, "bind") ||
+			slices.Contains(m.Options, "rbind")) {
+			// Make the source shared before bind mounting.
+			// This ensures the bind mount joins the source's peer group.
+			if err := SetPropagation(m.Source, unix.MS_SHARED|unix.MS_REC); err != nil {
+				// If setting source propagation fails, continue anyway.
+				// The mount will still work, just without bidirectional propagation.
+				fmt.Fprintf(os.Stderr, "warning: failed to set source propagation for rshared mount: %v\n", err)
+			}
+		}
+
 		if err := MountFilesystem(
 			m.Source,
 			dest,
@@ -130,6 +145,7 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 		}
 
 		// Apply propagation after the initial mount.
+		// For rshared, this reinforces the shared propagation.
 		if propagationFlag != 0 {
 			if err := SetPropagation(dest, propagationFlag); err != nil {
 				return fmt.Errorf("set mount propagation: %w", err)

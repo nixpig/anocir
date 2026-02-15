@@ -44,6 +44,14 @@ const (
 	// envJoinNS is the name of the environment variable used to pass the
 	// namespaces to join to the reexec'd process.
 	envJoinNS = "_ANOCIR_JOIN_NS"
+
+	// envRootfs is the name of the environment variable used to pass the
+	// rootfs path to the C constructor for mount setup.
+	envRootfs = "_ANOCIR_ROOTFS"
+
+	// envRootfsPropagation is the name of the environment variable used to
+	// pass the rootfs propagation mode to the C constructor.
+	envRootfsPropagation = "_ANOCIR_ROOTFS_PROPAGATION"
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -557,6 +565,20 @@ func (c *Container) Init() error {
 		); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
 		}
+	}
+
+	// Pass rootfs path and propagation to C constructor for mount setup.
+	// The C constructor sets up mount propagation before Go starts any threads,
+	// which is critical for rshared to work safely.
+	hasMountNamespace := platform.ContainsNSType(
+		c.spec.Linux.Namespaces,
+		specs.MountNamespace,
+	)
+	if hasMountNamespace {
+		cmd.Env = append(cmd.Env,
+			fmt.Sprintf("%s=%s", envRootfs, c.rootFS()),
+			fmt.Sprintf("%s=%s", envRootfsPropagation, c.spec.Linux.RootfsPropagation),
+		)
 	}
 
 	// Subsequent syscalls need to happen in a single-threaded context.
