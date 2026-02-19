@@ -81,30 +81,6 @@ var mountOptions = map[string]mountOption{
 	},
 }
 
-// ParseRootfsPropagation converts a propagation string to mount flags.
-func ParseRootfsPropagation(prop string) uintptr {
-	switch prop {
-	case "shared":
-		return unix.MS_SHARED
-	case "rshared":
-		return unix.MS_SHARED | unix.MS_REC
-	case "private":
-		return unix.MS_PRIVATE
-	case "rprivate":
-		return unix.MS_PRIVATE | unix.MS_REC
-	case "slave":
-		return unix.MS_SLAVE
-	case "rslave":
-		return unix.MS_SLAVE | unix.MS_REC
-	case "unbindable":
-		return unix.MS_UNBINDABLE
-	case "runbindable":
-		return unix.MS_UNBINDABLE | unix.MS_REC
-	default:
-		return 0
-	}
-}
-
 // MountRootReadonly remounts the root filesystem as read-only.
 func MountRootReadonly() error {
 	if err := Remount("/", unix.MS_BIND|unix.MS_RDONLY); err != nil {
@@ -115,30 +91,14 @@ func MountRootReadonly() error {
 }
 
 // SetRootfsMountPropagation sets the mount propagation for the root filesystem.
-//
-// Note: We don't use MS_REC here because submounts have their own propagation
-// settings that should be preserved (e.g., rshared volumes).
-func SetRootfsMountPropagation(prop string) error {
-	var flag uintptr
-
-	switch prop {
-	case "shared", "rshared":
-		flag = unix.MS_SHARED
-	case "private", "rprivate":
-		flag = unix.MS_PRIVATE
-	case "slave", "rslave":
-		flag = unix.MS_SLAVE
-	case "unbindable", "runbindable":
-		flag = unix.MS_UNBINDABLE
-	case "":
-		return nil // No propagation specified
-	default:
-		return nil // Unknown propagation, ignore
-	}
+// MS_REC is masked out before applying because submounts have their own
+// propagation settings that should be preserved (e.g. rshared volumes).
+func SetRootfsMountPropagation(name string) error {
+	flag := getPropagationFlag(name) &^ unix.MS_REC
 
 	// Apply to root mount only (not recursively).
 	if err := unix.Mount("", "/", "", flag, ""); err != nil {
-		return fmt.Errorf("set mount propagation %s: %w", prop, err)
+		return fmt.Errorf("set mount propagation %s: %w", name, err)
 	}
 
 	return nil

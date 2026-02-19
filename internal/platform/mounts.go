@@ -165,8 +165,8 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 
 // getPropagationFlag returns the mount propagation flag for the given opt.
 // Returns 0 if not a propagation option.
-func getPropagationFlag(opt string) uintptr {
-	switch opt {
+func getPropagationFlag(name string) uintptr {
+	switch name {
 	case "private":
 		return unix.MS_PRIVATE
 	case "rprivate":

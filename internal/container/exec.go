@@ -165,7 +165,6 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			continue
 		}
 
-		// TODO: This is exactly the same as in container.go; maybe factor out.
 		f, err := os.Open(containerNSPath)
 		if err != nil {
 			return 0, fmt.Errorf("open ns path: %w", err)

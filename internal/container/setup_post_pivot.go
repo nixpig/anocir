@@ -39,14 +39,14 @@ func (c *Container) setupPostPivot() error {
 	}
 
 	// Only set hostname if we created a new UTS namespace (Path is empty).
-	// If we're joining an existing UTS namespace (Path is set), the hostname
-	// was already set by the namespace creator.
-	createdUTSNamespace := platform.HasNewNamespace(
+	// If we're joining an existing UTS namespace (Path is not empty), the
+	// hostname was already set by the namespace creator.
+	if slices.ContainsFunc(
 		c.spec.Linux.Namespaces,
-		specs.UTSNamespace,
-	)
-
-	if createdUTSNamespace {
+		func(ns specs.LinuxNamespace) bool {
+			return ns.Type == specs.UTSNamespace && ns.Path == ""
+		},
+	) {
 		if err := unix.Sethostname([]byte(c.spec.Hostname)); err != nil {
 			return fmt.Errorf("set hostname: %w", err)
 		}
@@ -85,8 +85,6 @@ func (c *Container) setupPostPivot() error {
 	// When NoNewPrivileges is false, we load seccomp BEFORE dropping
 	// capabilities because seccomp filter loading is a privileged operation that
 	// requires CAP_SYS_ADMIN when NO_NEW_PRIVS is not set.
-	//
-	// See: https://man7.org/linux/man-pages/man2/seccomp.2.html
 	if c.spec.Linux.Seccomp != nil && !c.spec.Process.NoNewPrivileges {
 		if err := platform.LoadSeccompFilter(c.spec.Linux.Seccomp); err != nil {
 			return fmt.Errorf("load seccomp filter (privileged): %w", err)
@@ -147,7 +145,6 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	// Apply AppArmor profile if specified
 	if c.spec.Process != nil && c.spec.Process.ApparmorProfile != "" {
 		if err := platform.ApplyAppArmorProfile(c.spec.Process.ApparmorProfile); err != nil {
 			return fmt.Errorf("apply apparmor profile: %w", err)
