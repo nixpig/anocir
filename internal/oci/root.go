@@ -9,6 +9,8 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const defaultRootDir = "/run/anocir"
+
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "anocir",
@@ -64,7 +66,7 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringP(
 		"root",
 		"",
-		"/run/anocir",
+		defaultRootDir,
 		"root directory for container state",
 	)
 

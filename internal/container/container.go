@@ -44,6 +44,10 @@ const (
 	// envJoinNS is the name of the environment variable used to pass the
 	// namespaces to join to the reexec'd process.
 	envJoinNS = "_ANOCIR_JOIN_NS"
+
+	// envContainerPID is the name of the environemnt variable used to pass the
+	// container PID to reexec'd process.
+	envContainerPID = "_ANOCIR_CONTAINER_PID"
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -240,7 +244,7 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to delete cgroup: %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup: %s", err.Error())
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -731,12 +735,7 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	hasMountNamespace := platform.ContainsNSType(
-		c.spec.Linux.Namespaces,
-		specs.MountNamespace,
-	)
-
-	if hasMountNamespace {
+	if c.hasMountNamespace() {
 		if err := c.pivotRoot(); err != nil {
 			return err
 		}
@@ -1092,4 +1091,13 @@ func (c *Container) reloadState() error {
 	}
 
 	return nil
+}
+
+func (c *Container) hasMountNamespace() bool {
+	return slices.ContainsFunc(
+		c.spec.Linux.Namespaces,
+		func(ns specs.LinuxNamespace) bool {
+			return ns.Type == specs.MountNamespace
+		},
+	)
 }

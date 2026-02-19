@@ -10,7 +10,7 @@ import (
 
 // ErrUnknownSchedulerPolicy is returned when the scheduler policy is not
 // recognised.
-var ErrUnknownSchedulerPolicy = errors.New("unknown scheuler policy")
+var ErrUnknownSchedulerPolicy = errors.New("unknown scheduler policy")
 
 // schedulerFlags maps scheduler flags to their corresponding kernel values.
 var schedulerFlags = map[specs.LinuxSchedulerFlag]int{

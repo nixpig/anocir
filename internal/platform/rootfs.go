@@ -112,21 +112,10 @@ func MountRootReadonly() error {
 // Note: We don't use MS_REC here because submounts have their own propagation
 // settings that should be preserved (e.g., rshared volumes).
 func SetRootfsMountPropagation(prop string) error {
-	var flag uintptr
+	flag := getPropagationFlag(prop) &^ unix.MS_REC
 
-	switch prop {
-	case "shared", "rshared":
-		flag = unix.MS_SHARED
-	case "private", "rprivate":
-		flag = unix.MS_PRIVATE
-	case "slave", "rslave":
-		flag = unix.MS_SLAVE
-	case "unbindable", "runbindable":
-		flag = unix.MS_UNBINDABLE
-	case "":
-		return nil // No propagation specified
-	default:
-		return nil // Unknown propagation, ignore
+	if flag == 0 {
+		return nil
 	}
 
 	// Apply to root mount only (not recursively).

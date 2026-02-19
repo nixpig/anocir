@@ -240,6 +240,7 @@ func resolveCaps(names []string) []Cap {
 		if v, ok := capabilities[name]; ok {
 			resolved = append(resolved, v)
 		} else {
+			// Spec requires printing "Warning: ..." to stderr.
 			fmt.Fprintf(os.Stderr, "Warning: capability %s cannot be mapped\n", name)
 		}
 	}
