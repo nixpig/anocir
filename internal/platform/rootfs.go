@@ -96,6 +96,10 @@ func MountRootReadonly() error {
 func SetRootfsMountPropagation(name string) error {
 	flag := getPropagationFlag(name) &^ unix.MS_REC
 
+	if flag == 0 {
+		return nil
+	}
+
 	// Apply to root mount only (not recursively).
 	if err := unix.Mount("", "/", "", flag, ""); err != nil {
 		return fmt.Errorf("set mount propagation %s: %w", name, err)
