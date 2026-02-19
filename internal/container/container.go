@@ -45,12 +45,16 @@ const (
 	// namespaces to join to the reexec'd process.
 	envJoinNS = "_ANOCIR_JOIN_NS"
 
-	// envRootfs is the name of the environment variable used to pass the
-	// rootfs path to the C constructor for mount setup.
+	// envContainerPID is the name of the environemnt variable used to pass the
+	// container PID to reexec'd process.
+	envContainerPID = "_ANOCIR_CONTAINER_PID"
+
+	// envRootfs is the name of the environment variable used to pass the rootfs
+	// path to the C constructor for mount setup.
 	envRootfs = "_ANOCIR_ROOTFS"
 
-	// envRootfsPropagation is the name of the environment variable used to
-	// pass the rootfs propagation mode to the C constructor.
+	// envRootfsPropagation is the name of the environment variable used to pass
+	// the rootfs propagation mode to the C constructor.
 	envRootfsPropagation = "_ANOCIR_ROOTFS_PROPAGATION"
 )
 
@@ -248,7 +252,7 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		fmt.Fprintf(os.Stderr, "failed to delete cgroup: %s", err.Error())
+		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup: %s", err.Error())
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -570,11 +574,7 @@ func (c *Container) Init() error {
 	// Pass rootfs path and propagation to C constructor for mount setup.
 	// The C constructor sets up mount propagation before Go starts any threads,
 	// which is critical for rshared to work safely.
-	hasMountNamespace := platform.ContainsNSType(
-		c.spec.Linux.Namespaces,
-		specs.MountNamespace,
-	)
-	if hasMountNamespace {
+	if c.hasMountNamespace() {
 		cmd.Env = append(cmd.Env,
 			fmt.Sprintf("%s=%s", envRootfs, c.rootFS()),
 			fmt.Sprintf("%s=%s", envRootfsPropagation, c.spec.Linux.RootfsPropagation),
@@ -753,12 +753,7 @@ func (c *Container) Reexec() error {
 		return err
 	}
 
-	hasMountNamespace := platform.ContainsNSType(
-		c.spec.Linux.Namespaces,
-		specs.MountNamespace,
-	)
-
-	if hasMountNamespace {
+	if c.hasMountNamespace() {
 		if err := c.pivotRoot(); err != nil {
 			return err
 		}
@@ -766,7 +761,7 @@ func (c *Container) Reexec() error {
 		if c.spec.Process != nil {
 			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
 				slog.Debug(
-					"send invalid binary message",
+					"sent invalid executable message",
 					"container_id", c.State.ID,
 				)
 
@@ -906,6 +901,19 @@ func (c *Container) Resume() error {
 
 func (c *Container) ProcessEnv() []string {
 	return c.spec.Process.Env
+}
+
+func (c *Container) doWithLock(fn func() error) error {
+	if err := c.Lock(); err != nil {
+		return fmt.Errorf("acquire container lock: %w", err)
+	}
+	defer c.Unlock()
+
+	if err := c.reloadState(); err != nil {
+		return fmt.Errorf("reload container state: %w", err)
+	}
+
+	return fn()
 }
 
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
@@ -1114,4 +1122,13 @@ func (c *Container) reloadState() error {
 	}
 
 	return nil
+}
+
+func (c *Container) hasMountNamespace() bool {
+	return slices.ContainsFunc(
+		c.spec.Linux.Namespaces,
+		func(ns specs.LinuxNamespace) bool {
+			return ns.Type == specs.MountNamespace
+		},
+	)
 }

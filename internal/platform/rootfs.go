@@ -2,7 +2,6 @@ package platform
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"golang.org/x/sys/unix"
 )
@@ -80,43 +79,6 @@ var mountOptions = map[string]mountOption{
 		recursive: false,
 		flag:      unix.MS_UNBINDABLE,
 	},
-}
-
-// MountRootfs mounts the container's root filesystem at given containerRootfs.
-//
-// NOTE: The actual mount operations are performed by the C constructor
-// (nssetup.c) BEFORE Go starts. This ensures mount operations happen in a
-// single-threaded context, which is critical for mount propagation to work
-// correctly (especially for rshared).
-//
-// The C code follows runc's prepareRoot sequence:
-// 1. Set "/" propagation based on rootfsPropagation (default: rslave)
-// 2. Make rootfs's parent mount private (isolates rootfs from "/" propagation)
-// 3. Bind mount rootfs to itself (makes it a proper mount point for pivot_root)
-//
-// This function is now a no-op but is kept for API compatibility.
-func MountRootfs(containerRootfs string, rootfsPropagation string) error {
-	// Mount operations are performed by the C constructor before Go starts.
-	return nil
-}
-
-// rootfsParentMountPrivate makes the nearest parent mount point of path private.
-// This prevents subsequent bind mounts from propagating to other namespaces.
-func rootfsParentMountPrivate(path string) error {
-	for {
-		if err := unix.Mount("", path, "", unix.MS_PRIVATE, ""); err == nil {
-			return nil
-		} else if err != unix.EINVAL {
-			return fmt.Errorf("remount-private %s: %w", path, err)
-		}
-		// EINVAL means not a mount point, try parent.
-		if path == "/" {
-			// Reached root - "/" is always a mount point so this shouldn't happen,
-			// but if it does, just return nil as "/" being private is safe.
-			return nil
-		}
-		path = filepath.Dir(path)
-	}
 }
 
 // ParseRootfsPropagation converts a propagation string to mount flags.
