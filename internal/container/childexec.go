@@ -17,10 +17,9 @@ import (
 // ChildExecOpts holds the options for the forked process that executes a
 // command in an existing container.
 type ChildExecOpts struct {
-	Cwd         string
-	Args        []string
-	ContainerID string
-
+	Cwd          string
+	Args         []string
+	ContainerID  string
 	Env          []string
 	Capabilities *specs.LinuxCapabilities
 	User         *specs.User
@@ -44,8 +43,6 @@ func ChildExec(opts *ChildExecOpts) error {
 	// When NoNewPrivileges is false, we load seccomp BEFORE dropping
 	// capabilities because seccomp filter loading is a privileged operation that
 	// requires CAP_SYS_ADMIN when NO_NEW_PRIVS is not set.
-	//
-	// See: https://man7.org/linux/man-pages/man2/seccomp.2.html
 	if opts.Seccomp != nil && !opts.NoNewPrivs {
 		if err := platform.LoadSeccompFilter(opts.Seccomp); err != nil {
 			return fmt.Errorf("load seccomp filter (privileged): %w", err)
@@ -121,7 +118,7 @@ func ChildExec(opts *ChildExecOpts) error {
 		}
 	}
 
-	bin, err := exec.LookPath(opts.Args[0])
+	exe, err := exec.LookPath(opts.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of binary: %w", err)
 	}
@@ -129,15 +126,15 @@ func ChildExec(opts *ChildExecOpts) error {
 	slog.Debug(
 		"execute child process",
 		"container_id", opts.ContainerID,
-		"bin", bin,
+		"exe", exe,
 		"args", opts.Args,
 		"additional_envs", opts.Env,
 	)
 
-	if err := unix.Exec(bin, opts.Args, envs); err != nil {
+	if err := unix.Exec(exe, opts.Args, envs); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
-			bin, opts.Args, os.Environ(), err,
+			exe, opts.Args, envs, err,
 		)
 	}
 

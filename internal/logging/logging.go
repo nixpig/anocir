@@ -33,9 +33,7 @@ func NewLogger(w io.Writer, debug bool, format string) *slog.Logger {
 		handler = slog.NewTextHandler(w, options)
 	}
 
-	logger := slog.New(handler)
-
-	return logger
+	return slog.New(handler)
 }
 
 func OpenLogFile(logFile string) (io.Writer, error) {

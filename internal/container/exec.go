@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 
@@ -18,6 +19,7 @@ import (
 
 // ExecOpts holds the options for executing a command in an existing container.
 type ExecOpts struct {
+	// TODO: This is getting pretty big. Perhaps we want to restructure.
 	Cwd            string
 	Args           []string
 	UID            int
@@ -65,9 +67,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		additionalGIDs = append(additionalGIDs, fmt.Sprintf("%d", g))
 	}
 
-	procAttr := &syscall.ProcAttr{
-		Sys: &syscall.SysProcAttr{},
-	}
+	procAttr := &syscall.ProcAttr{Sys: &syscall.SysProcAttr{}}
 
 	args := []string{
 		"childexec",
@@ -94,19 +94,11 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			return 0, fmt.Errorf("send pty: %w", err)
 		}
 
-		procAttr.Files = []uintptr{
-			pty.Slave.Fd(),
-			pty.Slave.Fd(),
-			pty.Slave.Fd(),
-		}
+		procAttr.Files = []uintptr{pty.Slave.Fd(), pty.Slave.Fd(), pty.Slave.Fd()}
 
 		args = append(args, "--tty")
 	} else {
-		procAttr.Files = []uintptr{
-			os.Stdin.Fd(),
-			os.Stdout.Fd(),
-			os.Stderr.Fd(),
-		}
+		procAttr.Files = []uintptr{os.Stdin.Fd(), os.Stdout.Fd(), os.Stderr.Fd()}
 	}
 
 	if opts.NoNewPrivs {
@@ -183,7 +175,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	if len(joinNSParts) > 0 {
 		procAttr.Env = append(
 			procAttr.Env,
-			fmt.Sprintf("_ANOCIR_JOIN_NS=%s", strings.Join(joinNSParts, ",")),
+			fmt.Sprintf("%s=%s", envJoinNS, strings.Join(joinNSParts, ",")),
 		)
 	}
 
@@ -219,16 +211,16 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		args = append(args, "--seccomp-file", containerSeccompPath)
 	}
 
-	// Check if binary exists in the container's filesystem before forking.
+	// Check if executable exists in the container's filesystem before forking.
 	// This allows returning an error synchronously (as required by containerd)
 	// rather than deferring failure to later.
 	containerRoot := fmt.Sprintf("/proc/%d/root", containerPID)
-	if err := checkBinaryInContainer(
+	if err := checkExecutableInContainer(
 		containerRoot,
 		opts.Args[0],
 		opts.Env,
 	); err != nil {
-		return 0, fmt.Errorf("check binary in container: %w", err)
+		return 0, fmt.Errorf("check executable in container: %w", err)
 	}
 
 	execArgs := append([]string{"/proc/self/exe"}, args...)
@@ -248,12 +240,8 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	}
 
 	if opts.PIDFile != "" {
-		if err := os.WriteFile(opts.PIDFile, fmt.Appendf(nil, "%d", pid), 0o644); err != nil {
-			return 0, fmt.Errorf(
-				"write pid to file (%s): %w",
-				opts.PIDFile,
-				err,
-			)
+		if err := os.WriteFile(opts.PIDFile, strconv.AppendInt(nil, int64(pid), 10), 0o644); err != nil {
+			return 0, fmt.Errorf("write pid to file (%s): %w", opts.PIDFile, err)
 		}
 	}
 
@@ -304,14 +292,14 @@ func appendArgsSlice(args []string, flag string, values []string) []string {
 	return args
 }
 
-// checkBinaryInContainer verifies that the binary exists and is executable
+// checkExecutableInContainer verifies that the executable exists and is executable
 // within the container's filesystem. containerRoot should be /proc/<pid>/root.
-func checkBinaryInContainer(containerRoot, binary string, env []string) error {
-	if strings.HasPrefix(binary, "/") {
-		fullPath := filepath.Join(containerRoot, binary)
-		if err := checkExecutable(fullPath); err != nil {
+func checkExecutableInContainer(containerRoot, exe string, env []string) error {
+	if strings.HasPrefix(exe, "/") {
+		if err := checkExecutable(filepath.Join(containerRoot, exe)); err != nil {
 			return fmt.Errorf("executable file not found in $PATH: %w", err)
 		}
+
 		return nil
 	}
 
@@ -329,7 +317,7 @@ func checkBinaryInContainer(containerRoot, binary string, env []string) error {
 			dir = "."
 		}
 
-		fullPath := filepath.Join(containerRoot, dir, binary)
+		fullPath := filepath.Join(containerRoot, dir, exe)
 		if err := checkExecutable(fullPath); err == nil {
 			return nil
 		}

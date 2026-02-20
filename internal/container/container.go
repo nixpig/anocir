@@ -46,7 +46,7 @@ const (
 	envJoinNS = "_ANOCIR_JOIN_NS"
 
 	// envContainerPID is the name of the environemnt variable used to pass the
-	// container PID to reexec'd process.
+	// container PID to the reexec'd process.
 	envContainerPID = "_ANOCIR_CONTAINER_PID"
 )
 
@@ -115,18 +115,16 @@ func New(opts *Opts) (*Container, error) {
 }
 
 func (c *Container) save() error {
-	containerDir := filepath.Join(c.RootDir, c.State.ID)
-
 	slog.Debug(
 		"save state",
 		"container_id", c.State.ID,
-		"container_dir", containerDir,
+		"container_dir", c.containerDir(),
 		"state_filepath", c.stateFilepath(),
 	)
 
 	if len(c.spec.Linux.UIDMappings) > 0 && len(c.spec.Linux.GIDMappings) > 0 {
 		if err := os.Chown(
-			containerDir,
+			c.containerDir(),
 			int(c.spec.Linux.UIDMappings[0].HostID),
 			int(c.spec.Linux.GIDMappings[0].HostID),
 		); err != nil {
@@ -180,7 +178,7 @@ func (c *Container) Save() error {
 
 // Lock acquires an exclusive lock on the container.
 func (c *Container) Lock() error {
-	lockPath := filepath.Join(c.RootDir, c.State.ID, lockFilename)
+	lockPath := filepath.Join(c.containerDir(), lockFilename)
 	f, err := os.OpenFile(lockPath, os.O_CREATE|os.O_RDWR, 0o600)
 	if err != nil {
 		return fmt.Errorf("open lock file: %w", err)
@@ -244,14 +242,17 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup: %s", err.Error())
+		fmt.Fprintf(
+			os.Stderr,
+			"Warning: failed to delete cgroup (path: %s): %s\n",
+			c.spec.Linux.CgroupsPath,
+			err.Error(),
+		)
 	}
 
 	// TODO: Review whether need to remove pidfile.
 
-	if err := os.RemoveAll(
-		filepath.Join(c.RootDir, c.State.ID),
-	); err != nil {
+	if err := os.RemoveAll(c.containerDir()); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
@@ -406,12 +407,10 @@ func (c *Container) Kill(sig string, killAll bool) error {
 	}
 
 	if killAll {
-		pids, err := platform.GetCgroupProcesses(
-			c.spec.Linux.CgroupsPath,
-			c.State.ID,
-		)
+		pids, err := platform.GetCgroupProcesses(c.spec.Linux.CgroupsPath, c.State.ID)
 		if err != nil {
 			// cgroup may already be dead
+			slog.Debug("get cgroup processes for kill all", "err", err)
 			return nil
 		}
 
@@ -428,7 +427,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 				!errors.Is(err, unix.ESRCH) {
 				return fmt.Errorf(
 					"send killall signal '%s' to process '%d': %w",
-					sig, pid, err,
+					unixSig, pid, err,
 				)
 			}
 		}
@@ -444,7 +443,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 			"send kill signal",
 			"container_id", c.State.ID,
 			"pid", c.State.Pid,
-			"signal", sig,
+			"signal", unixSig,
 		)
 
 		if err := platform.SendSignal(c.State.Pid, unixSig); err != nil {
@@ -452,7 +451,10 @@ func (c *Container) Kill(sig string, killAll bool) error {
 				return fmt.Errorf("container not running: %w", err)
 			}
 
-			return fmt.Errorf("send signal '%s' to process '%d': %w", sig, c.State.Pid, err)
+			return fmt.Errorf(
+				"send signal '%s' to process '%d': %w",
+				unixSig, c.State.Pid, err,
+			)
 		}
 	}
 
@@ -472,11 +474,7 @@ func (c *Container) Init() error {
 		return fmt.Errorf("save initial container state: %w", err)
 	}
 
-	slog.Debug(
-		"init container",
-		"container_id", c.State.ID,
-		"bundle", c.State.Bundle,
-	)
+	slog.Debug("init container", "container_id", c.State.ID, "bundle", c.State.Bundle)
 
 	args := []string{
 		"reexec",
@@ -488,16 +486,12 @@ func (c *Container) Init() error {
 	if c.useTerminal() {
 		ptySocket, err := terminal.NewPtySocket(c.ConsoleSocket)
 		if err != nil {
-			return err
+			return fmt.Errorf("new pty socket: %w", err)
 		}
 
 		c.ConsoleSocketFD = ptySocket.SocketFd
 
-		args = append(
-			args,
-			"--console-socket-fd",
-			strconv.Itoa(c.ConsoleSocketFD),
-		)
+		args = append(args, "--console-socket-fd", strconv.Itoa(c.ConsoleSocketFD))
 	}
 
 	if c.debug {
@@ -512,7 +506,7 @@ func (c *Container) Init() error {
 
 	initSockParent, initSockChild, err := ipc.NewSocketPair()
 	if err != nil {
-		return err
+		return fmt.Errorf("new socketpair: %w", err)
 	}
 	defer initSockParent.Close()
 	defer initSockChild.Close()
@@ -541,24 +535,18 @@ func (c *Container) Init() error {
 
 	cmd.ExtraFiles = []*os.File{initSockChild, listenerFile}
 
+	// Get position in extra files and offset by 3 to account for stdio fds.
+	initSockFD := slices.Index(cmd.ExtraFiles, initSockChild) + 3
+	containerSockFD := slices.Index(cmd.ExtraFiles, listenerFile) + 3
+
 	cmd.Env = append(
 		cmd.Env,
-		fmt.Sprintf(
-			"%s=%d",
-			envInitSockFD,
-			slices.Index(cmd.ExtraFiles, initSockChild)+3,
-		),
-		fmt.Sprintf(
-			"%s=%d",
-			envContainerSockFD,
-			slices.Index(cmd.ExtraFiles, listenerFile)+3,
-		),
+		fmt.Sprintf("%s=%d", envInitSockFD, initSockFD),
+		fmt.Sprintf("%s=%d", envContainerSockFD, containerSockFD),
 	)
 
 	if c.spec.Process != nil && c.spec.Process.OOMScoreAdj != nil {
-		if err := platform.AdjustOOMScore(
-			*c.spec.Process.OOMScoreAdj,
-		); err != nil {
+		if err := platform.AdjustOOMScore(*c.spec.Process.OOMScoreAdj); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
 		}
 	}
@@ -583,11 +571,7 @@ func (c *Container) Init() error {
 		return fmt.Errorf("reexec container process: %w", err)
 	}
 
-	slog.Debug(
-		"container process forked",
-		"container_id", c.State.ID,
-		"pid", cmd.Process.Pid,
-	)
+	slog.Debug("container process forked", "container_id", c.State.ID, "pid", cmd.Process.Pid)
 
 	c.State.Pid = cmd.Process.Pid
 
@@ -617,11 +601,7 @@ func (c *Container) Init() error {
 		return fmt.Errorf("read prepivot message: %w", err)
 	}
 
-	slog.Debug(
-		"received prepivot message",
-		"container_id", c.State.ID,
-		"message", prePivotMsg,
-	)
+	slog.Debug("received prepivot message", "container_id", c.State.ID, "message", prePivotMsg)
 
 	if prePivotMsg != ipc.MsgPrePivot {
 		return fmt.Errorf(
@@ -641,22 +621,18 @@ func (c *Container) Init() error {
 		return fmt.Errorf("read ready message: %w", err)
 	}
 
-	slog.Debug(
-		"received ready message",
-		"container_id", c.State.ID,
-		"message", readyMsg,
-	)
+	slog.Debug("received ready message", "container_id", c.State.ID, "message", readyMsg)
 
 	switch readyMsg {
-	case ipc.MsgInvalidBinary:
+	case ipc.MsgInvalidExecutable:
 		return errors.New("invalid binary")
 	case ipc.MsgReady:
 		// Let's go!
 	default:
 		return fmt.Errorf(
-			"expected MsgReady ('%b') or MsgInvalidBinary ('%b') but got '%b'",
+			"expected MsgReady ('%b') or MsgInvalidExecutable ('%b') but got '%b'",
 			ipc.MsgReady,
-			ipc.MsgInvalidBinary,
+			ipc.MsgInvalidExecutable,
 			readyMsg,
 		)
 	}
@@ -690,14 +666,12 @@ func (c *Container) Reexec() error {
 
 	initSockFDVal, err := strconv.Atoi(initSockFD)
 	if err != nil {
-		return errors.New("invalid init sock fd")
+		return errors.New("invalid init sock fd: " + initSockFD)
 	}
 
-	initConn, err := net.FileConn(
-		os.NewFile(uintptr(initSockFDVal), "init_sock_child"),
-	)
+	initConn, err := net.FileConn(os.NewFile(uintptr(initSockFDVal), "init_sock_child"))
 	if err != nil {
-		return err
+		return fmt.Errorf("init sock file conn: %w", err)
 	}
 
 	containerSockFD := os.Getenv(envContainerSockFD)
@@ -707,15 +681,16 @@ func (c *Container) Reexec() error {
 
 	containerSockFDVal, err := strconv.Atoi(containerSockFD)
 	if err != nil {
-		return errors.New("invalid container sock fd")
+		return errors.New("invalid container sock fd: " + containerSockFD)
 	}
 
 	listenerFile := os.NewFile(uintptr(containerSockFDVal), "container_sock")
+	defer listenerFile.Close()
+
 	listener, err := net.FileListener(listenerFile)
 	if err != nil {
 		return fmt.Errorf("create listener from fd: %w", err)
 	}
-	listenerFile.Close()
 	defer listener.Close()
 
 	slog.Debug("send prepivot message", "container_id", c.State.ID)
@@ -742,13 +717,9 @@ func (c *Container) Reexec() error {
 
 		if c.spec.Process != nil {
 			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
-				slog.Debug(
-					"send invalid binary message",
-					"container_id", c.State.ID,
-				)
-
-				ipc.SendMessage(initConn, ipc.MsgInvalidBinary)
-				return fmt.Errorf("find path of user process binary: %w", err)
+				slog.Debug("send invalid executable message", "container_id", c.State.ID)
+				ipc.SendMessage(initConn, ipc.MsgInvalidExecutable)
+				return fmt.Errorf("find path of user process exe: %w", err)
 			}
 		}
 	}
@@ -777,11 +748,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("read from container sock: %w", err)
 	}
 
-	slog.Debug(
-		"received start message",
-		"container_id", c.State.ID,
-		"message", startMsg,
-	)
+	slog.Debug("received start message", "container_id", c.State.ID, "message", startMsg)
 
 	if startMsg != ipc.MsgStart {
 		return fmt.Errorf(
@@ -881,7 +848,7 @@ func (c *Container) Resume() error {
 	return nil
 }
 
-func (c *Container) ProcessEnv() []string {
+func (c *Container) GetProcessEnv() []string {
 	return c.spec.Process.Env
 }
 
@@ -959,7 +926,7 @@ func (c *Container) execUserProcess() error {
 		return fmt.Errorf("set working directory: %w", err)
 	}
 
-	bin, err := exec.LookPath(c.spec.Process.Args[0])
+	exe, err := exec.LookPath(c.spec.Process.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of user process binary: %w", err)
 	}
@@ -967,14 +934,14 @@ func (c *Container) execUserProcess() error {
 	slog.Debug(
 		"execute user process",
 		"container_id", c.State.ID,
-		"bin", bin,
+		"exe", exe,
 		"args", c.spec.Process.Args,
 	)
 
-	if err := unix.Exec(bin, c.spec.Process.Args, os.Environ()); err != nil {
+	if err := unix.Exec(exe, c.spec.Process.Args, os.Environ()); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
-			bin, c.spec.Process.Args, os.Environ(), err,
+			exe, c.spec.Process.Args, os.Environ(), err,
 		)
 	}
 
@@ -1005,7 +972,7 @@ func (c *Container) connectConsole() error {
 
 	pty, err := terminal.NewPtyAt(ptmxPath, ptsDir)
 	if err != nil {
-		return fmt.Errorf("new pty: %w", err)
+		return fmt.Errorf("new pty at (ptmxPath: %s, ptsDir: %s): %w", ptmxPath, ptsDir, err)
 	}
 
 	if c.spec.Process != nil && c.spec.Process.ConsoleSize != nil {
@@ -1076,6 +1043,10 @@ func (c *Container) rootFS() string {
 
 func (c *Container) stateFilepath() string {
 	return filepath.Join(c.RootDir, c.State.ID, "state.json")
+}
+
+func (c *Container) containerDir() string {
+	return filepath.Join(c.RootDir, c.State.ID)
 }
 
 func (c *Container) reloadState() error {

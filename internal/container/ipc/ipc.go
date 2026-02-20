@@ -19,9 +19,9 @@ const (
 	// MsgReady is the message sent over the init socketpair when the container
 	// is created and ready to receive commands.
 	MsgReady
-	// MsgInvalidBinary is the message sent over the init socketpair when the exec
-	// binary cannot be found.
-	MsgInvalidBinary
+	// MsgInvalidExecutable is the message sent over the init socketpair when the
+	// user executable cannot be found.
+	MsgInvalidExecutable
 	// MsgPrePivot is the message sent before pivot_root is called.
 	MsgPrePivot
 	// MsgExecReady is the message sent right before execve to indicate the

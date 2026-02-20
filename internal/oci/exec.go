@@ -56,8 +56,8 @@ func execCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			if cntr.ProcessEnv() != nil {
-				opts.Env = append(opts.Env, cntr.ProcessEnv()...)
+			if cntr.GetProcessEnv() != nil {
+				opts.Env = append(opts.Env, cntr.GetProcessEnv()...)
 			}
 
 			spec := cntr.GetSpec()

@@ -21,21 +21,16 @@ echo "hook called" > ` + outputFile + `
 	err := os.WriteFile(hookPath, []byte(script), 0o755)
 	assert.NoError(t, err)
 
-	hooks := []specs.Hook{
-		{
-			Path: hookPath,
-		},
-	}
+	hooks := []specs.Hook{{Path: hookPath}}
 
-	state := &specs.State{
-		ID: "test-container",
-	}
+	state := &specs.State{ID: "test-container"}
 
 	err = ExecHooks(hooks, state)
 	assert.NoError(t, err)
 
-	_, err = os.Stat(outputFile)
-	assert.NoError(t, err, "hook was not called")
+	b, err := os.ReadFile(outputFile)
+	assert.NoError(t, err)
+	assert.Equal(t, "hook called\n", string(b))
 }
 
 func TestExecHooks_Timeout(t *testing.T) {
@@ -50,16 +45,9 @@ sleep 2
 	err := os.WriteFile(hookPath, []byte(script), 0o755)
 	assert.NoError(t, err)
 
-	hooks := []specs.Hook{
-		{
-			Path:    hookPath,
-			Timeout: &hookTimeout,
-		},
-	}
+	hooks := []specs.Hook{{Path: hookPath, Timeout: &hookTimeout}}
 
-	state := &specs.State{
-		ID: "test-container",
-	}
+	state := &specs.State{ID: "test-container"}
 
 	err = ExecHooks(hooks, state)
 	assert.Error(t, err)

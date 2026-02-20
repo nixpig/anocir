@@ -40,9 +40,9 @@ func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 }
 
 func execHook(h specs.Hook, state []byte) error {
-	binary, err := exec.LookPath(h.Path)
+	exe, err := exec.LookPath(h.Path)
 	if err != nil {
-		return fmt.Errorf("find path of hook binary: %w", err)
+		return fmt.Errorf("find path of hook executable: %w", err)
 	}
 
 	var cmd *exec.Cmd
@@ -54,9 +54,9 @@ func execHook(h specs.Hook, state []byte) error {
 		)
 		defer cancel()
 
-		cmd = exec.CommandContext(ctx, binary)
+		cmd = exec.CommandContext(ctx, exe)
 	} else {
-		cmd = exec.Command(binary)
+		cmd = exec.Command(exe)
 	}
 
 	cmd.Args = h.Args
