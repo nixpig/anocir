@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/containerd/cgroups/v3"
@@ -23,10 +24,7 @@ func CreateCgroup(
 	containerPID int,
 	resources *specs.LinuxResources,
 ) error {
-	slice, group := buildSystemdCGroupSliceAndGroup(
-		cgroupsPath,
-		containerID,
-	)
+	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
 	if err := validateCgroupsSliceGroup(slice, group); err != nil {
 		return fmt.Errorf("validate cgroup slice and group: %w", err)
@@ -39,12 +37,12 @@ func CreateCgroup(
 
 	manager, err := cgroup2.NewSystemd(slice, group, containerPID, cgResources)
 	if err != nil {
-		return err
+		return fmt.Errorf("create systemd cgroup manager: %w", err)
 	}
 
 	// NewSystemd sets some resources via systemd properties (e.g., MemoryMax)
-	// but doesn't set all resources like memory.swap.max. Call Update() to
-	// write remaining resources directly to cgroup files.
+	// but doesn't set all resources like memory.swap.max.
+	// Call Update() to write remaining resources directly to cgroup files.
 	if err := manager.Update(cgResources); err != nil {
 		return fmt.Errorf("update cgroup resources: %w", err)
 	}
@@ -60,9 +58,13 @@ func DeleteCgroup(cgroupsPath, containerID string) error {
 		return fmt.Errorf("load cgroup manager: %w", err)
 	}
 
-	// TODO: Consider logging errors in future. Ignoring for now, as best-effort.
-	_ = cg.Freeze()
-	_ = cg.Kill()
+	if err := cg.Freeze(); err != nil {
+		slog.Warn("failed to freeze cgroup before delete", "err", err)
+	}
+
+	if err := cg.Kill(); err != nil {
+		slog.Warn("failed to kill cgroup before delete", "err", err)
+	}
 
 	return cg.DeleteSystemd()
 }
@@ -129,16 +131,14 @@ func GetCgroupProcesses(cgroupsPath, containerID string) ([]int, error) {
 	return processes, nil
 }
 
-func loadCgroupManager(
-	cgroupsPath, containerID string,
-) (*cgroup2.Manager, error) {
+func loadCgroupManager(cgroupsPath, containerID string) (*cgroup2.Manager, error) {
 	slice, group := buildSystemdCGroupSliceAndGroup(cgroupsPath, containerID)
 
 	if err := validateCgroupsSliceGroup(slice, group); err != nil {
 		return nil, fmt.Errorf("validate cgroup slice and group: %w", err)
 	}
 
-	// LoadSystemd always returns a nil error.
+	// LoadSystemd always returns a nil error, ignore it.
 	cg, _ := cgroup2.LoadSystemd(slice, group)
 
 	return cg, nil
@@ -195,11 +195,11 @@ func validateCgroupsSliceGroup(slice, group string) error {
 		}
 
 		if strings.Contains(s, "..") {
-			return fmt.Errorf("%s contains directory traversal", s)
+			return fmt.Errorf("'%s' contains directory traversal", s)
 		}
 
 		if strings.ContainsAny(s, "/\\") {
-			return fmt.Errorf("%s contains path separator", s)
+			return fmt.Errorf("'%s' contains path separator", s)
 		}
 	}
 

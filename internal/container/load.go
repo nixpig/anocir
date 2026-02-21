@@ -54,14 +54,10 @@ func Load(id, rootDir string) (*Container, error) {
 	return c, nil
 }
 
-// containerSockPath constructs the filepath to the socket used for container
-// IPC.
+// containerSockPath constructs the filepath to the socket used for container IPC.
 func containerSockPath(bundle string) string {
 	// We use a path that's always accessible by the runtime, rather than the
 	// root or bundle paths.
-	return filepath.Join(
-		"/run/anocir",
-		ipc.ShortID(bundle),
-		containerSockFilename,
-	)
+	// TODO: Review how we handle this.
+	return filepath.Join("/run/anocir", ipc.ShortID(bundle), containerSockFilename)
 }

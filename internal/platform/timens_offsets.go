@@ -26,21 +26,14 @@ func SetTimeOffsets(offsets map[string]specs.LinuxTimeOffset) error {
 		}
 	}
 
-	if err := os.WriteFile(
-		"/proc/self/timens_offsets",
-		tos.Bytes(),
-		0o644,
-	); err != nil {
+	if err := os.WriteFile("/proc/self/timens_offsets", tos.Bytes(), 0o644); err != nil {
 		return fmt.Errorf("write timens offsets: %w", err)
 	}
 
 	return nil
 }
 
-func parseTimeOffset(
-	offset specs.LinuxTimeOffset,
-	clock string,
-) (string, error) {
+func parseTimeOffset(offset specs.LinuxTimeOffset, clock string) (string, error) {
 	if clock != "monotonic" && clock != "boottime" {
 		return "", ErrInvalidClock
 	}

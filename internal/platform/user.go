@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 
@@ -10,6 +11,7 @@ import (
 )
 
 // SetUser sets the user and group IDs for the current (container) process.
+// Passing a nil user is a no-op.
 func SetUser(user *specs.User) error {
 	if user == nil {
 		return nil
@@ -20,6 +22,7 @@ func SetUser(user *specs.User) error {
 
 		data, err := os.ReadFile("/proc/self/setgroups")
 		if err == nil && strings.TrimSpace(string(data)) == "deny" {
+			slog.Debug("/proc/self/setgroups is deny, not adding additional GIDs")
 			allowAdditionalGroups = false
 		}
 

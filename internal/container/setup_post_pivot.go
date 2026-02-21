@@ -41,12 +41,9 @@ func (c *Container) setupPostPivot() error {
 	// Only set hostname if we created a new UTS namespace (Path is empty).
 	// If we're joining an existing UTS namespace (Path is not empty), the
 	// hostname was already set by the namespace creator.
-	if slices.ContainsFunc(
-		c.spec.Linux.Namespaces,
-		func(ns specs.LinuxNamespace) bool {
-			return ns.Type == specs.UTSNamespace && ns.Path == ""
-		},
-	) {
+	if slices.ContainsFunc(c.spec.Linux.Namespaces, func(ns specs.LinuxNamespace) bool {
+		return ns.Type == specs.UTSNamespace && ns.Path == ""
+	}) {
 		if err := unix.Sethostname([]byte(c.spec.Hostname)); err != nil {
 			return fmt.Errorf("set hostname: %w", err)
 		}

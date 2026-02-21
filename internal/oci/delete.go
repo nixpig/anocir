@@ -26,12 +26,12 @@ func deleteCmd() *cobra.Command {
 			if err := cntr.Delete(force); err != nil {
 				return fmt.Errorf("failed to delete container: %w", err)
 			}
+
 			return nil
 		},
 	}
 
-	cmd.Flags().
-		BoolP("force", "f", false, "force container deletion")
+	cmd.Flags().BoolP("force", "f", false, "force container deletion")
 
 	return cmd
 }

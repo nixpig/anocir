@@ -13,7 +13,7 @@ import (
 func childExecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "childexec [flags]",
-		Short:  "\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
+		Short:  internalUseMessage,
 		Args:   cobra.NoArgs,
 		Hidden: true, // this command is only used internally
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -29,10 +29,7 @@ func childExecCmd() *cobra.Command {
 			containerID, _ := cmd.Flags().GetString("container-id")
 			seccompFile, _ := cmd.Flags().GetString("seccomp-file")
 
-			user := &specs.User{
-				UID: uint32(uid),
-				GID: uint32(gid),
-			}
+			user := &specs.User{UID: uint32(uid), GID: uint32(gid)}
 
 			for _, g := range additionalGIDs {
 				user.AdditionalGids = append(user.AdditionalGids, uint32(g))

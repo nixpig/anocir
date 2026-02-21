@@ -11,6 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// seccompActions maps seccomp actions from the libseccomp library to OCI spec.
 var seccompActions = map[specs.LinuxSeccompAction]libseccomp.ScmpAction{
 	specs.ActKill:        libseccomp.ActKillThread,
 	specs.ActKillProcess: libseccomp.ActKillProcess,
@@ -22,6 +23,7 @@ var seccompActions = map[specs.LinuxSeccompAction]libseccomp.ScmpAction{
 	specs.ActNotify:      libseccomp.ActNotify,
 }
 
+// seccompOperators maps seccomp operators from the libseccomp library to OCI spec.
 var seccompOperators = map[specs.LinuxSeccompOperator]libseccomp.ScmpCompareOp{
 	specs.OpNotEqual:     libseccomp.CompareNotEqual,
 	specs.OpLessThan:     libseccomp.CompareLess,
@@ -32,6 +34,7 @@ var seccompOperators = map[specs.LinuxSeccompOperator]libseccomp.ScmpCompareOp{
 	specs.OpMaskedEqual:  libseccomp.CompareMaskedEqual,
 }
 
+// seccompOperators maps seccomp architectures from the libseccomp library to OCI spec.
 var seccompArch = map[specs.Arch]libseccomp.ScmpArch{
 	specs.ArchX86:         libseccomp.ArchX86,
 	specs.ArchX86_64:      libseccomp.ArchAMD64,
@@ -52,9 +55,9 @@ var seccompArch = map[specs.Arch]libseccomp.ScmpArch{
 	specs.ArchRISCV64:     libseccomp.ArchRISCV64,
 }
 
-func mapSeccompAction(
-	action specs.LinuxSeccompAction,
-) libseccomp.ScmpAction {
+// mapSeccompAction maps seccomp actions from the libseccomp library to OCI spec.
+// In the case the action isn't found, it returns libseccomp.ActInvalid.
+func mapSeccompAction(action specs.LinuxSeccompAction) libseccomp.ScmpAction {
 	act, ok := seccompActions[action]
 	if !ok {
 		return libseccomp.ActInvalid
@@ -63,9 +66,9 @@ func mapSeccompAction(
 	return act
 }
 
-func mapSeccompOperator(
-	operator specs.LinuxSeccompOperator,
-) libseccomp.ScmpCompareOp {
+// mapSeccompOperator maps seccomp operators from the libseccomp library to OCI spec.
+// In the case the operator isn't found, it returns libseccomp.CompareInvalid.
+func mapSeccompOperator(operator specs.LinuxSeccompOperator) libseccomp.ScmpCompareOp {
 	op, ok := seccompOperators[operator]
 	if !ok {
 		return libseccomp.CompareInvalid
@@ -74,6 +77,8 @@ func mapSeccompOperator(
 	return op
 }
 
+// mapSeccompArch maps seccomp architectures from the libseccomp library to OCI spec.
+// In the case the architecture isn't found, it returns libseccomp.ArchInvalid.
 func mapSeccompArch(arch specs.Arch) libseccomp.ScmpArch {
 	a, ok := seccompArch[arch]
 	if !ok {
@@ -83,9 +88,9 @@ func mapSeccompArch(arch specs.Arch) libseccomp.ScmpArch {
 	return a
 }
 
-func buildSeccompFilter(
-	spec *specs.LinuxSeccomp,
-) (*libseccomp.ScmpFilter, error) {
+// TODO: This function has gotten pretty monstrous. Need to look at cleaning this
+// up a bit.
+func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error) {
 	slog.Debug("build seccomp filter", "default_action", spec.DefaultAction)
 	defaultAction := mapSeccompAction(spec.DefaultAction)
 
@@ -166,11 +171,7 @@ func buildSeccompFilter(
 				}
 				if err != nil {
 					filter.Release()
-					return nil, fmt.Errorf(
-						"make seccomp condition for %s: %w",
-						name,
-						err,
-					)
+					return nil, fmt.Errorf("make seccomp condition for %s: %w", name, err)
 				}
 
 				conditions = append(conditions, cond)
@@ -178,11 +179,7 @@ func buildSeccompFilter(
 
 			if err := filter.AddRuleConditional(num, action, conditions); err != nil {
 				filter.Release()
-				return nil, fmt.Errorf(
-					"add seccomp conditional rule for %s: %w",
-					name,
-					err,
-				)
+				return nil, fmt.Errorf("add seccomp conditional rule for %s: %w", name, err)
 			}
 		}
 	}

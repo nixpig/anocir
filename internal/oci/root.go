@@ -29,12 +29,7 @@ func RootCmd() *cobra.Command {
 			if logFile != "" {
 				f, err := logging.OpenLogFile(logFile)
 				if err != nil {
-					fmt.Fprintf(
-						cmd.ErrOrStderr(),
-						"Warning: failed to open log file '%s': %s",
-						logFile,
-						err,
-					)
+					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to open log file '%s': %s", logFile, err)
 				} else {
 					w = f
 				}
@@ -63,32 +58,15 @@ func RootCmd() *cobra.Command {
 		resumeCmd(),
 	)
 
-	cmd.PersistentFlags().StringP(
-		"root",
-		"",
-		defaultRootDir,
-		"root directory for container state",
-	)
-
-	cmd.PersistentFlags().StringP(
-		"log",
-		"l",
-		"",
-		"destination to write logs",
-	)
-
+	cmd.PersistentFlags().StringP("root", "", defaultRootDir, "root directory for container state")
+	cmd.PersistentFlags().StringP("log", "l", "", "destination to write logs")
 	cmd.PersistentFlags().Bool("debug", false, "enable debug logging")
+	cmd.PersistentFlags().StringP("log-format", "", "text", "log format (json | text)")
+
+	// systemd is always used. Flag is unused but provided to satisfy Docker expectation.
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "not implemented")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
-
-	// Flags required by Docker.
-	// systemd is always used, cgroup is cgroupPath from spec or {containerID}.slice
-	// TODO: Review implementation for this.
-	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "not implemented")
-	cmd.PersistentFlags().
-		StringP("log-format", "", "text", "log format (json | text)")
-
-	// ---
 
 	return cmd
 }

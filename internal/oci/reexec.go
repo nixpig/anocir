@@ -10,7 +10,7 @@ import (
 func reexecCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:    "reexec [flags] CONTAINER_ID",
-		Short:  "\n \033[31m ⚠ FOR INTERNAL USE ONLY - DO NOT RUN DIRECTLY ⚠ \033[0m",
+		Short:  internalUseMessage,
 		Args:   cobra.ExactArgs(1),
 		Hidden: true, // this command is only used internally
 		RunE: func(cmd *cobra.Command, args []string) error {

@@ -105,6 +105,7 @@ func TestBuildSystemdCGroupSliceAndGroup(t *testing.T) {
 				data.cgroupsPath,
 				data.containerID,
 			)
+
 			assert.Equal(t, data.systemdCgroupSlice, slice)
 			assert.Equal(t, data.systemdCgroupScope, scope)
 		})

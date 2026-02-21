@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"slices"
@@ -17,29 +18,23 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 	for _, m := range mounts {
 		var flags uintptr
 
+		dest := filepath.Join(containerRootfs, m.Destination)
+
 		// For cgroupv2 bind mount the cgroup hierarchy.
 		if m.Type == "cgroup" && IsUnifiedCgroupsMode() {
-			if err := BindMount(
-				"/sys/fs/cgroup",
-				filepath.Join(containerRootfs, m.Destination),
-				true,
-			); err != nil {
+			if err := BindMount("/sys/fs/cgroup", dest, true); err != nil {
 				return fmt.Errorf("bind mount cgroup2: %w", err)
 			}
 
 			continue
 		}
 
-		dest := filepath.Join(containerRootfs, m.Destination)
-
 		if _, err := os.Stat(dest); err != nil {
 			if !os.IsNotExist(err) {
-				return fmt.Errorf("exists (%s): %w", dest, err)
+				return fmt.Errorf("destination exists (%s): %w", dest, err)
 			}
 
-			if m.Type == "bind" || slices.Contains(m.Options, "bind") ||
-				slices.Contains(m.Options, "rbind") {
-
+			if isBindMount(m) {
 				if info, err := os.Lstat(dest); err == nil && info.Mode()&os.ModeSymlink != 0 {
 					if err := os.Remove(dest); err != nil {
 						return fmt.Errorf("remove symlink before mount (%s): %w", dest, err)
@@ -49,7 +44,10 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 					if err != nil {
 						return fmt.Errorf("recreate symlink as regular file for mount (%s): %w", dest, err)
 					}
-					f.Close()
+
+					if err := f.Close(); err != nil {
+						slog.Warn("failed to close bind mount symlink destination", "destination", f.Name(), "err", err)
+					}
 				}
 
 				srcInfo, err := os.Stat(m.Source)
@@ -59,11 +57,7 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 
 				if srcInfo.IsDir() {
 					if err := os.MkdirAll(dest, os.ModeDir); err != nil {
-						return fmt.Errorf(
-							"make mount dir target (%s): %w",
-							dest,
-							err,
-						)
+						return fmt.Errorf("make mount dir target (%s): %w", dest, err)
 					}
 				} else {
 					if err := os.MkdirAll(filepath.Dir(dest), 0o755); err != nil {
@@ -74,15 +68,14 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 					if err != nil {
 						return fmt.Errorf("make mount target file (%s): %w", dest, err)
 					}
-					f.Close()
+
+					if err := f.Close(); err != nil {
+						slog.Warn("failed to close mount destination", "destination", f.Name(), "err", err)
+					}
 				}
 			} else {
 				if err := os.MkdirAll(dest, 0o755); err != nil {
-					return fmt.Errorf(
-						"make mount dir (%s): %w",
-						filepath.Dir(dest),
-						err,
-					)
+					return fmt.Errorf("make mount dir (%s): %w", filepath.Dir(dest), err)
 				}
 			}
 		}
@@ -136,7 +129,6 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 			}
 		}
 
-		// Apply recursive readonly using mount_setattr.
 		if recursiveReadonly {
 			if err := setRecursiveReadonly(dest); err != nil {
 				return fmt.Errorf("set recursive readonly: %w", err)
@@ -180,4 +172,10 @@ func setRecursiveReadonly(path string) error {
 	}
 
 	return unix.MountSetattr(-1, path, unix.AT_RECURSIVE, &attr)
+}
+
+func isBindMount(m specs.Mount) bool {
+	return m.Type == "bind" ||
+		slices.Contains(m.Options, "bind") ||
+		slices.Contains(m.Options, "rbind")
 }

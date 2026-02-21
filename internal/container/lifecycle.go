@@ -1,6 +1,8 @@
 package container
 
 import (
+	"log/slog"
+
 	"github.com/nixpig/anocir/internal/container/hooks"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
@@ -40,6 +42,8 @@ func (c *Container) execHooks(phase Lifecycle) error {
 		h = c.spec.Hooks.Poststart
 	case LifecyclePoststop:
 		h = c.spec.Hooks.Poststop
+	default:
+		slog.Warn("invalid lifecycle phase", "phase", phase)
 	}
 
 	if len(h) > 0 {

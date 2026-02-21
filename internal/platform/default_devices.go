@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"path/filepath"
 	"strings"
@@ -94,7 +95,11 @@ func MountDefaultDevices(containerRootfs string) error {
 	if err != nil {
 		return fmt.Errorf("open container rootfs: %w", err)
 	}
-	defer root.Close()
+	defer func() {
+		if err := root.Close(); err != nil {
+			slog.Warn("failed to close containerRootfs after mounting default devices", "err", err)
+		}
+	}()
 
 	for _, d := range defaultDevices {
 		relPath := strings.TrimPrefix(d.Path, "/")
@@ -104,12 +109,14 @@ func MountDefaultDevices(containerRootfs string) error {
 			return err
 		}
 		if f != nil {
-			f.Close()
+			if err := f.Close(); err != nil {
+				slog.Warn("failed to close default device", "name", f.Name(), "err", err)
+			}
 		}
 
 		absPath := filepath.Join(root.Name(), relPath)
 		if err := BindMount(d.Path, absPath, false); err != nil {
-			return fmt.Errorf("bind mount device: %w", err)
+			return fmt.Errorf("bind mount default device: %w", err)
 		}
 	}
 
@@ -128,6 +135,7 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 				existingMajor := unix.Major(sysStat.Rdev)
 				existingMinor := unix.Minor(sysStat.Rdev)
 				if existingMajor == uint32(d.Major) && existingMinor == uint32(d.Minor) {
+					slog.Debug("device exists, skipping", "path", absPath, "major", d.Major, "minor", d.Minor)
 					continue
 				}
 			}
@@ -140,6 +148,7 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 		// Remove existing file/device if it exists (mknod fails on existing files).
 		if _, err := os.Lstat(absPath); err == nil {
 			if err := os.Remove(absPath); err != nil {
+				slog.Debug("remove device failed", "path", absPath, "err", err)
 				// If removal fails (device busy / bind-mounted), skip this device.
 				continue
 			}

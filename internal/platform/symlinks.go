@@ -15,8 +15,7 @@ var defaultSymlinks = map[string]string{
 	"pts/ptmx":        "dev/ptmx",
 }
 
-// CreateDefaultSymlinks creates the default symlinks inside the
-// containerRootfs.
+// CreateDefaultSymlinks creates the default symlinks inside the containerRootfs.
 func CreateDefaultSymlinks(containerRootfs string) error {
 	return createSymlinks(defaultSymlinks, containerRootfs)
 }

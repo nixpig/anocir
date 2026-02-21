@@ -2,13 +2,15 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"os"
 	"strings"
 )
 
 const (
-	appArmorEnabled = "/sys/module/apparmor/parameters/enabled"
-	appArmorApply   = "/proc/self/attr/apparmor/exec"
+	appArmorEnabled        = "/sys/module/apparmor/parameters/enabled"
+	appArmorExecPath       = "/proc/self/attr/apparmor/exec"
+	appArmorLegacyExecPath = "/proc/self/attr/exec"
 )
 
 // IsAppArmorEnabled checks if AppArmor is enabled on the system.
@@ -34,9 +36,9 @@ func ApplyAppArmorProfile(profile string) error {
 	// Use exec for applying on next exec.
 	profileData := fmt.Sprintf("exec %s", profile)
 
-	if err := os.WriteFile(appArmorApply, []byte(profileData), 0); err != nil {
-		legacyPath := "/proc/self/attr/exec"
-		if err := os.WriteFile(legacyPath, []byte(profileData), 0); err != nil {
+	if err := os.WriteFile(appArmorExecPath, []byte(profileData), 0); err != nil {
+		slog.Debug("falling back to AppArmor legacy path", "err", err)
+		if err := os.WriteFile(appArmorLegacyExecPath, []byte(profileData), 0); err != nil {
 			return fmt.Errorf("apply apparmor profile: %w", err)
 		}
 	}

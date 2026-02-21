@@ -82,13 +82,21 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		if err != nil {
 			return 0, fmt.Errorf("create pty socket: %w", err)
 		}
-		defer ptySocket.Close()
+		defer func() {
+			if err := ptySocket.Close(); err != nil {
+				slog.Warn("failed to close pty socket", "err", err)
+			}
+		}()
 
 		pty, err := terminal.NewPty()
 		if err != nil {
 			return 0, fmt.Errorf("create pty pair: %w", err)
 		}
-		defer pty.Master.Close()
+		defer func() {
+			if err := pty.Master.Close(); err != nil {
+				slog.Warn("failed to close pty master", "err", err)
+			}
+		}()
 
 		if err := terminal.SendPty(ptySocket.SocketFd, pty); err != nil {
 			return 0, fmt.Errorf("send pty: %w", err)
@@ -144,7 +152,11 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			if err != nil {
 				return 0, fmt.Errorf("open pid namespace: %w", err)
 			}
-			defer pidNSFile.Close()
+			defer func() {
+				if err := pidNSFile.Close(); err != nil {
+					slog.Warn("failed to close PID namespace file", "err", err)
+				}
+			}()
 
 			if err := unix.Setns(int(pidNSFile.Fd()), unix.CLONE_NEWPID); err != nil {
 				return 0, fmt.Errorf("setns to pid namespace: %w", err)
@@ -215,11 +227,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	// This allows returning an error synchronously (as required by containerd)
 	// rather than deferring failure to later.
 	containerRoot := fmt.Sprintf("/proc/%d/root", containerPID)
-	if err := checkExecutableInContainer(
-		containerRoot,
-		opts.Args[0],
-		opts.Env,
-	); err != nil {
+	if err := checkExecutableInContainer(containerRoot, opts.Args[0], opts.Env); err != nil {
 		return 0, fmt.Errorf("check executable in container: %w", err)
 	}
 
@@ -247,6 +255,9 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	if !opts.Detach {
 		var ws unix.WaitStatus
+
+		slog.Debug("waiting for process", "pid", pid)
+
 		if _, err := unix.Wait4(pid, &ws, 0, nil); err != nil {
 			return 0, fmt.Errorf("wait for child process: %w", err)
 		}

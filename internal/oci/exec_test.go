@@ -73,3 +73,11 @@ func TestParseUser(t *testing.T) {
 		})
 	}
 }
+
+func TestParseProcessFile(t *testing.T) {
+	// TODO: Add tests.
+}
+
+func TestParseProcessFlags(t *testing.T) {
+	// TODO: Add tests.
+}

@@ -3,6 +3,7 @@ package platform
 import (
 	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"syscall"
 
@@ -10,8 +11,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ErrInvalidNamespacePath is returned when an invalid namespace path is
-// specified.
+// ErrInvalidNamespacePath is returned when an invalid namespace path is specified.
 var ErrInvalidNamespacePath = errors.New("invalid namespace path")
 
 // NamespaceFlags maps LinuxNamespaceType to corresponding Linux clone flags.
@@ -26,8 +26,7 @@ var NamespaceFlags = map[specs.LinuxNamespaceType]uintptr{
 	specs.TimeNamespace:    unix.CLONE_NEWTIME,
 }
 
-// NamespaceEnvs maps LinuxNamespaceType to corresponding environment flag
-// names.
+// NamespaceEnvs maps LinuxNamespaceType to corresponding environment flag names.
 var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 	specs.PIDNamespace:     "pid",
 	specs.NetworkNamespace: "net",
@@ -39,7 +38,7 @@ var NamespaceEnvs = map[specs.LinuxNamespaceType]string{
 	specs.TimeNamespace:    "time",
 }
 
-// SetNS enters the namespace specified by the given path.
+// SetNS enters the namespace specified by the fd.
 func SetNS(fd uintptr) error {
 	_, _, errno := unix.Syscall(unix.SYS_SETNS, uintptr(fd), 0, 0)
 	if errno != 0 {
@@ -54,7 +53,11 @@ func JoinNS(ns *specs.LinuxNamespace) error {
 	if err != nil {
 		return fmt.Errorf("validate mount ns path: %w", err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			slog.Warn("failed to close namespace path", "path", ns.Path, "type", ns.Type, "err", err)
+		}
+	}()
 
 	return SetNS(f.Fd())
 }
@@ -74,10 +77,7 @@ func OpenNSPath(ns *specs.LinuxNamespace) (*os.File, error) {
 
 	nsType, err := unix.IoctlRetInt(int(f.Fd()), unix.NS_GET_NSTYPE)
 	if err != nil {
-		return nil, fmt.Errorf(
-			"get namespace type from file descriptor: %w",
-			err,
-		)
+		return nil, fmt.Errorf("get namespace type from file descriptor: %w", err)
 	}
 
 	if NamespaceFlags[ns.Type] != uintptr(nsType) {

@@ -9,6 +9,12 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const (
+	idHeader    = "ID"
+	pidHeader   = "PID"
+	stateHeader = "STATE"
+)
+
 func listCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "list [flags]",
@@ -25,36 +31,22 @@ func listCmd() *cobra.Command {
 
 			w := tabwriter.NewWriter(cmd.OutOrStdout(), 0, 0, 2, ' ', 0)
 
-			fmt.Fprint(w, "ID\tPID\tSTATE\t\n")
+			fmt.Fprintf(w, "%s\t%s\t%s\t\n", idHeader, pidHeader, stateHeader)
 
 			for _, d := range containerDirs {
 				id := d.Name()
 
 				cntr, err := container.Load(id, rootDir)
 				if err != nil {
-					return fmt.Errorf(
-						"failed to load container %s: %w",
-						id,
-						err,
-					)
+					return fmt.Errorf("failed to load container %s: %w", id, err)
 				}
 
 				state, err := cntr.GetState()
 				if err != nil {
-					return fmt.Errorf(
-						"failed to get state for container %s: %w",
-						id,
-						err,
-					)
+					return fmt.Errorf("failed to get state for container %s: %w", id, err)
 				}
 
-				fmt.Fprintf(
-					w,
-					"%s\t%d\t%s\t\n",
-					state.ID,
-					state.Pid,
-					state.Status,
-				)
+				fmt.Fprintf(w, "%s\t%d\t%s\t\n", state.ID, state.Pid, state.Status)
 			}
 
 			if err := w.Flush(); err != nil {

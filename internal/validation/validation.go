@@ -5,6 +5,8 @@ import (
 	"fmt"
 )
 
+// TODO: Include more robust validations, e.g. for container spec file.
+
 // maxLength is the maximum length of the container ID. It's somewhat
 // arbitrary, but 64 should be plenty long enough.
 const maxLength = 64
@@ -17,11 +19,7 @@ func ContainerID(id string) error {
 	}
 
 	if len(id) > maxLength {
-		return fmt.Errorf(
-			"%d exceeds max length of %d chars",
-			len(id),
-			maxLength,
-		)
+		return fmt.Errorf("%d exceeds max length of %d chars", len(id), maxLength)
 	}
 
 	for _, c := range id {
@@ -30,9 +28,7 @@ func ContainerID(id string) error {
 			(c >= '0' && c <= '9') ||
 			c == '-' ||
 			c == '_') {
-			return errors.New(
-				"may only contain alphanumeric, '-' and '_' chars",
-			)
+			return errors.New("may only contain alphanumeric, '-' and '_' chars")
 		}
 	}
 

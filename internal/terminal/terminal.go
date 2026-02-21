@@ -12,19 +12,16 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// Pty represents a pseudo-terminal pair, consisting of a Master and a Slave
-// File.
+// Pty represents a pseudo-terminal pair, consisting of a Master and a Slave File.
 type Pty struct {
-	// Master is the master side of the pseudo-terminal pair held by the runtime
-	// process.
+	// Master is the master side of the pseudo-terminal pair held by the runtime process.
 	Master *os.File
-	// Slave is the slave side of the pseudo-terminal pair used as the
-	// controlling terminal for the container process.
+	// Slave is the slave side of the pseudo-terminal pair used as the controlling
+	// terminal for the container process.
 	Slave *os.File
 }
 
-// NewPty creates a Pty pseudo-terminal pair with master at /dev/ptmx and slave
-// at /dev/pts.
+// NewPty creates a Pty pseudo-terminal pair with master at /dev/ptmx and slave at /dev/pts.
 func NewPty() (*Pty, error) {
 	return NewPtyAt("/dev/ptmx", "/dev/pts")
 }
@@ -57,10 +54,7 @@ func NewPtyAt(ptmxPath, ptsDir string) (*Pty, error) {
 		return nil, fmt.Errorf("open slave: %w", err)
 	}
 
-	return &Pty{
-		Master: master,
-		Slave:  slave,
-	}, nil
+	return &Pty{Master: master, Slave: slave}, nil
 }
 
 // Connect sets up the Pty Slave as the controlling terminal and redirects
@@ -122,19 +116,12 @@ func NewPtySocket(consoleSocketPath string) (*PtySocket, error) {
 		return nil, fmt.Errorf("create console socket: %w", err)
 	}
 
-	if err := unix.Connect(
-		fd,
-		&unix.SockaddrUnix{
-			Name: consoleSocketPath,
-		},
-	); err != nil {
+	if err := unix.Connect(fd, &unix.SockaddrUnix{Name: consoleSocketPath}); err != nil {
 		unix.Close(fd)
 		return nil, fmt.Errorf("connect to console socket: %w", err)
 	}
 
-	return &PtySocket{
-		SocketFd: fd,
-	}, nil
+	return &PtySocket{SocketFd: fd}, nil
 }
 
 // Close closes the PtySocket.

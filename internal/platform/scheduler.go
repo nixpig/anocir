@@ -8,8 +8,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ErrUnknownSchedulerPolicy is returned when the scheduler policy is not
-// recognised.
+// ErrUnknownSchedulerPolicy is returned when the scheduler policy is not recognised.
 var ErrUnknownSchedulerPolicy = errors.New("unknown scheduler policy")
 
 // schedulerFlags maps scheduler flags to their corresponding kernel values.
@@ -23,8 +22,7 @@ var schedulerFlags = map[specs.LinuxSchedulerFlag]int{
 	specs.SchedFlagUtilClampMax: 0x40,
 }
 
-// schedulerPolicies maps scheduler policies to their corresponding kernel
-// values.
+// schedulerPolicies maps scheduler policies to their corresponding kernel values.
 var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
 	specs.SchedOther:    0,
 	specs.SchedFIFO:     1,
@@ -40,11 +38,7 @@ var schedulerPolicies = map[specs.LinuxSchedulerPolicy]int{
 func NewSchedAttr(scheduler *specs.Scheduler) (*unix.SchedAttr, error) {
 	policy, ok := schedulerPolicies[scheduler.Policy]
 	if !ok {
-		return nil, fmt.Errorf(
-			"%w: %s",
-			ErrUnknownSchedulerPolicy,
-			scheduler.Policy,
-		)
+		return nil, fmt.Errorf("%w: %s", ErrUnknownSchedulerPolicy, scheduler.Policy)
 	}
 
 	var flags int

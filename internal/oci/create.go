@@ -22,9 +22,7 @@ func createCmd() *cobra.Command {
 		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !platform.IsUnifiedCgroupsMode() {
-				return errors.New(
-					"anocir requires cgroup v2 (unified mode)",
-				)
+				return errors.New("anocir requires cgroup v2 (unified mode)")
 			}
 
 			containerID := args[0]

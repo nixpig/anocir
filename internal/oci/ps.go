@@ -53,12 +53,12 @@ func psCmd() *cobra.Command {
 		},
 	}
 
-	// TODO: Implement.
 	cmd.Flags().StringP("format", "f", "table", "format for ps output")
 
 	return cmd
 }
 
+// TODO: Maybe we want to display more that just a list of PIDs?
 func formatProcessesOutput(format string, processes []int) (string, error) {
 	switch format {
 	case "table":

@@ -204,7 +204,12 @@ func (c *Container) Unlock() error {
 		return nil
 	}
 
-	defer c.lockFile.Close()
+	defer func() {
+		if err := c.lockFile.Close(); err != nil {
+			slog.Warn("failed to close lock file", "err", err)
+		}
+	}()
+
 	return unix.Flock(int(c.lockFile.Fd()), unix.LOCK_UN)
 }
 
@@ -242,12 +247,8 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		fmt.Fprintf(
-			os.Stderr,
-			"Warning: failed to delete cgroup (path: %s): %s\n",
-			c.spec.Linux.CgroupsPath,
-			err.Error(),
-		)
+		slog.Warn("failed to delete cgroup", "path", c.spec.Linux.CgroupsPath, "err", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup (path: %s): %s\n", c.spec.Linux.CgroupsPath, err.Error())
 	}
 
 	// TODO: Review whether need to remove pidfile.
@@ -261,11 +262,9 @@ func (c *Container) Delete(force bool) error {
 
 	slog.Debug("execute poststop hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePoststop); err != nil {
-		fmt.Fprintf(
-			os.Stdout,
-			"Warning: failed to exec poststop hooks: %s\n",
-			err,
-		)
+		// Spec requires printing "Warning: ..." to stdout.
+		fmt.Fprintf(os.Stdout, "Warning: failed to exec poststop hooks: %s\n", err)
+		slog.Warn("failed to exec poststop hooks", "err", err)
 	}
 
 	return nil
@@ -332,15 +331,15 @@ func (c *Container) Start() error {
 	if err != nil {
 		return fmt.Errorf("dial container sock: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Warn("failed to close container socket connection", "err", err)
+		}
+	}()
 
 	slog.Debug("send start message", "container_id", c.State.ID)
 	if err := ipc.SendMessage(conn, ipc.MsgStart); err != nil {
-		return fmt.Errorf(
-			"write MsgStart ('%b') to container sock: %w",
-			ipc.MsgStart,
-			err,
-		)
+		return fmt.Errorf("write MsgStart ('%b') to container sock: %w", ipc.MsgStart, err)
 	}
 
 	if c.spec.Process == nil {
@@ -508,8 +507,15 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("new socketpair: %w", err)
 	}
-	defer initSockParent.Close()
-	defer initSockChild.Close()
+	defer func() {
+		if err := initSockParent.Close(); err != nil {
+			slog.Warn("failed to close init socketpair parent", "err", err)
+		}
+
+		if err := initSockChild.Close(); err != nil {
+			slog.Warn("failed to close init socketpair child", "err", err)
+		}
+	}()
 
 	os.RemoveAll(filepath.Dir(c.containerSock))
 	if err := os.MkdirAll(filepath.Dir(c.containerSock), 0o755); err != nil {
@@ -531,7 +537,11 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("get listener file: %w", err)
 	}
-	defer listenerFile.Close()
+	defer func() {
+		if err := listenerFile.Close(); err != nil {
+			slog.Warn("failed to close container socket listener file", "err", err)
+		}
+	}()
 
 	cmd.ExtraFiles = []*os.File{initSockChild, listenerFile}
 
@@ -594,7 +604,11 @@ func (c *Container) Init() error {
 	if err != nil {
 		return fmt.Errorf("accept on init sock parent: %w", err)
 	}
-	defer conn.Close()
+	defer func() {
+		if err := conn.Close(); err != nil {
+			slog.Warn("failed to close init socket parent connection", "err", err)
+		}
+	}()
 
 	prePivotMsg, err := ipc.ReceiveMessage(conn)
 	if err != nil {
@@ -685,13 +699,21 @@ func (c *Container) Reexec() error {
 	}
 
 	listenerFile := os.NewFile(uintptr(containerSockFDVal), "container_sock")
-	defer listenerFile.Close()
+	defer func() {
+		if err := listenerFile.Close(); err != nil {
+			slog.Warn("failed to close container socket file descriptor", "err", err)
+		}
+	}()
 
 	listener, err := net.FileListener(listenerFile)
 	if err != nil {
 		return fmt.Errorf("create listener from fd: %w", err)
 	}
-	defer listener.Close()
+	defer func() {
+		if err := listener.Close(); err != nil {
+			slog.Warn("failed to close container socket listener", "err", err)
+		}
+	}()
 
 	slog.Debug("send prepivot message", "container_id", c.State.ID)
 	if err := ipc.SendMessage(initConn, ipc.MsgPrePivot); err != nil {
@@ -741,7 +763,11 @@ func (c *Container) Reexec() error {
 	if err != nil {
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
-	defer containerConn.Close()
+	defer func() {
+		if err := containerConn.Close(); err != nil {
+			slog.Warn("failed to close container socket connection", "err", err)
+		}
+	}()
 
 	startMsg, err := ipc.ReceiveMessage(containerConn)
 	if err != nil {

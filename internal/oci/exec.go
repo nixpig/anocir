@@ -78,38 +78,22 @@ func execCmd() *cobra.Command {
 		},
 	}
 
-	cmd.Flags().
-		StringArrayP("env", "e", []string{}, "set environment variable (name=value)")
-	cmd.Flags().
-		IntSliceP("additional-gids", "g", []int{}, "additional GIDs")
-	cmd.Flags().
-		StringP("process", "p", "", "path to process.json")
-	cmd.Flags().
-		String("process-label", "", "ASM process label")
-	cmd.Flags().
-		String("apparmor", "", "AppArmor profile for the process")
-	cmd.Flags().
-		Bool("no-new-privs", false, "set no new privs")
-	cmd.Flags().
-		StringArray("cap", []string{}, "set capabilities")
-	cmd.Flags().
-		String("cgroup", "", "cgroup (path | controller[,controller...]:path)")
-	cmd.Flags().
-		String("console-socket", "", "console socket path")
-	cmd.Flags().
-		StringP("user", "u", "", "run command as user uid[:gid]")
-	cmd.Flags().
-		String("pid-file", "", "file to write container PID to")
-	cmd.Flags().
-		BoolP("tty", "t", false, "allocate a pseudo-terminal")
-	cmd.Flags().
-		BoolP("detach", "d", false, "detach from container process")
-	cmd.Flags().
-		String("cwd", "", "path in container to execute command")
-	cmd.Flags().
-		Bool("ignore-paused", false, "allow exec in a paused container")
-	cmd.Flags().
-		Int("preserve-fds", 0, "pass additional file descriptors to container")
+	cmd.Flags().StringArrayP("env", "e", []string{}, "set environment variable (name=value)")
+	cmd.Flags().IntSliceP("additional-gids", "g", []int{}, "additional GIDs")
+	cmd.Flags().StringP("process", "p", "", "path to process.json")
+	cmd.Flags().String("process-label", "", "ASM process label")
+	cmd.Flags().String("apparmor", "", "AppArmor profile for the process")
+	cmd.Flags().Bool("no-new-privs", false, "set no new privs")
+	cmd.Flags().StringArray("cap", []string{}, "set capabilities")
+	cmd.Flags().String("cgroup", "", "cgroup (path | controller[,controller...]:path)")
+	cmd.Flags().String("console-socket", "", "console socket path")
+	cmd.Flags().StringP("user", "u", "", "run command as user uid[:gid]")
+	cmd.Flags().String("pid-file", "", "file to write container PID to")
+	cmd.Flags().BoolP("tty", "t", false, "allocate a pseudo-terminal")
+	cmd.Flags().BoolP("detach", "d", false, "detach from container process")
+	cmd.Flags().String("cwd", "", "path in container to execute command")
+	cmd.Flags().Bool("ignore-paused", false, "allow exec in a paused container")
+	cmd.Flags().Int("preserve-fds", 0, "pass additional file descriptors to container")
 
 	return cmd
 }

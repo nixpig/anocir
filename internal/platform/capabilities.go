@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"log/slog"
 	"maps"
 	"os"
 	"slices"
@@ -104,6 +105,7 @@ var capabilities = map[string]Cap{
 	"CAP_WAKE_ALARM":         CAP_WAKE_ALARM,
 }
 
+// SetAllCapabilities sets all available capabilities.
 func SetAllCapabilities() error {
 	allCaps := slices.Collect(maps.Keys(capabilities))
 
@@ -118,45 +120,36 @@ func SetAllCapabilities() error {
 
 // SetCapabilities sets the process' effective, inheritable, permitted and
 // ambient capabilities based on the provided caps.
+//
+// Effective, permitted and inheritable capabilities are set using the capset syscall.
+// Ambient capabilities are set using the prctl syscall by first clearing all
+// ambients capabilities and then raising the ones we want.
 func SetCapabilities(caps *specs.LinuxCapabilities) error {
-	// Build capability bitmasks - v3 uses 2x 32-bit words for 64-bit caps.
 	var effective, permitted, inheritable [2]uint32
 
 	if caps.Effective != nil {
 		for _, c := range resolveCaps(caps.Effective) {
-			if c < 32 {
-				effective[0] |= 1 << uint(c)
-			} else {
-				effective[1] |= 1 << uint(c-32)
-			}
+			capShift(&effective, uint32(c))
 		}
 	}
 
 	if caps.Permitted != nil {
 		for _, c := range resolveCaps(caps.Permitted) {
-			if c < 32 {
-				permitted[0] |= 1 << uint(c)
-			} else {
-				permitted[1] |= 1 << uint(c-32)
-			}
+			capShift(&permitted, uint32(c))
 		}
 	}
 
 	if caps.Inheritable != nil {
 		for _, c := range resolveCaps(caps.Inheritable) {
-			if c < 32 {
-				inheritable[0] |= 1 << uint(c)
-			} else {
-				inheritable[1] |= 1 << uint(c-32)
-			}
+			capShift(&inheritable, uint32(c))
 		}
 	}
 
-	// Set effective, permitted, inheritable using capset syscall.
 	header := unix.CapUserHeader{
 		Version: unix.LINUX_CAPABILITY_VERSION_3,
 		Pid:     0, // 0 means current thread.
 	}
+
 	data := [2]unix.CapUserData{
 		{Effective: effective[0], Permitted: permitted[0], Inheritable: inheritable[0]},
 		{Effective: effective[1], Permitted: permitted[1], Inheritable: inheritable[1]},
@@ -166,8 +159,6 @@ func SetCapabilities(caps *specs.LinuxCapabilities) error {
 		return fmt.Errorf("capset: %w", err)
 	}
 
-	// Set ambient capabilities using prctl (must be done after capset).
-	// First clear all ambient caps, then raise the ones we want.
 	if err := unix.Prctl(unix.PR_CAP_AMBIENT, unix.PR_CAP_AMBIENT_CLEAR_ALL, 0, 0, 0); err != nil {
 		// Ignore unsupported ambient caps.
 		if err != unix.EINVAL {
@@ -242,8 +233,19 @@ func resolveCaps(names []string) []Cap {
 		} else {
 			// Spec requires printing "Warning: ..." to stderr.
 			fmt.Fprintf(os.Stderr, "Warning: capability %s cannot be mapped\n", name)
+			slog.Warn("capability cannot be mapped", "name", name)
 		}
 	}
 
 	return resolved
+}
+
+// capShift performs the bitshifting to build the capability bitmasks.
+// Two 32-bit words for 64-bit caps.
+func capShift(caparr *[2]uint32, resolved uint32) {
+	if resolved < 32 {
+		caparr[0] |= 1 << (resolved)
+	} else {
+		caparr[1] |= 1 << (resolved - 32)
+	}
 }
