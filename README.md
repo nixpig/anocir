@@ -19,9 +19,10 @@ The process of building this is being documented in a series of blog posts which
 
 ## 🚀 Quick start
 
-1. Download the tarball for your architecture from [Releases](https://github.com/nixpig/anocir/releases/).
-1. Extract the `anocir` binary from the tarball into somewhere in `$PATH`, e.g. `~/.local/bin`.
-1. View the docs by running `anocir --help` or `anocir COMMAND --help`.
+1. Install using Go: `go install github.com/nixpig/anocir/cmd/anocir@latest`
+1. View the docs: `anocir --help` or `anocir COMMAND --help`
+
+...or download the tarball for your architecture from [Releases](https://github.com/nixpig/anocir/releases/).
 
 ## 👩‍💻 Usage
 
@@ -35,6 +36,8 @@ By default, the Docker daemon uses the `runc` container runtime. `anocir` can be
 
 You can find detailed instructions on how to configure alternative runtimes in the [Docker docs](https://docs.docker.com/reference/cli/dockerd/#configure-container-runtimes). If you just want to quickly experiment, the following should suffice: 
 
+#### Using dockerd flag (temporary)
+
 ```bash
 # 1. Stop any running Docker service
 sudo systemctl stop docker.service
@@ -44,6 +47,25 @@ sudo dockerd --add-runtime anocir=PATH_TO_ANOCIR_BINARY
 
 # 3. Run a container using the anocir runtime
 docker run -it --runtime anocir busybox sh
+
+```
+
+#### Using daemon.json (permanent)
+
+```bash
+# 1. Add anocir to Docker's runtime configuration
+sudo tee /etc/docker/daemon.json <<EOF
+{
+    "runtimes": {
+        "anocir": {
+            "path": "PATH_TO_ANOCIR_BINARY"
+        }
+    }
+}
+EOF
+
+# 2. Restart the Docker service
+sudo systemctl restart docker
 
 ```
 
