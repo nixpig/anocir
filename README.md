@@ -36,7 +36,7 @@ By default, the Docker daemon uses the `runc` container runtime. `anocir` can be
 
 You can find detailed instructions on how to configure alternative runtimes in the [Docker docs](https://docs.docker.com/reference/cli/dockerd/#configure-container-runtimes). If you just want to quickly experiment, the following should suffice: 
 
-#### Using dockerd flag (temporary)
+#### Using `dockerd` flag (temporary)
 
 ```bash
 # 1. Stop any running Docker service
@@ -50,7 +50,7 @@ docker run -it --runtime anocir busybox sh
 
 ```
 
-#### Using daemon.json (permanent)
+#### Using `daemon.json` (permanent)
 
 ```bash
 # 1. Add anocir to Docker's runtime configuration
@@ -66,6 +66,9 @@ EOF
 
 # 2. Restart the Docker service
 sudo systemctl restart docker
+
+# 3. Run a container using the anocir runtime
+docker run -it --runtime anocir busybox sh
 
 ```
 
