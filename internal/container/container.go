@@ -1027,14 +1027,7 @@ func (c *Container) connectConsole() error {
 }
 
 func (c *Container) pivotRoot() error {
-	if err := platform.PivotRoot(c.rootFS()); err != nil {
-		return err
-	}
-
-	if err := os.Chdir("/"); err != nil {
-		return fmt.Errorf("change to root directory: %w", err)
-	}
-	return nil
+	return platform.PivotRoot(c.rootFS())
 }
 
 func (c *Container) canBeStarted() bool {

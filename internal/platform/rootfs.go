@@ -2,6 +2,7 @@ package platform
 
 import (
 	"fmt"
+	"path/filepath"
 
 	"golang.org/x/sys/unix"
 )
@@ -53,15 +54,20 @@ var mountOptions = map[string]mountOption{
 	"unbindable":    {invert: false, recursive: false, flag: unix.MS_UNBINDABLE},
 }
 
-// MountRootfs mounts the container's root filesystem at given containerRootfs.
-// Sets "/" to rslave recursively to allow mounts from the host to propagate
-// into the container (for rslave mounts) while preventing container mounts
-// from affecting the host.
-// Individual mount propagation settings (rshared, rslave, etc...) need to be
-// applied to specific mounts separately.
-func MountRootfs(containerRootfs string) error {
-	if err := SetPropagation("/", unix.MS_SLAVE|unix.MS_REC); err != nil {
+// MountRootfs mounts the container's root filesystem at given containerRootfs
+// and sets "/" propagation according to rootfsPropagation (defaults to rslave).
+func MountRootfs(containerRootfs, rootfsPropagation string) error {
+	propFlag := getPropagationFlag(rootfsPropagation)
+	if propFlag == 0 {
+		propFlag = unix.MS_SLAVE | unix.MS_REC
+	}
+
+	if err := SetPropagation("/", propFlag); err != nil {
 		return err
+	}
+
+	if err := rootfsParentMountPrivate(containerRootfs); err != nil {
+		return fmt.Errorf("make rootfs parent private: %w", err)
 	}
 
 	if err := BindMount(containerRootfs, containerRootfs, true); err != nil {
@@ -69,6 +75,25 @@ func MountRootfs(containerRootfs string) error {
 	}
 
 	return nil
+}
+
+// rootfsParentMountPrivate ensures rootfs parent mount is private by walking up the path
+// trying to make each directory private until we succeed.
+// EINVAL means it's not a mount point, so we traverse up until we find one.
+func rootfsParentMountPrivate(rootfs string) error {
+	path := rootfs
+
+	for {
+		err := unix.Mount("", path, "", unix.MS_PRIVATE, "")
+		if err == nil {
+			return nil
+		}
+		if err != unix.EINVAL || path == "/" {
+			return fmt.Errorf("make %s private: %w", path, err)
+		}
+
+		path = filepath.Dir(path)
+	}
 }
 
 // MountRootReadonly remounts the root filesystem as read-only.
@@ -80,18 +105,18 @@ func MountRootReadonly() error {
 	return nil
 }
 
-// SetRootfsMountPropagation sets the mount propagation for the root filesystem.
-//
-// Note: We don't use MS_REC here because submounts have their own propagation
-// settings that should be preserved (e.g., rshared volumes).
+// SetRootfsMountPropagation sets the mount propagation for the root filesystem after pivot_root.
 func SetRootfsMountPropagation(prop string) error {
-	flag := getPropagationFlag(prop) &^ unix.MS_REC
+	flag := getPropagationFlag(prop)
 
-	if flag == 0 {
+	// Skip if no propagation specified or it's private.
+	if flag == 0 || flag&unix.MS_PRIVATE != 0 {
 		return nil
 	}
 
-	// Apply to root mount only (not recursively).
+	// Strip MS_REC since submounts have their own propagation settings.
+	flag &^= unix.MS_REC
+
 	if err := unix.Mount("", "/", "", flag, ""); err != nil {
 		return fmt.Errorf("set mount propagation %s: %w", prop, err)
 	}
