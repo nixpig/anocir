@@ -122,8 +122,10 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 			return fmt.Errorf("mount spec mount: %w", err)
 		}
 
-		// Apply propagation after the initial mount.
-		if propagationFlag != 0 {
+		// Apply propagation after the initial mount. Skip for shared/rshared since the
+		// bind mount already joined the source's peer group.
+		skipPropagation := hasSharedPropagation(m.Options)
+		if propagationFlag != 0 && !skipPropagation {
 			if err := SetPropagation(dest, propagationFlag); err != nil {
 				return fmt.Errorf("set mount propagation: %w", err)
 			}
@@ -178,4 +180,9 @@ func isBindMount(m specs.Mount) bool {
 	return m.Type == "bind" ||
 		slices.Contains(m.Options, "bind") ||
 		slices.Contains(m.Options, "rbind")
+}
+
+// hasSharedPropagation returns true if the mount options include shared or rshared.
+func hasSharedPropagation(options []string) bool {
+	return slices.Contains(options, "shared") || slices.Contains(options, "rshared")
 }

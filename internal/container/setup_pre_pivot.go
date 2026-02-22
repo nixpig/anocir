@@ -12,7 +12,10 @@ import (
 // pivot_root.
 func (c *Container) setupPrePivot() error {
 	if c.hasMountNamespace() {
-		if err := platform.MountRootfs(c.rootFS()); err != nil {
+		if err := platform.MountRootfs(
+			c.rootFS(),
+			c.spec.Linux.RootfsPropagation,
+		); err != nil {
 			return fmt.Errorf("mount rootfs: %w", err)
 		}
 	}
