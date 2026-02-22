@@ -9,9 +9,10 @@ import (
 
 func deleteCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "delete [flags] CONTAINER_ID",
-		Short: "Delete a container",
-		Args:  cobra.ExactArgs(1),
+		Use:     "delete [flags] CONTAINER_ID",
+		Short:   "Delete a container",
+		Example: "  anocir delete busybox",
+		Args:    cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
