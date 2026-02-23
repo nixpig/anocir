@@ -84,7 +84,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 		defer func() {
 			if err := ptySocket.Close(); err != nil {
-				slog.Warn("failed to close pty socket", "err", err)
+				slog.Warn("failed to close pty socket", "container_pid", containerPID, "err", err)
 			}
 		}()
 
@@ -94,7 +94,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 		defer func() {
 			if err := pty.Master.Close(); err != nil {
-				slog.Warn("failed to close pty master", "err", err)
+				slog.Warn("failed to close pty master", "container_pid", containerPID, "err", err)
 			}
 		}()
 
@@ -154,7 +154,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			}
 			defer func() {
 				if err := pidNSFile.Close(); err != nil {
-					slog.Warn("failed to close PID namespace file", "err", err)
+					slog.Warn("failed to close PID namespace file", "pid_file", pidNSFile.Name(), "container_pid", containerPID, "err", err)
 				}
 			}()
 

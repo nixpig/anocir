@@ -14,11 +14,11 @@ import (
 )
 
 // ExecHooks executes a list of OCI hooks, serialising the container state
-// and passing it to each hook as standard input.
+// and passing it to each hook on stdin.
 func ExecHooks(hooks []specs.Hook, state *specs.State) error {
 	b, err := json.Marshal(state)
 	if err != nil {
-		return fmt.Errorf("marshal state: %w", err)
+		return fmt.Errorf("marshal state for hooks: %w", err)
 	}
 
 	for _, h := range hooks {
@@ -48,10 +48,7 @@ func execHook(h specs.Hook, state []byte) error {
 	var cmd *exec.Cmd
 
 	if h.Timeout != nil {
-		ctx, cancel := context.WithTimeout(
-			context.Background(),
-			time.Duration(*h.Timeout)*time.Second,
-		)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Duration(*h.Timeout)*time.Second)
 		defer cancel()
 
 		cmd = exec.CommandContext(ctx, exe)

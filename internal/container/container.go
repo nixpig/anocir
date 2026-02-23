@@ -107,7 +107,6 @@ func New(opts *Opts) (*Container, error) {
 		pidFile:       opts.PIDFile,
 		debug:         opts.Debug,
 		LogFormat:     opts.LogFormat,
-
 		RootDir:       opts.RootDir,
 		LogFile:       opts.LogFile,
 		containerSock: containerSockPath(opts.Bundle),
@@ -206,7 +205,7 @@ func (c *Container) Unlock() error {
 
 	defer func() {
 		if err := c.lockFile.Close(); err != nil {
-			slog.Warn("failed to close lock file", "err", err)
+			slog.Warn("failed to close lock file", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -247,7 +246,7 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		slog.Warn("failed to delete cgroup", "path", c.spec.Linux.CgroupsPath, "err", err)
+		slog.Warn("failed to delete cgroup", "container_id", c.State.ID, "path", c.spec.Linux.CgroupsPath, "err", err)
 		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup (path: %s): %s\n", c.spec.Linux.CgroupsPath, err.Error())
 	}
 
@@ -258,13 +257,13 @@ func (c *Container) Delete(force bool) error {
 	}
 
 	// Best effort.
-	os.RemoveAll(filepath.Dir(c.containerSock))
+	_ = os.RemoveAll(filepath.Dir(c.containerSock))
 
 	slog.Debug("execute poststop hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePoststop); err != nil {
 		// Spec requires printing "Warning: ..." to stdout.
 		fmt.Fprintf(os.Stdout, "Warning: failed to exec poststop hooks: %s\n", err)
-		slog.Warn("failed to exec poststop hooks", "err", err)
+		slog.Warn("failed to exec poststop hooks", "container_id", c.State.ID, "err", err)
 	}
 
 	return nil
@@ -314,10 +313,7 @@ func (c *Container) Start() error {
 	slog.Debug("start container", "container_id", c.State.ID)
 
 	if !c.canBeStarted() {
-		return fmt.Errorf(
-			"container cannot be started in current state (%s)",
-			c.State.Status,
-		)
+		return fmt.Errorf("container cannot be started in current state (%s)", c.State.Status)
 	}
 
 	slog.Debug("execute prestart hooks", "container_id", c.State.ID)
@@ -333,7 +329,7 @@ func (c *Container) Start() error {
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			slog.Warn("failed to close container socket connection", "err", err)
+			slog.Warn("failed to close container socket connection", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -460,9 +456,8 @@ func (c *Container) Kill(sig string, killAll bool) error {
 	return nil
 }
 
-// Init prepares the container for execution. It executes hooks, sets up the
-// terminal if necessary, and re-execs the runtime binary to containerise the
-// process.
+// Init prepares the container for execution. It executes hooks, sets up the terminal
+// if necessary, and re-execs the runtime binary to containerise the process.
 func (c *Container) Init() error {
 	if err := c.Lock(); err != nil {
 		return fmt.Errorf("acquire container lock: %w", err)
@@ -509,11 +504,11 @@ func (c *Container) Init() error {
 	}
 	defer func() {
 		if err := initSockParent.Close(); err != nil {
-			slog.Warn("failed to close init socketpair parent", "err", err)
+			slog.Warn("failed to close init socketpair parent", "container_id", c.State.ID, "err", err)
 		}
 
 		if err := initSockChild.Close(); err != nil {
-			slog.Warn("failed to close init socketpair child", "err", err)
+			slog.Warn("failed to close init socketpair child", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -539,7 +534,7 @@ func (c *Container) Init() error {
 	}
 	defer func() {
 		if err := listenerFile.Close(); err != nil {
-			slog.Warn("failed to close container socket listener file", "err", err)
+			slog.Warn("failed to close container socket listener file", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -606,7 +601,7 @@ func (c *Container) Init() error {
 	}
 	defer func() {
 		if err := conn.Close(); err != nil {
-			slog.Warn("failed to close init socket parent connection", "err", err)
+			slog.Warn("failed to close init socket parent connection", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -639,7 +634,7 @@ func (c *Container) Init() error {
 
 	switch readyMsg {
 	case ipc.MsgInvalidExecutable:
-		return errors.New("invalid binary")
+		return errors.New("invalid executable")
 	case ipc.MsgReady:
 		// Let's go!
 	default:
@@ -701,7 +696,7 @@ func (c *Container) Reexec() error {
 	listenerFile := os.NewFile(uintptr(containerSockFDVal), "container_sock")
 	defer func() {
 		if err := listenerFile.Close(); err != nil {
-			slog.Warn("failed to close container socket file descriptor", "err", err)
+			slog.Warn("failed to close container socket file descriptor", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -711,7 +706,7 @@ func (c *Container) Reexec() error {
 	}
 	defer func() {
 		if err := listener.Close(); err != nil {
-			slog.Warn("failed to close container socket listener", "err", err)
+			slog.Warn("failed to close container socket listener", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -721,20 +716,20 @@ func (c *Container) Reexec() error {
 	}
 
 	if err := c.setupPrePivot(); err != nil {
-		return err
+		return fmt.Errorf("setup pre-pivot: %w", err)
 	}
 
 	if err := c.connectConsole(); err != nil {
-		return err
+		return fmt.Errorf("connect console: %w", err)
 	}
 
 	if err := c.mountConsole(); err != nil {
-		return err
+		return fmt.Errorf("mount console: %w", err)
 	}
 
 	if c.hasMountNamespace() {
 		if err := c.pivotRoot(); err != nil {
-			return err
+			return fmt.Errorf("pivot_root: %w", err)
 		}
 
 		if c.spec.Process != nil {
@@ -757,7 +752,9 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("failed to send ready message: %w", err)
 	}
 
-	initConn.Close()
+	if err := initConn.Close(); err != nil {
+		slog.Warn("failed to close init conn", "container_id", c.State.ID, "err", err)
+	}
 
 	containerConn, err := listener.Accept()
 	if err != nil {
@@ -765,7 +762,7 @@ func (c *Container) Reexec() error {
 	}
 	defer func() {
 		if err := containerConn.Close(); err != nil {
-			slog.Warn("failed to close container socket connection", "err", err)
+			slog.Warn("failed to close container socket connection", "container_id", c.State.ID, "err", err)
 		}
 	}()
 
@@ -786,7 +783,7 @@ func (c *Container) Reexec() error {
 
 	if c.spec.Process != nil {
 		if err := c.setupPostPivot(); err != nil {
-			return fmt.Errorf("setup postpivot: %w", err)
+			return fmt.Errorf("setup post-pivot: %w", err)
 		}
 	}
 
@@ -824,16 +821,15 @@ func (c *Container) Pause() error {
 	}
 
 	if !c.canBePaused() {
-		return fmt.Errorf(
-			"container cannot be paused in current state (%s)",
-			c.State.Status,
-		)
+		return fmt.Errorf("container cannot be paused in current state (%s)", c.State.Status)
 	}
 
 	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("freeze cgroup: %w", err)
 	}
 
+	// OCI doesn't have a 'paused' state, but it's required by containerd, so we just
+	// inline it.
 	c.State.Status = specs.ContainerState("paused")
 
 	if err := c.save(); err != nil {
@@ -855,10 +851,7 @@ func (c *Container) Resume() error {
 	}
 
 	if !c.canBeResumed() {
-		return fmt.Errorf(
-			"container cannot be resumed in current state (%s)",
-			c.State.Status,
-		)
+		return fmt.Errorf("container cannot be resumed in current state (%s)", c.State.Status)
 	}
 
 	if err := platform.ThawCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
@@ -912,10 +905,11 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 		}
 
 		if ns.Type == specs.PIDNamespace {
+			slog.Debug("join PID namespace", "container_id", c.State.ID)
 			if err := platform.JoinNS(&ns); err != nil {
 				return fmt.Errorf("join pid namespace: %w", err)
 			}
-			slog.Debug("joined PID namespace", "container_id", c.State.ID)
+			slog.Debug("successfully joined PID namespace", "container_id", c.State.ID)
 			continue
 		}
 
@@ -928,7 +922,9 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 			joinNSParts,
 			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns.Type], f.Name()),
 		)
-		f.Close()
+		if err := f.Close(); err != nil {
+			slog.Warn("failed to close ns path", "container_id", c.State.ID, "ns_path", f.Name(), "err", err)
+		}
 	}
 
 	if len(joinNSParts) > 0 {
@@ -954,15 +950,10 @@ func (c *Container) execUserProcess() error {
 
 	exe, err := exec.LookPath(c.spec.Process.Args[0])
 	if err != nil {
-		return fmt.Errorf("find path of user process binary: %w", err)
+		return fmt.Errorf("find path of user executable: %w", err)
 	}
 
-	slog.Debug(
-		"execute user process",
-		"container_id", c.State.ID,
-		"exe", exe,
-		"args", c.spec.Process.Args,
-	)
+	slog.Debug("execute user process", "container_id", c.State.ID, "exe", exe, "args", c.spec.Process.Args)
 
 	if err := unix.Exec(exe, c.spec.Process.Args, os.Environ()); err != nil {
 		return fmt.Errorf(

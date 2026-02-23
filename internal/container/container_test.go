@@ -124,37 +124,60 @@ func TestStateChange(t *testing.T) {
 		canBeStarted bool
 		canBeKilled  bool
 		canBeDeleted bool
+		canBePaused  bool
+		canBeResumed bool
 	}{
-		"from state creating": {specs.StateCreating, false, false, false},
-		"from state created":  {specs.StateCreated, true, true, false},
-		"from state running":  {specs.StateRunning, false, true, false},
-		"from state stopped":  {specs.StateStopped, false, false, true},
+		"from state creating": {specs.StateCreating, false, false, false, false, false},
+		"from state created":  {specs.StateCreated, true, true, false, false, false},
+		"from state running":  {specs.StateRunning, false, true, false, true, false},
+		"from state stopped":  {specs.StateStopped, false, false, true, false, false},
+		"from state paused":   {specs.ContainerState("paused"), false, false, false, false, true},
 	}
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
 			c := &Container{State: &specs.State{Status: data.state}}
 
-			assert.Equal(
-				t,
-				data.canBeStarted,
-				c.canBeStarted(),
-				"container can be started",
-			)
-
-			assert.Equal(
-				t,
-				data.canBeKilled,
-				c.canBeKilled(),
-				"container can be killed",
-			)
-
-			assert.Equal(
-				t,
-				data.canBeDeleted,
-				c.canBeDeleted(),
-				"container can be deleted",
-			)
+			assert.Equal(t, data.canBeStarted, c.canBeStarted(), "container can be started")
+			assert.Equal(t, data.canBeKilled, c.canBeKilled(), "container can be killed")
+			assert.Equal(t, data.canBeDeleted, c.canBeDeleted(), "container can be deleted")
+			assert.Equal(t, data.canBePaused, c.canBePaused(), "container can be paused")
+			assert.Equal(t, data.canBeResumed, c.canBeResumed(), "container can be resumed")
 		})
 	}
+}
+
+func TestHasMountNamespace(t *testing.T) {
+	scenarios := map[string]struct {
+		hasMountNamespace bool
+	}{
+		"has mount namespace":           {hasMountNamespace: true},
+		"does not have mount namespace": {hasMountNamespace: false},
+	}
+
+	for scenario, data := range scenarios {
+		t.Run(scenario, func(t *testing.T) {
+			c := &Container{
+				State: &specs.State{},
+				spec: &specs.Spec{
+					Linux: &specs.Linux{
+						Namespaces: []specs.LinuxNamespace{
+							{Type: specs.PIDNamespace},
+							{Type: specs.IPCNamespace},
+						},
+					},
+				},
+			}
+
+			if data.hasMountNamespace {
+				c.spec.Linux.Namespaces = append(c.spec.Linux.Namespaces, specs.LinuxNamespace{Type: specs.MountNamespace})
+			}
+
+			assert.Equal(t, data.hasMountNamespace, c.hasMountNamespace())
+		})
+	}
+}
+
+func TestReloadState(t *testing.T) {
+	// tempDir := t.TempDir()
 }

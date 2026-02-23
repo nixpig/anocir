@@ -52,3 +52,13 @@ sleep 2
 	err = ExecHooks(hooks, state)
 	assert.Error(t, err)
 }
+
+func TestExecHooks_InvalidExecutable(t *testing.T) {
+	tempDir := t.TempDir()
+	hookPath := filepath.Join(tempDir, "non-existent")
+
+	hooks := []specs.Hook{{Path: hookPath}}
+
+	err := ExecHooks(hooks, &specs.State{})
+	assert.Error(t, err)
+}

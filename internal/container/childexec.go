@@ -3,7 +3,6 @@ package container
 import (
 	"fmt"
 	"log/slog"
-	"os"
 	"os/exec"
 	"runtime"
 	"slices"
@@ -93,7 +92,7 @@ func ChildExec(opts *ChildExecOpts) error {
 	}
 
 	if opts.Cwd != "" {
-		if err := os.Chdir(opts.Cwd); err != nil {
+		if err := unix.Chdir(opts.Cwd); err != nil {
 			return fmt.Errorf("change working directory: %w", err)
 		}
 	}
@@ -108,11 +107,11 @@ func ChildExec(opts *ChildExecOpts) error {
 		}
 	}
 
-	envs := slices.Concat(os.Environ(), opts.Env)
+	envs := slices.Concat(unix.Environ(), opts.Env)
 	for _, env := range envs {
 		e := strings.SplitN(env, "=", 2)
 		if len(e) == 2 {
-			os.Setenv(e[0], e[1])
+			unix.Setenv(e[0], e[1])
 		} else {
 			slog.Debug("invalid environment var", "env", env)
 		}

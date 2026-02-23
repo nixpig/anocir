@@ -35,11 +35,11 @@ func TestIPCSocket(t *testing.T) {
 	assert.NoError(t, err)
 	defer sendConn.Close()
 
-	err = SendMessage(sendConn, byte(1))
+	err = SendMessage(sendConn, MsgStart)
 	assert.NoError(t, err)
 
 	msg := <-msgCh
-	assert.Equal(t, byte(1), msg)
+	assert.Equal(t, MsgStart, msg)
 }
 
 func TestIPCSocketPair(t *testing.T) {
@@ -54,10 +54,10 @@ func TestIPCSocketPair(t *testing.T) {
 	assert.NoError(t, err)
 	defer sendConn.Close()
 
-	go SendMessage(sendConn, byte(1))
+	go SendMessage(sendConn, MsgExecReady)
 	msg, err := ReceiveMessage(receiveConn)
 	assert.NoError(t, err)
-	assert.Equal(t, byte(1), msg)
+	assert.Equal(t, MsgExecReady, msg)
 }
 
 func TestShortID(t *testing.T) {
