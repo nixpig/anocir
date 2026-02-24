@@ -12,52 +12,30 @@ import (
 )
 
 func TestContainerLifecycle(t *testing.T) {
-	opts := &Opts{
-		ID:      "test-container",
-		Bundle:  t.TempDir(),
-		Spec:    &specs.Spec{Linux: &specs.Linux{}},
-		RootDir: t.TempDir(),
-		PIDFile: filepath.Join(t.TempDir(), "pid"),
-	}
-
-	config, err := json.Marshal(&specs.Spec{Linux: &specs.Linux{}})
-	assert.NoError(t, err, "Spec should marshal to JSON")
-
-	os.WriteFile(filepath.Join(opts.Bundle, "config.json"), config, 0o644)
-
-	c, err := New(opts)
-	require.NoError(t, err)
-
-	if err := os.MkdirAll(filepath.Join(opts.RootDir, opts.ID), 0o755); err != nil {
-		assert.Fail(t, "must create container directory")
-	}
-
-	if err := c.Save(); err != nil {
-		assert.Fail(t, "Container should save")
-	}
+	c := newTestContainer(t, &specs.Spec{Linux: &specs.Linux{}})
 
 	stateFileInfo, err := os.Stat(
-		filepath.Join(opts.RootDir, opts.ID, "state.json"),
+		filepath.Join(c.RootDir, c.State.ID, "state.json"),
 	)
 	assert.NoError(t, err)
 	assert.Equal(t, os.FileMode(0o644), stateFileInfo.Mode().Perm())
 
-	exists := Exists(opts.ID, opts.RootDir)
+	exists := Exists(c.State.ID, c.RootDir)
 	assert.True(t, exists, "Exists should confirm container exists")
 
-	loaded, err := Load(opts.ID, opts.RootDir)
+	loaded, err := Load(c.State.ID, c.RootDir)
 	assert.NoError(t, err, "Load should load container")
 
 	assert.Equal(t, &Container{
 		State: &specs.State{
 			Version: "1.3.0",
-			ID:      opts.ID,
+			ID:      c.State.ID,
 			Status:  "creating",
-			Bundle:  opts.Bundle,
+			Bundle:  c.State.Bundle,
 		},
-		spec:          opts.Spec,
-		RootDir:       opts.RootDir,
-		containerSock: containerSockPath(opts.Bundle),
+		spec:          c.GetSpec(),
+		RootDir:       c.RootDir,
+		containerSock: containerSockPath(c.State.Bundle),
 	}, loaded)
 }
 
@@ -97,25 +75,6 @@ func TestRootFS(t *testing.T) {
 			assert.Equal(t, data.rootFS, c.rootFS())
 		})
 	}
-}
-
-func TestStateFilePath(t *testing.T) {
-	opts := &Opts{
-		ID:      "test-container",
-		Bundle:  t.TempDir(),
-		Spec:    &specs.Spec{Linux: &specs.Linux{}},
-		RootDir: t.TempDir(),
-		PIDFile: filepath.Join(t.TempDir(), "pid"),
-	}
-
-	c, err := New(opts)
-	require.NoError(t, err)
-
-	assert.Equal(
-		t,
-		filepath.Join(opts.RootDir, opts.ID, "state.json"),
-		c.stateFilepath(),
-	)
 }
 
 func TestStateChange(t *testing.T) {
@@ -179,5 +138,50 @@ func TestHasMountNamespace(t *testing.T) {
 }
 
 func TestReloadState(t *testing.T) {
-	// tempDir := t.TempDir()
+	c := newTestContainer(t, &specs.Spec{Linux: &specs.Linux{}})
+
+	require.Equal(t, c.State.Status, specs.StateCreating)
+
+	state, err := c.GetState()
+	require.NoError(t, err)
+
+	state.Status = specs.StateStopped
+
+	stateFile, err := os.OpenFile(c.stateFilepath(), os.O_WRONLY, 0o644)
+	require.NoError(t, err)
+
+	err = json.NewEncoder(stateFile).Encode(state)
+	require.NoError(t, err)
+
+	c.reloadState()
+	assert.Equal(t, c.State.Status, specs.StateStopped)
+}
+
+func newTestContainer(t *testing.T, spec *specs.Spec) *Container {
+	t.Helper()
+
+	opts := &Opts{
+		ID:      "test-container",
+		Bundle:  t.TempDir(),
+		Spec:    spec,
+		RootDir: t.TempDir(),
+		PIDFile: filepath.Join(t.TempDir(), "pid"),
+	}
+
+	config, err := json.Marshal(&specs.Spec{Linux: &specs.Linux{}})
+	require.NoError(t, err, "Spec should marshal to JSON")
+
+	err = os.WriteFile(filepath.Join(opts.Bundle, "config.json"), config, 0o644)
+	require.NoError(t, err)
+
+	c, err := New(opts)
+	require.NoError(t, err)
+
+	err = os.MkdirAll(filepath.Join(opts.RootDir, opts.ID), 0o755)
+	require.NoError(t, err)
+
+	err = c.Save()
+	require.NoError(t, err)
+
+	return c
 }
