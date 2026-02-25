@@ -32,19 +32,8 @@ jobs:
       - name: audit code
         run: make audit
 
-      - name: run unit tests (coverage)
-        run: make coverage
-
-      - name: upload coverage to coveralls
-        env:
-          COVERALLS_TOKEN: ${{ secrets.COVERALLS_TOKEN }}
-        run: make coveralls
-
-      - name: upload coverage artifact
-        uses: actions/upload-artifact@master
-        with:
-          name: coverage
-          path: coverage.out
+      - name: run unit tests
+        run: make test
 
       - name: build artifacts
         run: make build
