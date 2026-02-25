@@ -148,7 +148,7 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 				continue
 			}
 
-			var conditions []libseccomp.ScmpCondition
+			conditions := make([]libseccomp.ScmpCondition, 0, len(sc.Args))
 
 			for _, arg := range sc.Args {
 				op := mapSeccompOperator(arg.Op)

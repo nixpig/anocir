@@ -33,62 +33,16 @@ func ChildExec(opts *ChildExecOpts) error {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	// Namespace joining and chroot to container root is handled by the
+	// Note: namespace joining and chroot to container root is handled by the
 	// C constructor (nssetup) which runs before Go starts.
 
-	// TODO: We have a lot of overlap between exec and pre-pivot. Review whether
-	// some of this can be factored out to reduce unnecessary duplication.
-
-	// When NoNewPrivileges is false, we load seccomp BEFORE dropping
-	// capabilities because seccomp filter loading is a privileged operation that
-	// requires CAP_SYS_ADMIN when NO_NEW_PRIVS is not set.
-	if opts.Seccomp != nil && !opts.NoNewPrivs {
-		if err := platform.LoadSeccompFilter(opts.Seccomp); err != nil {
-			return fmt.Errorf("load seccomp filter (privileged): %w", err)
-		}
-	}
-
-	if opts.Capabilities != nil {
-		if err := platform.DropBoundingCapabilities(opts.Capabilities); err != nil {
-			return fmt.Errorf("drop bounding caps: %w", err)
-		}
-	}
-
-	if opts.User != nil && opts.User.UID != 0 && opts.Capabilities != nil {
-		if err := platform.SetKeepCaps(1); err != nil {
-			return fmt.Errorf("set KEEPCAPS: %w", err)
-		}
-	}
-
-	if err := platform.SetUser(opts.User); err != nil {
-		return fmt.Errorf("set user: %w", err)
-	}
-
-	if opts.Capabilities != nil {
-		if err := platform.SetCapabilities(opts.Capabilities); err != nil {
-			return fmt.Errorf("set capabilities: %w", err)
-		}
-
-		if opts.User != nil && opts.User.UID != 0 {
-			if err := platform.SetKeepCaps(0); err != nil {
-				return fmt.Errorf("clear KEEPCAPS: %w", err)
-			}
-		}
-	}
-
-	if opts.NoNewPrivs {
-		if err := platform.SetNoNewPrivs(); err != nil {
-			return fmt.Errorf("set no new privileges: %w", err)
-		}
-	}
-
-	// When NoNewPrivileges is true, we load seccomp AFTER setting NO_NEW_PRIVS,
-	// as close to execve as possible to minimize the syscall surface. The
-	// NO_NEW_PRIVS bit allows unprivileged seccomp filter loading.
-	if opts.Seccomp != nil && opts.NoNewPrivs {
-		if err := platform.LoadSeccompFilter(opts.Seccomp); err != nil {
-			return fmt.Errorf("load seccomp filter: %w", err)
-		}
+	if err := platform.ApplyProcessSecurity(&platform.ProcessSecurity{
+		User:         opts.User,
+		Capabilities: opts.Capabilities,
+		Seccomp:      opts.Seccomp,
+		NoNewPrivs:   opts.NoNewPrivs,
+	}); err != nil {
+		return fmt.Errorf("apply process security: %w", err)
 	}
 
 	if opts.Cwd != "" {

@@ -90,7 +90,7 @@ func TestStateChange(t *testing.T) {
 		"from state created":  {specs.StateCreated, true, true, false, false, false},
 		"from state running":  {specs.StateRunning, false, true, false, true, false},
 		"from state stopped":  {specs.StateStopped, false, false, true, false, false},
-		"from state paused":   {specs.ContainerState("paused"), false, false, false, false, true},
+		"from state paused":   {pausedState, false, false, false, false, true},
 	}
 
 	for scenario, data := range scenarios {

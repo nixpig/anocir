@@ -136,6 +136,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 		if isSharedNS {
 			// If container shares host namespace then nothing to do.
+			slog.Debug("skip shared namespace", "container_path", containerNSPath, "host_path", hostNSPath)
 			continue
 		}
 

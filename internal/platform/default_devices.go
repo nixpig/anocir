@@ -16,11 +16,11 @@ var (
 	defaultUID      uint32 = 0
 	defaultGID      uint32 = 0
 
-	allDevices           = "a"
-	blockDevice          = "b"
-	charDevice           = "c"
-	unbufferedCharDevice = "u"
-	fifoDevice           = "p"
+	AllDevices           = "a"
+	BlockDevice          = "b"
+	CharDevice           = "c"
+	UnbufferedCharDevice = "u"
+	FifoDevice           = "p"
 )
 
 // deviceType maps device type strings to their corresponding kernel values.
@@ -33,7 +33,7 @@ var deviceType = map[string]uint32{
 
 var defaultDevices = []specs.LinuxDevice{
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/null",
 		Major:    1,
 		Minor:    3,
@@ -42,7 +42,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/zero",
 		Major:    1,
 		Minor:    5,
@@ -51,7 +51,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/full",
 		Major:    1,
 		Minor:    7,
@@ -60,7 +60,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/random",
 		Major:    1,
 		Minor:    8,
@@ -69,7 +69,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/urandom",
 		Major:    1,
 		Minor:    9,
@@ -78,7 +78,7 @@ var defaultDevices = []specs.LinuxDevice{
 		GID:      &defaultGID,
 	},
 	{
-		Type:     charDevice,
+		Type:     CharDevice,
 		Path:     "/dev/tty",
 		Major:    5,
 		Minor:    0,

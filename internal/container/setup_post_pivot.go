@@ -79,76 +79,14 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	// When NoNewPrivileges is false, we load seccomp BEFORE dropping
-	// capabilities because seccomp filter loading is a privileged operation that
-	// requires CAP_SYS_ADMIN when NO_NEW_PRIVS is not set.
-	//
-	// See: https://man7.org/linux/man-pages/man2/seccomp.2.html
-	if c.spec.Linux.Seccomp != nil && !c.spec.Process.NoNewPrivileges {
-		if err := platform.LoadSeccompFilter(c.spec.Linux.Seccomp); err != nil {
-			return fmt.Errorf("load seccomp filter (privileged): %w", err)
-		}
-	}
-
-	if c.spec.Process.Capabilities != nil {
-		if err := platform.DropBoundingCapabilities(c.spec.Process.Capabilities); err != nil {
-			return fmt.Errorf("drop bounding caps: %w", err)
-		}
-	}
-
-	if c.spec.Process.User.UID != 0 && c.spec.Process.Capabilities != nil {
-		if err := platform.SetKeepCaps(1); err != nil {
-			return fmt.Errorf("set KEEPCAPS: %w", err)
-		}
-	}
-
-	if err := platform.SetUser(&c.spec.Process.User); err != nil {
-		return fmt.Errorf("set user: %w", err)
-	}
-
-	if c.spec.Process.Capabilities != nil {
-		b := c.spec.Process.Capabilities.Bounding
-		isPrivileged := slices.ContainsFunc(b, func(s string) bool {
-			return s == "ALL" || s == "CAP_ALL"
-		})
-
-		if isPrivileged {
-			if err := platform.SetAllCapabilities(); err != nil {
-				return fmt.Errorf("set all capabilities: %w", err)
-			}
-		} else {
-			if err := platform.SetCapabilities(c.spec.Process.Capabilities); err != nil {
-				return fmt.Errorf("set capabilities: %w", err)
-			}
-
-			if c.spec.Process.User.UID != 0 {
-				if err := platform.SetKeepCaps(0); err != nil {
-					return fmt.Errorf("clear KEEPCAPS: %w", err)
-				}
-			}
-		}
-	}
-
-	if c.spec.Process.NoNewPrivileges {
-		if err := platform.SetNoNewPrivs(); err != nil {
-			return fmt.Errorf("set no new privileges: %w", err)
-		}
-	}
-
-	// When NoNewPrivileges is true, we load seccomp AFTER setting NO_NEW_PRIVS,
-	// as close to execve as possible to minimize the syscall surface. The
-	// NO_NEW_PRIVS bit allows unprivileged seccomp filter loading.
-	if c.spec.Linux.Seccomp != nil && c.spec.Process.NoNewPrivileges {
-		if err := platform.LoadSeccompFilter(c.spec.Linux.Seccomp); err != nil {
-			return fmt.Errorf("load seccomp filter (unprivileged): %w", err)
-		}
-	}
-
-	// Apply AppArmor profile if specified
-	if c.spec.Process != nil && c.spec.Process.ApparmorProfile != "" {
-		if err := platform.ApplyAppArmorProfile(c.spec.Process.ApparmorProfile); err != nil {
-			return fmt.Errorf("apply apparmor profile: %w", err)
-		}
+	if err := platform.ApplyProcessSecurity(&platform.ProcessSecurity{
+		User:            &c.spec.Process.User,
+		Capabilities:    c.spec.Process.Capabilities,
+		Seccomp:         c.spec.Linux.Seccomp,
+		NoNewPrivs:      c.spec.Process.NoNewPrivileges,
+		AppArmorProfile: c.spec.Process.ApparmorProfile,
+	}); err != nil {
+		return fmt.Errorf("apply process security: %w", err)
 	}
 
 	return nil

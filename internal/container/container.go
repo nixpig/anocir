@@ -48,6 +48,8 @@ const (
 	// envContainerPID is the name of the environemnt variable used to pass the
 	// container PID to the reexec'd process.
 	envContainerPID = "_ANOCIR_CONTAINER_PID"
+
+	pausedState = specs.ContainerState("paused")
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -256,8 +258,9 @@ func (c *Container) Delete(force bool) error {
 		return fmt.Errorf("delete container directory: %w", err)
 	}
 
-	// Best effort.
-	_ = os.RemoveAll(filepath.Dir(c.containerSock))
+	if err := os.RemoveAll(filepath.Dir(c.containerSock)); err != nil {
+		slog.Warn("failed to remove container socket directory", "container_id", c.State.ID, "path", filepath.Dir(c.containerSock), "err", err)
+	}
 
 	slog.Debug("execute poststop hooks", "container_id", c.State.ID)
 	if err := c.execHooks(LifecyclePoststop); err != nil {
@@ -830,7 +833,7 @@ func (c *Container) Pause() error {
 
 	// OCI doesn't have a 'paused' state, but it's required by containerd, so we just
 	// inline it.
-	c.State.Status = specs.ContainerState("paused")
+	c.State.Status = pausedState
 
 	if err := c.save(); err != nil {
 		return fmt.Errorf("save paused state: %w", err)
@@ -1006,7 +1009,9 @@ func (c *Container) connectConsole() error {
 		return fmt.Errorf("connect pty and socket: %w", err)
 	}
 
-	unix.Close(c.ConsoleSocketFD)
+	if err := unix.Close(c.ConsoleSocketFD); err != nil {
+		slog.Warn("failed to close console socket fd", "err", err)
+	}
 
 	if err := pty.Connect(); err != nil {
 		return fmt.Errorf("connect pty: %w", err)
@@ -1039,7 +1044,7 @@ func (c *Container) canBePaused() bool {
 }
 
 func (c *Container) canBeResumed() bool {
-	return c.State.Status == specs.ContainerState("paused")
+	return c.State.Status == pausedState
 }
 
 // rootFS returns the path to the Container root filesystem.
