@@ -152,9 +152,11 @@ func parseProcessFile(opts *container.ExecOpts, process string) error {
 		opts.Capabilities = p.Capabilities.Bounding
 	}
 
-	opts.AdditionalGIDs = make([]int, 0, len(p.User.AdditionalGids))
-	for _, g := range p.User.AdditionalGids {
-		opts.AdditionalGIDs = append(opts.AdditionalGIDs, int(g))
+	if len(p.User.AdditionalGids) > 0 {
+		opts.AdditionalGIDs = make([]int, 0, len(p.User.AdditionalGids))
+		for _, g := range p.User.AdditionalGids {
+			opts.AdditionalGIDs = append(opts.AdditionalGIDs, int(g))
+		}
 	}
 
 	return nil
@@ -170,8 +172,6 @@ func parseProcessFlags(
 	}
 
 	opts.Cwd, _ = flags.GetString("cwd")
-	opts.Env, _ = flags.GetStringArray("env")
-	opts.Capabilities, _ = flags.GetStringArray("cap")
 	opts.NoNewPrivs, _ = flags.GetBool("no-new-privs")
 	opts.AppArmor, _ = flags.GetString("apparmor")
 	opts.TTY, _ = flags.GetBool("tty")
@@ -186,7 +186,19 @@ func parseProcessFlags(
 	}
 
 	additionalGIDs, _ := flags.GetIntSlice("additional-gids")
-	opts.AdditionalGIDs = append(opts.AdditionalGIDs, additionalGIDs...)
+	if len(additionalGIDs) > 0 {
+		opts.AdditionalGIDs = append(opts.AdditionalGIDs, additionalGIDs...)
+	}
+
+	env, _ := flags.GetStringArray("env")
+	if len(env) > 0 {
+		opts.Env = append(opts.Env, env...)
+	}
+
+	capabilities, _ := flags.GetStringArray("cap")
+	if len(capabilities) > 0 {
+		opts.Capabilities = append(opts.Capabilities, capabilities...)
+	}
 
 	return nil
 }
