@@ -14,58 +14,58 @@ import (
 
 func TestParseUser(t *testing.T) {
 	scenarios := map[string]struct {
-		user  string
-		uid   int
-		gid   int
-		valid bool
+		user    string
+		uid     int
+		gid     int
+		wantErr bool
 	}{
 		"empty user": {
-			user:  "",
-			uid:   0,
-			gid:   0,
-			valid: true,
+			user:    "",
+			uid:     0,
+			gid:     0,
+			wantErr: false,
 		},
 		"uid only": {
-			user:  "1000",
-			uid:   1000,
-			gid:   0,
-			valid: true,
+			user:    "1000",
+			uid:     1000,
+			gid:     0,
+			wantErr: false,
 		},
 		"uid and gid": {
-			user:  "1000:1001",
-			uid:   1000,
-			gid:   1001,
-			valid: true,
+			user:    "1000:1001",
+			uid:     1000,
+			gid:     1001,
+			wantErr: false,
 		},
 		"missing uid": {
-			user:  ":1001",
-			uid:   0,
-			gid:   0,
-			valid: false,
+			user:    ":1001",
+			uid:     0,
+			gid:     0,
+			wantErr: true,
 		},
 		"missing gid": {
-			user:  "1000:",
-			uid:   0,
-			gid:   0,
-			valid: false,
+			user:    "1000:",
+			uid:     0,
+			gid:     0,
+			wantErr: true,
 		},
 		"invalid uid only": {
-			user:  "invalid",
-			uid:   0,
-			gid:   0,
-			valid: false,
+			user:    "invalid",
+			uid:     0,
+			gid:     0,
+			wantErr: true,
 		},
 		"invalid uid, valid gid": {
-			user:  "invalid:1001",
-			uid:   0,
-			gid:   0,
-			valid: false,
+			user:    "invalid:1001",
+			uid:     0,
+			gid:     0,
+			wantErr: true,
 		},
 		"valid uid, invalid gid": {
-			user:  "1000:invalid",
-			uid:   0,
-			gid:   0,
-			valid: false,
+			user:    "1000:invalid",
+			uid:     0,
+			gid:     0,
+			wantErr: true,
 		},
 	}
 
@@ -75,7 +75,12 @@ func TestParseUser(t *testing.T) {
 
 			assert.Equal(t, data.uid, uid)
 			assert.Equal(t, data.gid, gid)
-			assert.Equal(t, data.valid, err == nil)
+
+			if data.wantErr {
+				assert.Error(t, err)
+			} else {
+				assert.NoError(t, err)
+			}
 		})
 	}
 }
