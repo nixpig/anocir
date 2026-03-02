@@ -35,8 +35,10 @@ tests=(
     "linux_ns_nopath"
     "linux_ns_path"
     "linux_ns_path_type"
+    "linux_process_apparmor_profile"
     "linux_readonly_paths"
     "linux_rootfs_propagation"
+    "linux_seccomp"
     "linux_sysctl"
     "linux_uid_mappings"
     "mounts"
@@ -82,11 +84,6 @@ tests=(
     # "poststop_fail"
     # "process_rlimits" # ❌ also fails in brownie
 
-    # ---
-
-    # ❗️ tests that 'pass' (seemingly) regardless of whether the feature has been implemented
-    # "linux_process_apparmor_profile"
-    # "linux_seccomp"
 )
 
 # run tests
