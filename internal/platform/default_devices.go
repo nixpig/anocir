@@ -106,7 +106,7 @@ func MountDefaultDevices(containerRootfs string) error {
 
 		f, err := root.Create(relPath)
 		if err != nil && !os.IsExist(err) {
-			return err
+			return fmt.Errorf("create %s: %w", relPath, err)
 		}
 		if f != nil {
 			if err := f.Close(); err != nil {

@@ -170,7 +170,6 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			continue
 		}
 
-		// TODO: This is exactly the same as in container.go; maybe factor out.
 		f, err := os.Open(containerNSPath)
 		if err != nil {
 			return 0, fmt.Errorf("open ns path: %w", err)
@@ -180,7 +179,9 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			joinNSParts,
 			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], containerNSPath),
 		)
-		f.Close()
+		if err := f.Close(); err != nil {
+			slog.Warn("failed to close ns path", "path", containerNSPath, "err", err)
+		}
 	}
 
 	procAttr.Env = append(procAttr.Env, opts.Env...)
