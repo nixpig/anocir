@@ -9,16 +9,17 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version = "dev"
+
 const defaultRootDir = "/run/anocir"
 
 func RootCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:     "anocir",
-		Short:   "An experimental Linux container runtime",
-		Long:    "An experimental Linux container runtime, implementing the OCI Runtime Spec",
-		Example: "",
-		// TODO: Bake version in at build time.
-		Version:      "0.0.1",
+		Use:          "anocir",
+		Short:        "An experimental Linux container runtime",
+		Long:         "An experimental Linux container runtime, implementing the OCI Runtime Spec",
+		Example:      "",
+		Version:      Version,
 		SilenceUsage: true,
 		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 			logFile, _ := cmd.Flags().GetString("log")

@@ -1,3 +1,5 @@
+VERSION ?= $(shell git describe --tags --always --dirty 2>/dev/null || echo "dev")
+
 .PHONY: tidy
 tidy: 
 	go fmt ./...
@@ -15,7 +17,7 @@ build: build-oci
 
 .PHONY: build-oci
 build-oci:
-	CGO_ENABLED=1 go build -o tmp/bin/anocir cmd/anocir/main.go
+	CGO_ENABLED=1 go build -ldflags "-X github.com/nixpig/anocir/internal/oci.Version=$(VERSION)" -o tmp/bin/anocir cmd/anocir/main.go
 
 .PHONY: test
 test: 
