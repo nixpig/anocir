@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"syscall"
@@ -16,6 +17,10 @@ import (
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
 )
+
+// EnvSeccompFD is the name of the environment variable used to pass the seccomp
+// file descriptor to the child exec process.
+const EnvSeccompFD = "_ANOCIR_SECCOMP_FD"
 
 // ExecOpts holds the options for executing a command in an existing container.
 type ExecOpts struct {
@@ -199,30 +204,30 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		fmt.Sprintf("%s=%d", envContainerPID, containerPID),
 	)
 
-	// Pass seccomp profile by writing to container's filesystem,
-	// /proc/<pid>/root/tmp appears as /tmp inside the container.
-	//
-	// TODO: This is pretty hacky and should probably find a cleaner way of
-	// passing the seccomp profile to the exec.
 	if opts.Seccomp != nil {
 		seccompData, err := json.Marshal(opts.Seccomp)
 		if err != nil {
 			return 0, fmt.Errorf("serialise seccomp profile: %w", err)
 		}
 
-		containerTmp := fmt.Sprintf("/proc/%d/root/tmp", containerPID)
-		if err := os.MkdirAll(containerTmp, 0o755); err != nil {
-			return 0, fmt.Errorf("create container tmp dir: %w", err)
+		fd, err := unix.MemfdCreate("seccomp", 0)
+		if err != nil {
+			return 0, fmt.Errorf("create memfd: %w", err)
+		}
+		defer unix.Close(fd)
+
+		if _, err := unix.Write(fd, seccompData); err != nil {
+			return 0, fmt.Errorf("write seccomp data: %w", err)
 		}
 
-		seccompPath := filepath.Join(containerTmp, fmt.Sprintf("seccomp-%d.json", os.Getpid()))
-		if err := os.WriteFile(seccompPath, seccompData, 0o644); err != nil {
-			return 0, fmt.Errorf("write seccomp profile: %w", err)
+		if _, err := unix.Seek(fd, 0, 0); err != nil {
+			return 0, fmt.Errorf("seek beginning of seccomp data fd: %w", err)
 		}
 
-		// The path inside the container is /tmp/seccomp-<pid>.json
-		containerSeccompPath := fmt.Sprintf("/tmp/seccomp-%d.json", os.Getpid())
-		args = append(args, "--seccomp-file", containerSeccompPath)
+		procAttr.Files = append(procAttr.Files, uintptr(fd))
+
+		seccompFD := slices.Index(procAttr.Files, uintptr(fd))
+		procAttr.Env = append(procAttr.Env, fmt.Sprintf("%s=%d", EnvSeccompFD, seccompFD))
 	}
 
 	// Check if executable exists in the container's filesystem before forking.
