@@ -252,10 +252,14 @@ func (c *Container) Delete(force bool) error {
 		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup (path: %s): %s\n", c.spec.Linux.CgroupsPath, err.Error())
 	}
 
-	// TODO: Review whether need to remove pidfile.
-
 	if err := os.RemoveAll(c.containerDir()); err != nil {
 		return fmt.Errorf("delete container directory: %w", err)
+	}
+
+	if c.pidFile != "" {
+		if err := os.Remove(c.pidFile); err != nil && !os.IsNotExist(err) {
+			slog.Warn("failed to remove PID file", "container_id", c.State.ID, "pid_file", c.pidFile, "err", err)
+		}
 	}
 
 	if err := os.RemoveAll(filepath.Dir(c.containerSock)); err != nil {
