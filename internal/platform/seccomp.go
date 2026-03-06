@@ -88,8 +88,6 @@ func mapSeccompArch(arch specs.Arch) libseccomp.ScmpArch {
 	return a
 }
 
-// TODO: This function has gotten pretty monstrous. Need to look at cleaning this
-// up a bit.
 func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error) {
 	slog.Debug("build seccomp filter", "default_action", spec.DefaultAction)
 	defaultAction := mapSeccompAction(spec.DefaultAction)
@@ -116,18 +114,7 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 	}
 
 	for _, sc := range spec.Syscalls {
-		action := mapSeccompAction(sc.Action)
-
-		if sc.Action == specs.ActErrno {
-			errno := int16(unix.EPERM)
-			if sc.ErrnoRet != nil {
-				errno = int16(*sc.ErrnoRet)
-			} else if spec.DefaultErrnoRet != nil {
-				errno = int16(*spec.DefaultErrnoRet)
-			}
-
-			action = action.SetReturnCode(errno)
-		}
+		action := buildSeccompAction(sc, spec.DefaultErrnoRet)
 
 		for _, name := range sc.Names {
 			num, err := libseccomp.GetSyscallFromName(name)
@@ -148,33 +135,10 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 				continue
 			}
 
-			conditions := make([]libseccomp.ScmpCondition, 0, len(sc.Args))
-
-			for _, arg := range sc.Args {
-				op := mapSeccompOperator(arg.Op)
-
-				var cond libseccomp.ScmpCondition
-				if arg.Op == specs.OpMaskedEqual {
-					cond, err = libseccomp.MakeCondition(
-						arg.Index,
-						op,
-						arg.ValueTwo,
-						arg.Value,
-					)
-				} else {
-					cond, err = libseccomp.MakeCondition(
-						arg.Index,
-						op,
-						arg.Value,
-						arg.ValueTwo,
-					)
-				}
-				if err != nil {
-					filter.Release()
-					return nil, fmt.Errorf("make seccomp condition for %s: %w", name, err)
-				}
-
-				conditions = append(conditions, cond)
+			conditions, err := buildSeccompConditions(sc.Args)
+			if err != nil {
+				filter.Release()
+				return nil, fmt.Errorf("build conditions: %w", err)
 			}
 
 			if err := filter.AddRuleConditional(num, action, conditions); err != nil {
@@ -184,13 +148,12 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 		}
 	}
 
-	// Workaround for when clone3 isn't explicitly allowed and default action is
-	// EPERM, we add a rule to return ENOSYS instead to allow glibc to fallback
-	// to clone.
+	// When clone3 isn't explicitly allowed and default action is EPERM, we add a
+	// rule to return ENOSYS instead to allow glibc to fallback to clone.
 	//
 	// Also see:
-	//  - https://github.com/youki-dev/youki/pull/2203/changes
-	//  - https://github.com/moby/moby/pull/42681
+	//  https://github.com/youki-dev/youki/pull/2203/changes
+	//  https://github.com/moby/moby/pull/42681
 	if spec.DefaultAction == specs.ActErrno {
 		if !isClone3Allowed(spec.Syscalls) {
 			clone3, err := libseccomp.GetSyscallFromName("clone3")
@@ -247,6 +210,47 @@ func LoadSeccompFilter(spec *specs.LinuxSeccomp) error {
 	}
 
 	return filter.Load()
+}
+
+func buildSeccompAction(sc specs.LinuxSyscall, defaultErrnoRet *uint) libseccomp.ScmpAction {
+	action := mapSeccompAction(sc.Action)
+
+	if sc.Action == specs.ActErrno {
+		errno := int16(unix.EPERM)
+		if sc.ErrnoRet != nil {
+			errno = int16(*sc.ErrnoRet)
+		} else if defaultErrnoRet != nil {
+			errno = int16(*defaultErrnoRet)
+		}
+
+		action = action.SetReturnCode(errno)
+	}
+
+	return action
+}
+
+func buildSeccompConditions(args []specs.LinuxSeccompArg) ([]libseccomp.ScmpCondition, error) {
+	conditions := make([]libseccomp.ScmpCondition, 0, len(args))
+
+	for _, arg := range args {
+		op := mapSeccompOperator(arg.Op)
+
+		cond, err := buildSeccompCondition(arg, op)
+		if err != nil {
+			return nil, fmt.Errorf("build seccomp condition for %s: %w", arg.Op, err)
+		}
+
+		conditions = append(conditions, cond)
+	}
+
+	return conditions, nil
+}
+
+func buildSeccompCondition(arg specs.LinuxSeccompArg, op libseccomp.ScmpCompareOp) (libseccomp.ScmpCondition, error) {
+	if arg.Op == specs.OpMaskedEqual {
+		return libseccomp.MakeCondition(arg.Index, op, arg.ValueTwo, arg.Value)
+	}
+	return libseccomp.MakeCondition(arg.Index, op, arg.Value, arg.ValueTwo)
 }
 
 func isClone3Allowed(syscalls []specs.LinuxSyscall) bool {
