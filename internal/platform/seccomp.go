@@ -192,19 +192,7 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 	//  - https://github.com/youki-dev/youki/pull/2203/changes
 	//  - https://github.com/moby/moby/pull/42681
 	if spec.DefaultAction == specs.ActErrno {
-		clone3Allowed := false
-		for _, sc := range spec.Syscalls {
-			if sc.Action == specs.ActAllow {
-				if slices.Contains(sc.Names, "clone3") {
-					clone3Allowed = true
-				}
-			}
-			if clone3Allowed {
-				break
-			}
-		}
-
-		if !clone3Allowed {
+		if !isClone3Allowed(spec.Syscalls) {
 			clone3, err := libseccomp.GetSyscallFromName("clone3")
 			if err != nil {
 				slog.Debug("clone3 syscall not found", "err", err)
@@ -219,8 +207,6 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 		}
 	}
 
-	// Workaround for faccessat2 not being whitelisted in seccomp profile.
-	//
 	// Some seccomp profiles (specifically, the default OCI runtime-tools one)
 	// only whitelist fsaccessat and not faccessat2. However glibc/musl
 	// preferentially use fsaccessat2 if it's available (i.e. Linux 5.8+) and
@@ -232,19 +218,7 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 	// TODO: This feels a bit dodgy, especially given that other runtimes don't
 	// appear to do anything similar. Need to re-review when more time.
 	if spec.DefaultAction == specs.ActErrno {
-		faccessatAllowed := false
-		faccessat2Handled := false
-		for _, sc := range spec.Syscalls {
-			if slices.Contains(sc.Names, "faccessat") &&
-				sc.Action == specs.ActAllow {
-				faccessatAllowed = true
-			}
-			if slices.Contains(sc.Names, "faccessat2") {
-				faccessat2Handled = true
-			}
-		}
-
-		if faccessatAllowed && !faccessat2Handled {
+		if shouldUseFsaccess2(spec.Syscalls) {
 			faccessat2, err := libseccomp.GetSyscallFromName("faccessat2")
 			if err != nil {
 				slog.Debug("faccessat2 syscall not found", "err", err)
@@ -273,4 +247,33 @@ func LoadSeccompFilter(spec *specs.LinuxSeccomp) error {
 	}
 
 	return filter.Load()
+}
+
+func isClone3Allowed(syscalls []specs.LinuxSyscall) bool {
+	for _, sc := range syscalls {
+		if sc.Action == specs.ActAllow {
+			if slices.Contains(sc.Names, "clone3") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
+
+func shouldUseFsaccess2(syscalls []specs.LinuxSyscall) bool {
+	faccessatAllowed := false
+	faccessat2Handled := false
+
+	for _, sc := range syscalls {
+		if slices.Contains(sc.Names, "faccessat") &&
+			sc.Action == specs.ActAllow {
+			faccessatAllowed = true
+		}
+		if slices.Contains(sc.Names, "faccessat2") {
+			faccessat2Handled = true
+		}
+	}
+
+	return faccessatAllowed && !faccessat2Handled
 }
