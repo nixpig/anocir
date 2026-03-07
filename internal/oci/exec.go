@@ -31,12 +31,20 @@ func execCmd() *cobra.Command {
 			cgroup, _ := cmd.Flags().GetString("cgroup")
 			ignorePaused, _ := cmd.Flags().GetBool("ignore-paused")
 
+			cntr, err := container.Load(containerID, rootDir)
+			if err != nil {
+				return fmt.Errorf("failed to load container: %w", err)
+			}
+
+			if cntr.State.Status == container.PausedState && !ignorePaused {
+				return fmt.Errorf("cannot exec in a paused container, use --ignore-paused to override")
+			}
+
 			opts := &container.ExecOpts{
 				Cgroup:        cgroup,
 				ConsoleSocket: consoleSocket,
 				PIDFile:       pidFile,
 				Detach:        detach,
-				IgnorePaused:  ignorePaused,
 				PreserveFDs:   preserveFDs,
 				ContainerID:   containerID,
 			}
@@ -49,11 +57,6 @@ func execCmd() *cobra.Command {
 				if err := parseProcessFlags(opts, cmd.Flags(), args); err != nil {
 					return fmt.Errorf("failed to parse process flags: %w", err)
 				}
-			}
-
-			cntr, err := container.Load(containerID, rootDir)
-			if err != nil {
-				return fmt.Errorf("failed to load container: %w", err)
 			}
 
 			if cntr.GetProcessEnv() != nil {

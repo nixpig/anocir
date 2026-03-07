@@ -41,7 +41,6 @@ type ExecOpts struct {
 	AppArmor       string
 
 	// TODO: Handle these options.
-	IgnorePaused bool
 	PreserveFDs  int
 	ProcessLabel string
 	Cgroup       string

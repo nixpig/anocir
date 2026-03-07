@@ -49,7 +49,7 @@ const (
 	// container PID to the reexec'd process.
 	envContainerPID = "_ANOCIR_CONTAINER_PID"
 
-	pausedState = specs.ContainerState("paused")
+	PausedState = specs.ContainerState("paused")
 )
 
 // ErrOperationInProgress is returned when the container is locked by another
@@ -837,7 +837,7 @@ func (c *Container) Pause() error {
 
 	// OCI doesn't have a 'paused' state, but it's required by containerd, so we just
 	// inline it.
-	c.State.Status = pausedState
+	c.State.Status = PausedState
 
 	if err := c.save(); err != nil {
 		return fmt.Errorf("save paused state: %w", err)
@@ -1048,7 +1048,7 @@ func (c *Container) canBePaused() bool {
 }
 
 func (c *Container) canBeResumed() bool {
-	return c.State.Status == pausedState
+	return c.State.Status == PausedState
 }
 
 // rootFS returns the path to the Container root filesystem.
