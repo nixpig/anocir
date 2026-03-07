@@ -85,6 +85,7 @@ func (c *Container) setupPostPivot() error {
 		Seccomp:         c.spec.Linux.Seccomp,
 		NoNewPrivs:      c.spec.Process.NoNewPrivileges,
 		AppArmorProfile: c.spec.Process.ApparmorProfile,
+		ProcessLabel:    c.spec.Process.SelinuxLabel,
 	}); err != nil {
 		return fmt.Errorf("apply process security: %w", err)
 	}

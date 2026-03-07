@@ -127,7 +127,7 @@ func GetFeatures() *Features {
 				Enabled: platform.IsAppArmorEnabled(),
 			},
 			SELinux: &SELinuxFeatures{
-				Enabled: false,
+				Enabled: platform.IsSELinuxEnabled(),
 			},
 			IntelRDT: &IntelRDTFeatures{
 				Enabled: false,

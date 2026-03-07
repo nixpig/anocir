@@ -39,11 +39,11 @@ type ExecOpts struct {
 	ContainerID    string
 	Seccomp        *specs.LinuxSeccomp
 	AppArmor       string
+	ProcessLabel   string
 
 	// TODO: Handle these options.
-	PreserveFDs  int
-	ProcessLabel string
-	Cgroup       string
+	PreserveFDs int
+	Cgroup      string
 }
 
 // Namespaces need to be applied in a specific order. Don't change these.
@@ -118,6 +118,10 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	if opts.AppArmor != "" {
 		args = append(args, "--apparmor", opts.AppArmor)
+	}
+
+	if opts.ProcessLabel != "" {
+		args = append(args, "--process-label", opts.ProcessLabel)
 	}
 
 	args = appendArgsSlice(args, "--additional-gids", additionalGIDs)

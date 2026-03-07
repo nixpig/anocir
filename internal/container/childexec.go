@@ -26,6 +26,7 @@ type ChildExecOpts struct {
 	TTY             bool
 	Seccomp         *specs.LinuxSeccomp
 	AppArmorProfile string
+	ProcessLabel    string
 }
 
 // ChildExec handles the execution of a command in an existing container with
@@ -43,6 +44,7 @@ func ChildExec(opts *ChildExecOpts) error {
 		Seccomp:         opts.Seccomp,
 		NoNewPrivs:      opts.NoNewPrivs,
 		AppArmorProfile: opts.AppArmorProfile,
+		ProcessLabel:    opts.ProcessLabel,
 	}); err != nil {
 		return fmt.Errorf("apply process security: %w", err)
 	}

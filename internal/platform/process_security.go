@@ -13,6 +13,7 @@ type ProcessSecurity struct {
 	Seccomp         *specs.LinuxSeccomp
 	NoNewPrivs      bool
 	AppArmorProfile string
+	ProcessLabel    string
 }
 
 func ApplyProcessSecurity(opts *ProcessSecurity) error {
@@ -81,6 +82,12 @@ func ApplyProcessSecurity(opts *ProcessSecurity) error {
 	if opts.AppArmorProfile != "" {
 		if err := ApplyAppArmorProfile(opts.AppArmorProfile); err != nil {
 			return fmt.Errorf("apply apparmor profile: %w", err)
+		}
+	}
+
+	if opts.ProcessLabel != "" {
+		if err := ApplySELinuxProfile(opts.ProcessLabel); err != nil {
+			return fmt.Errorf("apply selinux profile: %w", err)
 		}
 	}
 
