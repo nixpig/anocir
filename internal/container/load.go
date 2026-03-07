@@ -55,9 +55,8 @@ func Load(id, rootDir string) (*Container, error) {
 }
 
 // containerSockPath constructs the filepath to the socket used for container IPC.
+// Sockets are always placed in /run/anocir/<bundle-hash> so they're accessible by
+// the runtime and guaranteed to have a pathname within the 108 character limit.
 func containerSockPath(bundle string) string {
-	// We use a path that's always accessible by the runtime, rather than the
-	// root or bundle paths.
-	// TODO: Review how we handle this.
 	return filepath.Join("/run/anocir", ipc.ShortID(bundle), containerSockFilename)
 }
