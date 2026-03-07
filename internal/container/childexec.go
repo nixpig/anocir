@@ -16,15 +16,16 @@ import (
 // ChildExecOpts holds the options for the forked process that executes a
 // command in an existing container.
 type ChildExecOpts struct {
-	Cwd          string
-	Args         []string
-	ContainerID  string
-	Env          []string
-	Capabilities *specs.LinuxCapabilities
-	User         *specs.User
-	NoNewPrivs   bool
-	TTY          bool
-	Seccomp      *specs.LinuxSeccomp
+	Cwd             string
+	Args            []string
+	ContainerID     string
+	Env             []string
+	Capabilities    *specs.LinuxCapabilities
+	User            *specs.User
+	NoNewPrivs      bool
+	TTY             bool
+	Seccomp         *specs.LinuxSeccomp
+	AppArmorProfile string
 }
 
 // ChildExec handles the execution of a command in an existing container with
@@ -37,10 +38,11 @@ func ChildExec(opts *ChildExecOpts) error {
 	// C constructor (nssetup) which runs before Go starts.
 
 	if err := platform.ApplyProcessSecurity(&platform.ProcessSecurity{
-		User:         opts.User,
-		Capabilities: opts.Capabilities,
-		Seccomp:      opts.Seccomp,
-		NoNewPrivs:   opts.NoNewPrivs,
+		User:            opts.User,
+		Capabilities:    opts.Capabilities,
+		Seccomp:         opts.Seccomp,
+		NoNewPrivs:      opts.NoNewPrivs,
+		AppArmorProfile: opts.AppArmorProfile,
 	}); err != nil {
 		return fmt.Errorf("apply process security: %w", err)
 	}

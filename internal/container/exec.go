@@ -24,7 +24,6 @@ const EnvSeccompFD = "_ANOCIR_SECCOMP_FD"
 
 // ExecOpts holds the options for executing a command in an existing container.
 type ExecOpts struct {
-	// TODO: This is getting pretty big. Perhaps we want to restructure.
 	Cwd            string
 	Args           []string
 	UID            int
@@ -39,12 +38,12 @@ type ExecOpts struct {
 	ConsoleSocket  string
 	ContainerID    string
 	Seccomp        *specs.LinuxSeccomp
+	AppArmor       string
 
 	// TODO: Handle these options.
 	IgnorePaused bool
 	PreserveFDs  int
 	ProcessLabel string
-	AppArmor     string
 	Cgroup       string
 }
 
@@ -118,6 +117,10 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		args = append(args, "--no-new-privs")
 	}
 
+	if opts.AppArmor != "" {
+		args = append(args, "--apparmor", opts.AppArmor)
+	}
+
 	args = appendArgsSlice(args, "--additional-gids", additionalGIDs)
 	args = appendArgsSlice(args, "--caps", opts.Capabilities)
 	args = appendArgsSlice(args, "--envs", opts.Env)
@@ -180,10 +183,7 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 			return 0, fmt.Errorf("open ns path: %w", err)
 		}
 
-		joinNSParts = append(
-			joinNSParts,
-			fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], containerNSPath),
-		)
+		joinNSParts = append(joinNSParts, fmt.Sprintf("%s:%s", platform.NamespaceEnvs[ns], containerNSPath))
 		if err := f.Close(); err != nil {
 			slog.Warn("failed to close ns path", "path", containerNSPath, "err", err)
 		}
@@ -192,17 +192,11 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	procAttr.Env = append(procAttr.Env, opts.Env...)
 
 	if len(joinNSParts) > 0 {
-		procAttr.Env = append(
-			procAttr.Env,
-			fmt.Sprintf("%s=%s", envJoinNS, strings.Join(joinNSParts, ",")),
-		)
+		procAttr.Env = append(procAttr.Env, fmt.Sprintf("%s=%s", envJoinNS, strings.Join(joinNSParts, ",")))
 	}
 
 	// Pass container PID so C constructor can chroot into container's root.
-	procAttr.Env = append(
-		procAttr.Env,
-		fmt.Sprintf("%s=%d", envContainerPID, containerPID),
-	)
+	procAttr.Env = append(procAttr.Env, fmt.Sprintf("%s=%d", envContainerPID, containerPID))
 
 	if opts.Seccomp != nil {
 		seccompData, err := json.Marshal(opts.Seccomp)

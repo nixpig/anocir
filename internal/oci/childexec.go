@@ -30,6 +30,7 @@ func childExecCmd() *cobra.Command {
 			noNewPrivs, _ := cmd.Flags().GetBool("no-new-privs")
 			tty, _ := cmd.Flags().GetBool("tty")
 			containerID, _ := cmd.Flags().GetString("container-id")
+			appArmorProfile, _ := cmd.Flags().GetString("apparmor")
 
 			user := &specs.User{UID: uint32(uid), GID: uint32(gid)}
 
@@ -61,15 +62,16 @@ func childExecCmd() *cobra.Command {
 			}
 
 			if err := container.ChildExec(&container.ChildExecOpts{
-				Cwd:          cwd,
-				Args:         execArgs,
-				Env:          envs,
-				User:         user,
-				Capabilities: &specs.LinuxCapabilities{Bounding: caps},
-				NoNewPrivs:   noNewPrivs,
-				TTY:          tty,
-				ContainerID:  containerID,
-				Seccomp:      seccomp,
+				Cwd:             cwd,
+				Args:            execArgs,
+				Env:             envs,
+				User:            user,
+				Capabilities:    &specs.LinuxCapabilities{Bounding: caps},
+				NoNewPrivs:      noNewPrivs,
+				TTY:             tty,
+				ContainerID:     containerID,
+				Seccomp:         seccomp,
+				AppArmorProfile: appArmorProfile,
 			}); err != nil {
 				return fmt.Errorf("fork/exec child: %w", err)
 			}
@@ -88,6 +90,7 @@ func childExecCmd() *cobra.Command {
 	cmd.Flags().Bool("no-new-privs", false, "")
 	cmd.Flags().Bool("tty", false, "")
 	cmd.Flags().String("container-id", "", "")
+	cmd.Flags().String("apparmor", "", "")
 
 	return cmd
 }
