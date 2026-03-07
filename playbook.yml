@@ -7,7 +7,7 @@
     synced_folder: "/anocir"
     ubuntu_version: "24.04"
     ubuntu_codename: "noble"
-    go_version: "1.25.5"
+    go_version: "1.26.1"
     containerd_version: "v2.2.1"
     cri_tools_version: "v1.35.0"
     cni_version: "v1.6.2"

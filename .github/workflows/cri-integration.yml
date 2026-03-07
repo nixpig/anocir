@@ -30,7 +30,7 @@ jobs:
       - name: setup go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.25.5"
+          go-version: "1.26.1"
 
       - name: download anocir artifact
         uses: actions/download-artifact@v4
