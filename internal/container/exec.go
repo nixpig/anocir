@@ -154,7 +154,24 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 		}
 
 		if ns == specs.TimeNamespace {
-			// TODO: Apply this - gonna need to be time_for_children or skip, I think.
+			// For time namespace, we call setns() here in the parent so the subsequent ForkExec will create a
+			// child that is actually in the container's time namespace.
+			// The path is constructed separately, since it's "time_for_children" rather than "time" from the spec.
+			timeNSPath := fmt.Sprintf("/proc/%d/ns/time_for_children", containerPID)
+			timeNSFile, err := os.Open(timeNSPath)
+			if err != nil {
+				return 0, fmt.Errorf("open time_for_children: %w", err)
+			}
+			defer func() {
+				if err := timeNSFile.Close(); err != nil {
+					slog.Warn("failed to close time_for_children namespace file", "file", timeNSFile.Name(), "container_pid", containerPID, "err", err)
+				}
+			}()
+
+			if err := unix.Setns(int(timeNSFile.Fd()), unix.CLONE_NEWTIME); err != nil {
+				return 0, fmt.Errorf("set time ns: %w", err)
+			}
+
 			continue
 		}
 
