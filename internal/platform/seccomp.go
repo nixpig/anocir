@@ -178,8 +178,12 @@ func buildSeccompFilter(spec *specs.LinuxSeccomp) (*libseccomp.ScmpFilter, error
 	// In the case the seccomp profile specifies fsaccessat but not fsaccesat2
 	// we defensively add it.
 	//
-	// TODO: This feels a bit dodgy, especially given that other runtimes don't
-	// appear to do anything similar. Need to re-review when more time.
+	// TODO: Look at a more generalised approach. See others:
+	//  - https://github.com/opencontainers/runc/pull/2750
+	//  - https://github.com/containers/crun/issues/646
+	//  - https://github.com/moby/moby/commit/a18139111d8a203bd211b0861c281ebe77daccd9
+	//  - https://github.com/youki-dev/youki/issues/2022
+	//  - https://github.com/opencontainers/runtime-spec/pull/1087
 	if spec.DefaultAction == specs.ActErrno {
 		if shouldUseFsaccess2(spec.Syscalls) {
 			faccessat2, err := libseccomp.GetSyscallFromName("faccessat2")
