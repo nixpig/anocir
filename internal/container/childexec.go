@@ -1,9 +1,12 @@
 package container
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
+	"os"
 	"os/exec"
+	"path/filepath"
 	"runtime"
 	"slices"
 	"strings"
@@ -27,6 +30,7 @@ type ChildExecOpts struct {
 	Seccomp         *specs.LinuxSeccomp
 	AppArmorProfile string
 	ProcessLabel    string
+	Cgroup          string
 }
 
 // ChildExec handles the execution of a command in an existing container with
@@ -78,6 +82,35 @@ func ChildExec(opts *ChildExecOpts) error {
 	exe, err := exec.LookPath(opts.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of binary: %w", err)
+	}
+
+	if opts.Cgroup != "" {
+		contents, err := os.ReadFile("/proc/self/cgroup")
+		if err != nil {
+			return fmt.Errorf("open cgroup path: %w", err)
+		}
+
+		var cntrCgroupPath string
+		for s := range strings.Lines(string(contents)) {
+			if p, ok := strings.CutPrefix(s, "0::"); ok {
+				cntrCgroupPath = filepath.Join(
+					"/sys/fs/cgroup",
+					strings.TrimSpace(p),
+					opts.Cgroup,
+					"cgroup.procs",
+				)
+
+				break
+			}
+		}
+
+		if cntrCgroupPath == "" {
+			return errors.New("no cgroup v2 entry found in /sys/fs/cgroup")
+		}
+
+		if err := os.WriteFile(cntrCgroupPath, []byte(fmt.Sprintf("%d", os.Getpid())), 0o644); err != nil {
+			return fmt.Errorf("write pid to cgroup: %w", err)
+		}
 	}
 
 	slog.Debug(

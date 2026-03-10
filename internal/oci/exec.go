@@ -88,7 +88,7 @@ func execCmd() *cobra.Command {
 	cmd.Flags().String("apparmor", "", "AppArmor profile for the process")
 	cmd.Flags().Bool("no-new-privs", false, "set no new privs")
 	cmd.Flags().StringArray("cap", []string{}, "set capabilities")
-	cmd.Flags().String("cgroup", "", "cgroup (path | controller[,controller...]:path)")
+	cmd.Flags().String("cgroup", "", "cgroup <path> to write PID to /sys/fs/cgroup/<container-cgroup>/<path>/cgroup.procs")
 	cmd.Flags().String("console-socket", "", "console socket path")
 	cmd.Flags().StringP("user", "u", "", "run command as user uid[:gid]")
 	cmd.Flags().String("pid-file", "", "file to write container PID to")

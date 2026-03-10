@@ -32,6 +32,7 @@ func childExecCmd() *cobra.Command {
 			containerID, _ := cmd.Flags().GetString("container-id")
 			appArmorProfile, _ := cmd.Flags().GetString("apparmor")
 			processLabel, _ := cmd.Flags().GetString("process-label")
+			cgroup, _ := cmd.Flags().GetString("cgroup")
 
 			user := &specs.User{UID: uint32(uid), GID: uint32(gid)}
 
@@ -74,6 +75,7 @@ func childExecCmd() *cobra.Command {
 				Seccomp:         seccomp,
 				AppArmorProfile: appArmorProfile,
 				ProcessLabel:    processLabel,
+				Cgroup:          cgroup,
 			}); err != nil {
 				return fmt.Errorf("fork/exec child: %w", err)
 			}
@@ -94,6 +96,7 @@ func childExecCmd() *cobra.Command {
 	cmd.Flags().String("container-id", "", "")
 	cmd.Flags().String("apparmor", "", "")
 	cmd.Flags().String("process-label", "", "")
+	cmd.Flags().String("cgroup", "", "")
 
 	return cmd
 }

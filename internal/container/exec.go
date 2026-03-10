@@ -41,9 +41,7 @@ type ExecOpts struct {
 	AppArmor       string
 	ProcessLabel   string
 	PreserveFDs    int
-
-	// TODO: Handle these options.
-	Cgroup string
+	Cgroup         string
 }
 
 // Namespaces need to be applied in a specific order. Don't change these.
@@ -122,6 +120,10 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	if opts.ProcessLabel != "" {
 		args = append(args, "--process-label", opts.ProcessLabel)
+	}
+
+	if opts.Cgroup != "" {
+		args = append(args, "--cgroup", opts.Cgroup)
 	}
 
 	args = appendArgsSlice(args, "--additional-gids", additionalGIDs)
