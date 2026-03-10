@@ -40,10 +40,10 @@ type ExecOpts struct {
 	Seccomp        *specs.LinuxSeccomp
 	AppArmor       string
 	ProcessLabel   string
+	PreserveFDs    int
 
 	// TODO: Handle these options.
-	PreserveFDs int
-	Cgroup      string
+	Cgroup string
 }
 
 // Namespaces need to be applied in a specific order. Don't change these.
@@ -200,6 +200,10 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 
 	// Pass container PID so C constructor can chroot into container's root.
 	procAttr.Env = append(procAttr.Env, fmt.Sprintf("%s=%d", envContainerPID, containerPID))
+
+	for i := range opts.PreserveFDs {
+		procAttr.Files = append(procAttr.Files, uintptr(3+i))
+	}
 
 	if opts.Seccomp != nil {
 		seccompData, err := json.Marshal(opts.Seccomp)
