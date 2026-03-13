@@ -8,6 +8,8 @@ import (
 )
 
 func TestContainerIDValidation(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		id    string
 		valid bool
@@ -56,6 +58,7 @@ func TestContainerIDValidation(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, data.valid, validation.ContainerID(data.id) == nil)
 		})
 	}

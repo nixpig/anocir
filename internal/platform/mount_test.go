@@ -8,6 +8,8 @@ import (
 )
 
 func TestMountValidatePropagationFlag(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		flag  uintptr
 		valid bool
@@ -27,6 +29,7 @@ func TestMountValidatePropagationFlag(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, data.valid, validatePropagationFlag(data.flag))
 		})
 	}

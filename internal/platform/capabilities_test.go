@@ -7,6 +7,8 @@ import (
 )
 
 func TestResolveCaps(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		names []string
 		caps  []Cap
@@ -48,6 +50,7 @@ func TestResolveCaps(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, data.caps, resolveCaps(data.names))
 		})
 	}

@@ -40,6 +40,8 @@ func TestContainerLifecycle(t *testing.T) {
 }
 
 func TestRootFS(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		rootPath, bundlePath, rootFS string
 	}{
@@ -67,6 +69,8 @@ func TestRootFS(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			c := &Container{
 				spec:  &specs.Spec{Root: &specs.Root{Path: data.rootPath}},
 				State: &specs.State{Bundle: data.bundlePath},
@@ -78,6 +82,8 @@ func TestRootFS(t *testing.T) {
 }
 
 func TestStateChange(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		state        specs.ContainerState
 		canBeStarted bool
@@ -95,6 +101,8 @@ func TestStateChange(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			c := &Container{State: &specs.State{Status: data.state}}
 
 			assert.Equal(t, data.canBeStarted, c.canBeStarted(), "container can be started")
@@ -107,6 +115,8 @@ func TestStateChange(t *testing.T) {
 }
 
 func TestHasMountNamespace(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		hasMountNamespace bool
 	}{
@@ -116,6 +126,8 @@ func TestHasMountNamespace(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			c := &Container{
 				State: &specs.State{},
 				spec: &specs.Spec{

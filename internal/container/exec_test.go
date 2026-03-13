@@ -10,6 +10,8 @@ import (
 )
 
 func TestCheckExecutable(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 
 	nonExePath := filepath.Join(tempDir, "non-executable")
@@ -22,27 +24,26 @@ func TestCheckExecutable(t *testing.T) {
 	require.NoError(t, err)
 
 	scenarios := map[string]struct {
-		path    string
-		wantErr bool
+		path      string
+		assertErr assert.ErrorAssertionFunc
 	}{
-		"invalid path":     {path: "non-existent", wantErr: true},
-		"directory path":   {path: tempDir, wantErr: true},
-		"not executable":   {path: nonExePath, wantErr: true},
-		"valid executable": {path: exePath, wantErr: false},
+		"invalid path":     {path: "non-existent", assertErr: assert.Error},
+		"directory path":   {path: tempDir, assertErr: assert.Error},
+		"not executable":   {path: nonExePath, assertErr: assert.Error},
+		"valid executable": {path: exePath, assertErr: assert.NoError},
 	}
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
-			if data.wantErr {
-				assert.Error(t, checkExecutable(data.path))
-			} else {
-				assert.NoError(t, checkExecutable(data.path))
-			}
+			t.Parallel()
+			data.assertErr(t, checkExecutable(data.path))
 		})
 	}
 }
 
 func TestSharedNamespace(t *testing.T) {
+	t.Parallel()
+
 	tempDir := t.TempDir()
 
 	isolatedContainerNS := filepath.Join(tempDir, "isolated_container_ns")
@@ -65,47 +66,44 @@ func TestSharedNamespace(t *testing.T) {
 		containerNSPath   string
 		hostNSPath        string
 		isSharedNamespace bool
-		wantErr           bool
+		assertErr         assert.ErrorAssertionFunc
 	}{
 		"invalid container ns path": {
 			containerNSPath:   filepath.Join(tempDir, "invalid"),
 			hostNSPath:        isolatedHostNS,
 			isSharedNamespace: false,
-			wantErr:           true,
+			assertErr:         assert.Error,
 		},
 		"invalid host ns path": {
 			containerNSPath:   isolatedContainerNS,
 			hostNSPath:        filepath.Join(tempDir, "invalid"),
 			isSharedNamespace: false,
-			wantErr:           true,
+			assertErr:         assert.Error,
 		},
 		"shared namespace paths": {
 			containerNSPath:   sharedContainerNS,
 			hostNSPath:        sharedHostNS,
 			isSharedNamespace: true,
-			wantErr:           false,
+			assertErr:         assert.NoError,
 		},
 		"not shared namespace paths": {
 			containerNSPath:   isolatedContainerNS,
 			hostNSPath:        isolatedHostNS,
 			isSharedNamespace: false,
-			wantErr:           false,
+			assertErr:         assert.NoError,
 		},
 	}
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			s, err := sharedNamespace(
 				data.containerNSPath,
 				data.hostNSPath,
 			)
 			assert.Equal(t, data.isSharedNamespace, s)
-
-			if data.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
+			data.assertErr(t, err)
 		})
 	}
 }

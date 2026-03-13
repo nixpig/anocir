@@ -7,6 +7,8 @@ import (
 )
 
 func TestSysctlPath(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		sysctl string
 		path   string
@@ -27,6 +29,7 @@ func TestSysctlPath(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
 			assert.Equal(t, data.path, sysctlPath(data.sysctl))
 		})
 	}

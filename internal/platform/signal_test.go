@@ -8,6 +8,8 @@ import (
 )
 
 func TestParseSignal(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		sigName string
 		signal  unix.Signal
@@ -42,6 +44,8 @@ func TestParseSignal(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			sig, err := ParseSignal(data.sigName)
 			assert.Equal(t, data.signal, sig)
 			assert.Equal(t, err, data.err)

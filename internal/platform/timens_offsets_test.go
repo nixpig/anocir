@@ -8,6 +8,8 @@ import (
 )
 
 func TestParseTimeOffset(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		clock  string
 		offset specs.LinuxTimeOffset
@@ -60,6 +62,8 @@ func TestParseTimeOffset(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			timeOffset, err := parseTimeOffset(data.offset, data.clock)
 			assert.Equal(t, data.err, err)
 			assert.Equal(t, data.value, timeOffset)

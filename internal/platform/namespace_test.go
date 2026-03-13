@@ -22,6 +22,8 @@ func TestNamespaceMappings(t *testing.T) {
 }
 
 func TestOpenNSPath(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		ns  *specs.LinuxNamespace
 		err error
@@ -126,6 +128,8 @@ func TestOpenNSPath(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			_, err := platform.OpenNSPath(data.ns)
 			assert.ErrorIs(t, err, data.err)
 		})
@@ -133,6 +137,8 @@ func TestOpenNSPath(t *testing.T) {
 }
 
 func TestBuildUserNSMappings(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		specUIDMappings     []specs.LinuxIDMapping
 		specGIDMappings     []specs.LinuxIDMapping
@@ -307,6 +313,8 @@ func TestBuildUserNSMappings(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			uidMappings, gidMappings := platform.BuildUserNSMappings(
 				data.specUIDMappings,
 				data.specGIDMappings,

@@ -8,6 +8,8 @@ import (
 )
 
 func TestIOPrioToInt(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		ioPrio *specs.LinuxIOPriority
 		value  int
@@ -57,6 +59,8 @@ func TestIOPrioToInt(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			ioprio, err := IOPrioToInt(data.ioPrio)
 
 			assert.ErrorIs(t, err, data.err)

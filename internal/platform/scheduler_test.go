@@ -9,6 +9,8 @@ import (
 )
 
 func TestNewSchedAttr(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		scheduler *specs.Scheduler
 		schedAttr *unix.SchedAttr
@@ -156,6 +158,8 @@ func TestNewSchedAttr(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			schedAttr, err := NewSchedAttr(data.scheduler)
 			assert.ErrorIs(t, err, data.err)
 			assert.Equal(t, data.schedAttr, schedAttr)

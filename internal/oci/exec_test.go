@@ -13,59 +13,61 @@ import (
 )
 
 func TestParseUser(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
-		user    string
-		uid     int
-		gid     int
-		wantErr bool
+		user      string
+		uid       int
+		gid       int
+		assertErr assert.ErrorAssertionFunc
 	}{
 		"empty user": {
-			user:    "",
-			uid:     0,
-			gid:     0,
-			wantErr: false,
+			user:      "",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.NoError,
 		},
 		"uid only": {
-			user:    "1000",
-			uid:     1000,
-			gid:     0,
-			wantErr: false,
+			user:      "1000",
+			uid:       1000,
+			gid:       0,
+			assertErr: assert.NoError,
 		},
 		"uid and gid": {
-			user:    "1000:1001",
-			uid:     1000,
-			gid:     1001,
-			wantErr: false,
+			user:      "1000:1001",
+			uid:       1000,
+			gid:       1001,
+			assertErr: assert.NoError,
 		},
 		"missing uid": {
-			user:    ":1001",
-			uid:     0,
-			gid:     0,
-			wantErr: true,
+			user:      ":1001",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.Error,
 		},
 		"missing gid": {
-			user:    "1000:",
-			uid:     0,
-			gid:     0,
-			wantErr: true,
+			user:      "1000:",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.Error,
 		},
 		"invalid uid only": {
-			user:    "invalid",
-			uid:     0,
-			gid:     0,
-			wantErr: true,
+			user:      "invalid",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.Error,
 		},
 		"invalid uid, valid gid": {
-			user:    "invalid:1001",
-			uid:     0,
-			gid:     0,
-			wantErr: true,
+			user:      "invalid:1001",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.Error,
 		},
 		"valid uid, invalid gid": {
-			user:    "1000:invalid",
-			uid:     0,
-			gid:     0,
-			wantErr: true,
+			user:      "1000:invalid",
+			uid:       0,
+			gid:       0,
+			assertErr: assert.Error,
 		},
 	}
 
@@ -73,30 +75,27 @@ func TestParseUser(t *testing.T) {
 		t.Run(scenario, func(t *testing.T) {
 			uid, gid, err := parseUser(data.user)
 
+			data.assertErr(t, err)
 			assert.Equal(t, data.uid, uid)
 			assert.Equal(t, data.gid, gid)
-
-			if data.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
 		})
 	}
 }
 
 func TestParseProcessFile(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
-		path     string
-		testData map[string]any
-		wantErr  bool
-		wantOpts *container.ExecOpts
+		path      string
+		testData  map[string]any
+		assertErr assert.ErrorAssertionFunc
+		wantOpts  *container.ExecOpts
 	}{
 		"invalid file path": {
-			path:     "",
-			testData: map[string]any{},
-			wantErr:  true,
-			wantOpts: &container.ExecOpts{},
+			path:      "",
+			testData:  map[string]any{},
+			assertErr: assert.Error,
+			wantOpts:  &container.ExecOpts{},
 		},
 		"invalid process data": {
 			path: "process.json",
@@ -104,8 +103,8 @@ func TestParseProcessFile(t *testing.T) {
 				"invalid": "data",
 				"user":    []string{"bork"},
 			},
-			wantErr:  true,
-			wantOpts: &container.ExecOpts{},
+			assertErr: assert.Error,
+			wantOpts:  &container.ExecOpts{},
 		},
 		"valid process data": {
 			path: "process.json",
@@ -126,7 +125,7 @@ func TestParseProcessFile(t *testing.T) {
 				"apparmorProfile": "default",
 				"selinuxLabel":    "system_u:system_r:container_t:s0",
 			},
-			wantErr: false,
+			assertErr: assert.NoError,
 			wantOpts: &container.ExecOpts{
 				Cwd:            "/home/user",
 				Env:            []string{"PATH=/usr/bin", "TERM=xterm"},
@@ -144,6 +143,7 @@ func TestParseProcessFile(t *testing.T) {
 	}
 
 	for scenario, data := range scenarios {
+
 		tempDir := t.TempDir()
 		if data.path != "" {
 			f, err := os.Create(filepath.Join(tempDir, data.path))
@@ -154,25 +154,24 @@ func TestParseProcessFile(t *testing.T) {
 		}
 
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			gotOpts := &container.ExecOpts{}
 			err := parseProcessFile(gotOpts, filepath.Join(tempDir, data.path))
-			if data.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
+			data.assertErr(t, err)
 			assert.Equal(t, data.wantOpts, gotOpts)
 		})
 	}
 }
 
 func TestParseProcessFlags(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
-		flags    func() *pflag.FlagSet
-		args     []string
-		wantErr  bool
-		wantOpts *container.ExecOpts
+		flags     func() *pflag.FlagSet
+		args      []string
+		assertErr assert.ErrorAssertionFunc
+		wantOpts  *container.ExecOpts
 	}{
 		"empty flags and empty args": {
 			flags: func() *pflag.FlagSet {
@@ -180,9 +179,9 @@ func TestParseProcessFlags(t *testing.T) {
 				fs.Parse([]string{})
 				return fs
 			},
-			args:     []string{},
-			wantErr:  false,
-			wantOpts: &container.ExecOpts{},
+			args:      []string{},
+			assertErr: assert.NoError,
+			wantOpts:  &container.ExecOpts{},
 		},
 		"args with empty flags": {
 			flags: func() *pflag.FlagSet {
@@ -190,8 +189,8 @@ func TestParseProcessFlags(t *testing.T) {
 				fs.Parse([]string{})
 				return fs
 			},
-			args:    []string{"container_id", "/bin/sh", "-c", "echo hello"},
-			wantErr: false,
+			args:      []string{"container_id", "/bin/sh", "-c", "echo hello"},
+			assertErr: assert.NoError,
 			wantOpts: &container.ExecOpts{
 				Args: []string{"/bin/sh", "-c", "echo hello"},
 			},
@@ -215,8 +214,8 @@ func TestParseProcessFlags(t *testing.T) {
 				})
 				return fs
 			},
-			args:    []string{},
-			wantErr: false,
+			args:      []string{},
+			assertErr: assert.NoError,
 			wantOpts: &container.ExecOpts{
 				Cwd:            "/home/user",
 				UID:            1000,
@@ -248,8 +247,8 @@ func TestParseProcessFlags(t *testing.T) {
 				})
 				return fs
 			},
-			args:    []string{"container_id", "/bin/sh", "-c", "echo hello"},
-			wantErr: false,
+			args:      []string{"container_id", "/bin/sh", "-c", "echo hello"},
+			assertErr: assert.NoError,
 			wantOpts: &container.ExecOpts{
 				Cwd:            "/home/user",
 				Args:           []string{"/bin/sh", "-c", "echo hello"},
@@ -270,22 +269,19 @@ func TestParseProcessFlags(t *testing.T) {
 				fs.Parse([]string{"--user", "invalid:user"})
 				return fs
 			},
-			args:     []string{},
-			wantErr:  true,
-			wantOpts: &container.ExecOpts{},
+			args:      []string{},
+			assertErr: assert.Error,
+			wantOpts:  &container.ExecOpts{},
 		},
 	}
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			gotOpts := &container.ExecOpts{}
 			err := parseProcessFlags(gotOpts, data.flags(), data.args)
-			if data.wantErr {
-				assert.Error(t, err)
-			} else {
-				assert.NoError(t, err)
-			}
-
+			data.assertErr(t, err)
 			assert.EqualValues(t, data.wantOpts, gotOpts)
 		})
 	}

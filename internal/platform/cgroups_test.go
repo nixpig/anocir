@@ -7,6 +7,8 @@ import (
 )
 
 func TestBuildSystemdCGroupSliceAndGroup(t *testing.T) {
+	t.Parallel()
+
 	scenarios := map[string]struct {
 		cgroupsPath        string
 		containerID        string
@@ -101,6 +103,8 @@ func TestBuildSystemdCGroupSliceAndGroup(t *testing.T) {
 
 	for scenario, data := range scenarios {
 		t.Run(scenario, func(t *testing.T) {
+			t.Parallel()
+
 			slice, scope := buildSystemdCGroupSliceAndGroup(
 				data.cgroupsPath,
 				data.containerID,
