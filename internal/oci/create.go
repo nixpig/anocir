@@ -11,7 +11,6 @@ import (
 	"github.com/nixpig/anocir/internal/platform"
 	"github.com/nixpig/anocir/internal/validation"
 	"github.com/opencontainers/runtime-spec/specs-go"
-	"github.com/opencontainers/runtime-tools/validate"
 	"github.com/spf13/cobra"
 )
 
@@ -47,15 +46,6 @@ func createCmd() *cobra.Command {
 			spec, err := getContainerSpec(bundle)
 			if err != nil {
 				return fmt.Errorf("failed to get container spec: %w", err)
-			}
-
-			validator, err := validate.NewValidator(spec, bundle, false, "linux")
-			if err != nil {
-				return fmt.Errorf("failed to create runtime spec validator: %w", err)
-			}
-
-			if err := validator.CheckAll(); err != nil {
-				return fmt.Errorf("failed to validate the runtime spec: %w", err)
 			}
 
 			if err := createContainerDirs(rootDir, containerID); err != nil {

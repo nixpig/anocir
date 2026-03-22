@@ -13,27 +13,17 @@ require (
 )
 
 require (
-	github.com/blang/semver v3.5.1+incompatible // indirect
 	github.com/cilium/ebpf v0.16.0 // indirect
 	github.com/containerd/log v0.1.0 // indirect
 	github.com/coreos/go-systemd/v22 v22.6.0 // indirect
-	github.com/cyphar/filepath-securejoin v0.5.1 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/godbus/dbus/v5 v5.1.0 // indirect
-	github.com/hashicorp/errwrap v1.0.0 // indirect
-	github.com/hashicorp/go-multierror v1.1.1 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/mdlayher/socket v0.5.1 // indirect
 	github.com/moby/sys/userns v0.1.0 // indirect
-	github.com/opencontainers/runtime-tools v0.9.0 // indirect
-	github.com/opencontainers/selinux v1.13.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rogpeppe/go-internal v1.14.1 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
-	github.com/syndtr/gocapability v0.0.0-20200815063812-42c35b437635 // indirect
-	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
-	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
-	github.com/xeipuuv/gojsonschema v1.2.0 // indirect
 	go.uber.org/goleak v1.3.0 // indirect
 	golang.org/x/exp v0.0.0-20241108190413-2d47ceb2692f // indirect
 	golang.org/x/net v0.47.0 // indirect

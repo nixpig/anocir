@@ -65,7 +65,7 @@ func RootCmd() *cobra.Command {
 	cmd.PersistentFlags().StringP("log-format", "", "text", "log format (json | text)")
 
 	// systemd is always used. Flag is unused but provided to satisfy Docker expectation.
-	cmd.PersistentFlags().BoolP("systemd-cgroup", "", true, "not implemented")
+	cmd.PersistentFlags().BoolP("systemd-cgroup", "", false, "not implemented")
 
 	cmd.CompletionOptions.HiddenDefaultCmd = true
 
