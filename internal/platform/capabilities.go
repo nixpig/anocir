@@ -191,12 +191,12 @@ func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 			retain[c] = struct{}{}
 		}
 
-		capLastCap, err := getCapLastCap()
+		capLastCap, err := readInt("/proc/sys/kernel/cap_last_cap")
 		if err != nil {
 			return fmt.Errorf("get cap_last_cap: %w", err)
 		}
 
-		for c := Cap(0); c <= capLastCap; c++ {
+		for c := Cap(0); c <= Cap(capLastCap); c++ {
 			if _, ok := retain[c]; ok {
 				continue
 			}
@@ -256,16 +256,10 @@ func capShift(caparr *[2]uint32, resolved uint32) {
 	}
 }
 
-func getCapLastCap() (Cap, error) {
-	b, err := os.ReadFile("/proc/sys/kernel/cap_last_cap")
+func readInt(path string) (int, error) {
+	b, err := os.ReadFile(path)
 	if err != nil {
 		return 0, err
 	}
-
-	lastCap, err := strconv.Atoi(strings.TrimSpace(string(b)))
-	if err != nil {
-		return 0, err
-	}
-
-	return Cap(lastCap), nil
+	return strconv.Atoi(strings.TrimSpace(string(b)))
 }
