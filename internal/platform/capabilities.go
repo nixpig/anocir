@@ -6,6 +6,8 @@ import (
 	"maps"
 	"os"
 	"slices"
+	"strconv"
+	"strings"
 
 	"github.com/opencontainers/runtime-spec/specs-go"
 	"golang.org/x/sys/unix"
@@ -56,7 +58,6 @@ const (
 	CAP_PERFMON            Cap = 38
 	CAP_BPF                Cap = 39
 	CAP_CHECKPOINT_RESTORE Cap = 40
-	CAP_LAST_CAP           Cap = 63
 )
 
 // capabilities maps CAP_* capability name strings to their corresponding
@@ -190,7 +191,12 @@ func DropBoundingCapabilities(caps *specs.LinuxCapabilities) error {
 			retain[c] = struct{}{}
 		}
 
-		for c := Cap(0); c <= CAP_LAST_CAP; c++ {
+		capLastCap, err := getCapLastCap()
+		if err != nil {
+			return fmt.Errorf("get cap_last_cap: %w", err)
+		}
+
+		for c := Cap(0); c <= capLastCap; c++ {
 			if _, ok := retain[c]; ok {
 				continue
 			}
@@ -248,4 +254,18 @@ func capShift(caparr *[2]uint32, resolved uint32) {
 	} else {
 		caparr[1] |= 1 << (resolved - 32)
 	}
+}
+
+func getCapLastCap() (Cap, error) {
+	b, err := os.ReadFile("/proc/sys/kernel/cap_last_cap")
+	if err != nil {
+		return 0, err
+	}
+
+	lastCap, err := strconv.Atoi(strings.TrimSpace(string(b)))
+	if err != nil {
+		return 0, err
+	}
+
+	return Cap(lastCap), nil
 }
