@@ -10,6 +10,8 @@ import (
 // SetSysctl sets the sysctls kernel parameters for the container process.
 func SetSysctl(sysctls map[string]string) error {
 	for k, v := range sysctls {
+		// TODO: Validate against allowed sysctl keys, e.g. net.* (net.ipv4.ip_forward,
+		// net.ipv4.conf.all.rp_filter, etc..) in network namespace.
 		if err := os.WriteFile(sysctlPath(k), []byte(v), 0o644); err != nil {
 			return fmt.Errorf("write sysctl (%s: %s): %w", k, v, err)
 		}

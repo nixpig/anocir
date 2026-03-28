@@ -228,16 +228,13 @@ func (c *Container) Delete(force bool) error {
 
 	slog.Debug("delete container", "container_id", c.State.ID, "force", force)
 
-	if c.State.Pid != 0 {
-		if err := unix.Kill(c.State.Pid, 0); err != nil {
-			slog.Debug(
-				"process to kill already dead",
-				"container_id", c.State.ID,
-				"pid", c.State.Pid,
-			)
-			// Process is dead, update state
-			c.State.Status = specs.StateStopped
-		}
+	dead, err := c.isProcessDead()
+	if err != nil {
+		slog.Debug("failed to check if process is dead, assume it's alive", "container_id", c.State.ID, "pid", c.State.Pid, "err", err)
+	} else if dead {
+		c.State.Status = specs.StateStopped
+		// Best effort.
+		c.save()
 	}
 
 	if !force && !c.canBeDeleted() {
@@ -289,12 +286,13 @@ func (c *Container) GetState() (*specs.State, error) {
 		return nil, fmt.Errorf("reload container state: %w", err)
 	}
 
-	if c.State.Pid != 0 {
-		if err := unix.Kill(c.State.Pid, 0); err != nil {
-			c.State.Status = specs.StateStopped
-			if err := c.save(); err != nil {
-				return nil, fmt.Errorf("save stopped state: %w", err)
-			}
+	dead, err := c.isProcessDead()
+	if err != nil {
+		slog.Debug("failed to check if process is dead, assume it's alive", "container_id", c.State.ID, "pid", c.State.Pid, "err", err)
+	} else if dead {
+		c.State.Status = specs.StateStopped
+		if err := c.save(); err != nil {
+			return nil, fmt.Errorf("save stopped state: %w", err)
 		}
 	}
 
@@ -1090,4 +1088,17 @@ func (c *Container) hasMountNamespace() bool {
 			return ns.Type == specs.MountNamespace
 		},
 	)
+}
+
+func (c *Container) isProcessDead() (bool, error) {
+	if c.State.Pid == 0 {
+		// No process to be dead.
+		return false, nil
+	}
+
+	err := unix.Kill(c.State.Pid, 0)
+	if err == unix.ESRCH {
+		return true, nil
+	}
+	return false, err
 }

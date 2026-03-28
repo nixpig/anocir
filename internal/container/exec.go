@@ -63,9 +63,9 @@ func Exec(containerPID int, opts *ExecOpts) (int, error) {
 	runtime.LockOSThread()
 	defer runtime.UnlockOSThread()
 
-	additionalGIDs := make([]string, 0, len(opts.AdditionalGIDs))
-	for _, g := range opts.AdditionalGIDs {
-		additionalGIDs = append(additionalGIDs, fmt.Sprintf("%d", g))
+	additionalGIDs := make([]string, len(opts.AdditionalGIDs))
+	for i, g := range opts.AdditionalGIDs {
+		additionalGIDs[i] = strconv.Itoa(g)
 	}
 
 	procAttr := &syscall.ProcAttr{Sys: &syscall.SysProcAttr{}}

@@ -108,6 +108,7 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 					flags |= unix.MS_REC
 				}
 			} else if strings.Contains(opt, "=") {
+				// TODO: Do we need to validate the options are actually valid?
 				dataOptions = append(dataOptions, opt)
 			}
 		}

@@ -3,6 +3,7 @@ package platform
 import (
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
 
 	"github.com/containerd/cgroups/v3"
@@ -193,6 +194,8 @@ func validateCgroupsSliceGroup(slice, group string) error {
 		if s == "" {
 			continue
 		}
+
+		s = filepath.Clean(s)
 
 		if strings.Contains(s, "..") {
 			return fmt.Errorf("'%s' contains directory traversal", s)
