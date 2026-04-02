@@ -8,7 +8,7 @@ import (
 )
 
 // rlimit maps RLIMIT_* strings to their corresponding syscall constant values.
-var rlimit = map[string]uint{
+var rlimit = map[string]int{
 	"RLIMIT_AS":         unix.RLIMIT_AS,
 	"RLIMIT_CORE":       unix.RLIMIT_CORE,
 	"RLIMIT_CPU":        unix.RLIMIT_CPU,
@@ -31,7 +31,12 @@ var rlimit = map[string]uint{
 // based on the given rlimits.
 func SetRlimits(rlimits []specs.POSIXRlimit) error {
 	for _, rl := range rlimits {
-		if err := unix.Setrlimit(int(rlimit[rl.Type]), &unix.Rlimit{
+		resource, ok := rlimit[rl.Type]
+		if !ok {
+			return fmt.Errorf("invalid rlimit: %s", rl.Type)
+		}
+
+		if err := unix.Setrlimit(resource, &unix.Rlimit{
 			Cur: rl.Soft,
 			Max: rl.Hard,
 		}); err != nil {
