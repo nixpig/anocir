@@ -18,7 +18,7 @@ func execCmd() *cobra.Command {
 		Use:     "exec [flags] CONTAINER_ID COMMAND [args]",
 		Short:   "Execute a command in a container",
 		Example: "  anocir exec busybox ps",
-		Args:    cobra.MinimumNArgs(2),
+		Args:    cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			containerID := args[0]
 
