@@ -162,8 +162,10 @@ func CreateDeviceNodes(devices []specs.LinuxDevice, rootfs string) error {
 			return fmt.Errorf("mknod %s: %w", absPath, err)
 		}
 
-		if err := unix.Chmod(absPath, uint32(*d.FileMode)); err != nil {
-			return fmt.Errorf("chmod %s: %w", absPath, err)
+		if d.FileMode != nil {
+			if err := unix.Chmod(absPath, uint32(*d.FileMode)); err != nil {
+				return fmt.Errorf("chmod %s: %w", absPath, err)
+			}
 		}
 
 		if d.UID != nil && d.GID != nil {
