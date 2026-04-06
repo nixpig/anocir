@@ -114,14 +114,14 @@ func GetFeatures() *Features {
 				"CAP_WAKE_ALARM",
 			},
 			CGroup: &CGroupFeatures{
-				V1:          true,
+				V1:          false,
 				V2:          true,
 				Systemd:     true,
 				SystemdUser: false,
 				RDMA:        false,
 			},
 			Seccomp: &SeccompFeatures{
-				Enabled: false,
+				Enabled: true,
 			},
 			AppArmor: &AppArmorFeatures{
 				Enabled: platform.IsAppArmorEnabled(),

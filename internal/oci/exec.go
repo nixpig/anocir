@@ -36,7 +36,11 @@ func execCmd() *cobra.Command {
 				return fmt.Errorf("failed to load container: %w", err)
 			}
 
-			if cntr.State.Status == container.PausedState && !ignorePaused {
+			state, err := cntr.GetState()
+			if err != nil {
+				return fmt.Errorf("failed to get state for container %s: %w", containerID, err)
+			}
+			if state.Status == container.PausedState && !ignorePaused {
 				return fmt.Errorf("cannot exec in a paused container, use --ignore-paused to override")
 			}
 
@@ -68,7 +72,7 @@ func execCmd() *cobra.Command {
 				opts.Seccomp = spec.Linux.Seccomp
 			}
 
-			exitCode, err := container.Exec(cntr.State.Pid, opts)
+			exitCode, err := container.Exec(state.Pid, opts)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
 				if exitCode != 0 {

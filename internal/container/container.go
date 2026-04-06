@@ -740,7 +740,9 @@ func (c *Container) Reexec() error {
 		if c.spec.Process != nil {
 			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
 				slog.Debug("send invalid executable message", "container_id", c.State.ID)
-				ipc.SendMessage(initConn, ipc.MsgInvalidExecutable)
+				if err := ipc.SendMessage(initConn, ipc.MsgInvalidExecutable); err != nil {
+					return fmt.Errorf("failed to send invalid exec message: %w", err)
+				}
 				return fmt.Errorf("find path of user process exe: %w", err)
 			}
 		}

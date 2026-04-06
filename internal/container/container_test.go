@@ -12,6 +12,8 @@ import (
 )
 
 func TestContainerLifecycle(t *testing.T) {
+	t.Parallel()
+
 	c := newTestContainer(t, &specs.Spec{Linux: &specs.Linux{}})
 
 	stateFileInfo, err := os.Stat(
@@ -150,6 +152,8 @@ func TestHasMountNamespace(t *testing.T) {
 }
 
 func TestReloadState(t *testing.T) {
+	t.Parallel()
+
 	c := newTestContainer(t, &specs.Spec{Linux: &specs.Linux{}})
 
 	require.Equal(t, c.State.Status, specs.StateCreating)
