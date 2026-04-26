@@ -1,6 +1,7 @@
 package platform
 
 import (
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -15,10 +16,9 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 		return fmt.Errorf("create temp file: %w", err)
 	}
 
-	// Always close and remove temp file.
 	defer func() {
-		if err := f.Close(); err != nil {
-			slog.Warn("failed to close temp file", "err", err)
+		if err := f.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
+			slog.Warn("failed to close file", "err", err)
 		}
 		if _, err := os.Stat(f.Name()); err == nil {
 			if err := os.Remove(f.Name()); err != nil {
@@ -37,6 +37,10 @@ func AtomicWriteFile(filename string, data []byte, perm os.FileMode) error {
 
 	if err := f.Chmod(perm); err != nil {
 		return fmt.Errorf("chmod temp file: %w", err)
+	}
+
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
 	}
 
 	if err := os.Rename(f.Name(), filename); err != nil {
