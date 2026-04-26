@@ -30,10 +30,9 @@ func RootCmd() *cobra.Command {
 			if logFile != "" {
 				f, err := logging.OpenLogFile(logFile)
 				if err != nil {
-					fmt.Fprintf(cmd.ErrOrStderr(), "Warning: failed to open log file '%s': %s", logFile, err)
-				} else {
-					w = f
+					return fmt.Errorf("failed to open log file: %w", err)
 				}
+				w = f
 			}
 
 			slog.SetDefault(logging.NewLogger(w, debug, logFormat))
