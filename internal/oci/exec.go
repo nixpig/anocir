@@ -75,13 +75,13 @@ func execCmd() *cobra.Command {
 			exitCode, err := container.Exec(state.Pid, opts)
 			if err != nil {
 				fmt.Fprintf(cmd.ErrOrStderr(), "Error: %v\n", err)
-				if exitCode != 0 {
-					os.Exit(exitCode)
+				if exitCode == 0 {
+					os.Exit(255)
 				}
-				os.Exit(255)
 			}
 
-			return nil
+			os.Exit(exitCode)
+			panic("unreachable")
 		},
 	}
 
