@@ -767,11 +767,6 @@ func (c *Container) Reexec() error {
 	if err != nil {
 		return fmt.Errorf("accept on container sock: %w", err)
 	}
-	defer func() {
-		if err := containerConn.Close(); err != nil {
-			slog.Warn("failed to close container socket connection", "container_id", c.State.ID, "err", err)
-		}
-	}()
 
 	startMsg, err := ipc.ReceiveMessage(containerConn)
 	if err != nil {
@@ -807,6 +802,9 @@ func (c *Container) Reexec() error {
 	// is fully initialized and ready to receive signals.
 	if err := ipc.SendMessage(containerConn, ipc.MsgExecReady); err != nil {
 		return fmt.Errorf("failed to send exec ready message: %w", err)
+	}
+	if err := containerConn.Close(); err != nil {
+		slog.Warn("failed to close container socket connection", "container_id", c.State.ID, "err", err)
 	}
 
 	if err := c.execUserProcess(); err != nil {
@@ -969,7 +967,7 @@ func (c *Container) execUserProcess() error {
 		)
 	}
 
-	return nil
+	panic("unreachable")
 }
 
 func (c *Container) mountConsole() error {
