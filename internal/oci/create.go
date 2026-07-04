@@ -35,7 +35,7 @@ func createCmd() *cobra.Command {
 			pidFile, _ := cmd.Flags().GetString("pid-file")
 			rootDir, _ := cmd.Flags().GetString("root")
 			consoleSocket, _ := cmd.Flags().GetString("console-socket")
-			debug, _ := cmd.PersistentFlags().GetBool("debug")
+			debug, _ := cmd.Flags().GetBool("debug")
 			logFile, _ := cmd.Flags().GetString("log")
 			logFormat, _ := cmd.Flags().GetString("log-format")
 
