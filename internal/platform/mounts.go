@@ -56,7 +56,7 @@ func MountSpecMounts(mounts []specs.Mount, containerRootfs string) error {
 				}
 
 				if srcInfo.IsDir() {
-					if err := os.MkdirAll(dest, os.ModeDir); err != nil {
+					if err := os.MkdirAll(dest, 0o755); err != nil {
 						return fmt.Errorf("make mount dir target (%s): %w", dest, err)
 					}
 				} else {
