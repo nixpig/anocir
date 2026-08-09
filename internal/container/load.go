@@ -46,7 +46,7 @@ func Load(id, rootDir string) (*Container, error) {
 
 	c := &Container{
 		State:         state,
-		spec:          spec,
+		Spec:          spec,
 		RootDir:       rootDir,
 		containerSock: containerSockPath(state.Bundle),
 	}

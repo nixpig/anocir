@@ -1,4 +1,4 @@
-package oci
+package cli
 
 import (
 	"encoding/json"
@@ -52,7 +52,7 @@ func createCmd() *cobra.Command {
 				return fmt.Errorf("failed to create container dirs: %w", err)
 			}
 
-			cntr, err := container.New(&container.Opts{
+			cntr, err := container.New(&container.NewContainerOpts{
 				ID:            containerID,
 				Bundle:        bundle,
 				Spec:          spec,

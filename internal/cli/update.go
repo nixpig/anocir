@@ -1,4 +1,4 @@
-package oci
+package cli
 
 import (
 	"encoding/json"
@@ -59,7 +59,7 @@ func updateCmd() *cobra.Command {
 			}
 
 			if err := platform.UpdateCgroup(
-				cntr.GetSpec().Linux.CgroupsPath,
+				cntr.Spec.Linux.CgroupsPath,
 				state.ID,
 				&linuxResources,
 			); err != nil {

@@ -17,7 +17,7 @@ build: build-oci
 
 .PHONY: build-oci
 build-oci:
-	CGO_ENABLED=1 go build -ldflags "-X github.com/nixpig/anocir/internal/oci.Version=$(VERSION)" -o tmp/bin/anocir cmd/anocir/main.go
+	CGO_ENABLED=1 go build -ldflags "-X github.com/nixpig/anocir/internal/cli.Version=$(VERSION)" -o tmp/bin/anocir main.go
 
 .PHONY: test
 test: 

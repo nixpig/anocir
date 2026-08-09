@@ -35,7 +35,7 @@ func TestContainerLifecycle(t *testing.T) {
 			Status:  "creating",
 			Bundle:  c.State.Bundle,
 		},
-		spec:          c.GetSpec(),
+		Spec:          c.Spec,
 		RootDir:       c.RootDir,
 		containerSock: containerSockPath(c.State.Bundle),
 	}, loaded)
@@ -74,7 +74,7 @@ func TestRootFS(t *testing.T) {
 			t.Parallel()
 
 			c := &Container{
-				spec:  &specs.Spec{Root: &specs.Root{Path: data.rootPath}},
+				Spec:  &specs.Spec{Root: &specs.Root{Path: data.rootPath}},
 				State: &specs.State{Bundle: data.bundlePath},
 			}
 
@@ -132,7 +132,7 @@ func TestHasMountNamespace(t *testing.T) {
 
 			c := &Container{
 				State: &specs.State{},
-				spec: &specs.Spec{
+				Spec: &specs.Spec{
 					Linux: &specs.Linux{
 						Namespaces: []specs.LinuxNamespace{
 							{Type: specs.PIDNamespace},
@@ -143,7 +143,7 @@ func TestHasMountNamespace(t *testing.T) {
 			}
 
 			if data.hasMountNamespace {
-				c.spec.Linux.Namespaces = append(c.spec.Linux.Namespaces, specs.LinuxNamespace{Type: specs.MountNamespace})
+				c.Spec.Linux.Namespaces = append(c.Spec.Linux.Namespaces, specs.LinuxNamespace{Type: specs.MountNamespace})
 			}
 
 			assert.Equal(t, data.hasMountNamespace, c.hasMountNamespace())
@@ -176,7 +176,7 @@ func TestReloadState(t *testing.T) {
 func newTestContainer(t *testing.T, spec *specs.Spec) *Container {
 	t.Helper()
 
-	opts := &Opts{
+	opts := &NewContainerOpts{
 		ID:      "test-container",
 		Bundle:  t.TempDir(),
 		Spec:    spec,

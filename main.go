@@ -3,8 +3,8 @@ package main
 import (
 	"os"
 
+	"github.com/nixpig/anocir/internal/cli"
 	_ "github.com/nixpig/anocir/internal/nssetup"
-	cli "github.com/nixpig/anocir/internal/oci"
 )
 
 func main() {

@@ -5,12 +5,12 @@ version: 2
 
 builds:
   - id: anocir
-    main: ./cmd/anocir
+    main: .
     binary: anocir
     env:
       - CGO_ENABLED=1
     ldflags:
-      - -X github.com/nixpig/anocir/internal/oci.Version={{.Version}}
+      - -X github.com/nixpig/anocir/internal/cli.Version={{.Version}}
     targets:
       - linux_amd64
 archives:

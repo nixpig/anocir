@@ -12,27 +12,27 @@ import (
 // setupPostPivot performs configuration of the container environment after
 // pivot_root.
 func (c *Container) setupPostPivot() error {
-	if len(c.spec.Linux.Sysctl) > 0 {
-		if err := platform.SetSysctl(c.spec.Linux.Sysctl); err != nil {
+	if len(c.Spec.Linux.Sysctl) > 0 {
+		if err := platform.SetSysctl(c.Spec.Linux.Sysctl); err != nil {
 			return fmt.Errorf("set sysctl: %w", err)
 		}
 	}
 
-	if err := platform.MountMaskedPaths(c.spec.Linux.MaskedPaths); err != nil {
+	if err := platform.MountMaskedPaths(c.Spec.Linux.MaskedPaths); err != nil {
 		return fmt.Errorf("mount masked paths: %w", err)
 	}
 
-	if err := platform.MountReadonlyPaths(c.spec.Linux.ReadonlyPaths); err != nil {
+	if err := platform.MountReadonlyPaths(c.Spec.Linux.ReadonlyPaths); err != nil {
 		return fmt.Errorf("mount readonly paths: %w", err)
 	}
 
 	if err := platform.SetRootfsMountPropagation(
-		c.spec.Linux.RootfsPropagation,
+		c.Spec.Linux.RootfsPropagation,
 	); err != nil {
 		return fmt.Errorf("set rootfs mount propagation: %w", err)
 	}
 
-	if c.spec.Root.Readonly {
+	if c.Spec.Root.Readonly {
 		if err := platform.MountRootReadonly(); err != nil {
 			return fmt.Errorf("remount root as readonly: %w", err)
 		}
@@ -41,24 +41,24 @@ func (c *Container) setupPostPivot() error {
 	// Only set hostname if we created a new UTS namespace (Path is empty).
 	// If we're joining an existing UTS namespace (Path is not empty), the
 	// hostname was already set by the namespace creator.
-	if slices.ContainsFunc(c.spec.Linux.Namespaces, func(ns specs.LinuxNamespace) bool {
+	if slices.ContainsFunc(c.Spec.Linux.Namespaces, func(ns specs.LinuxNamespace) bool {
 		return ns.Type == specs.UTSNamespace && ns.Path == ""
 	}) {
-		if err := unix.Sethostname([]byte(c.spec.Hostname)); err != nil {
+		if err := unix.Sethostname([]byte(c.Spec.Hostname)); err != nil {
 			return fmt.Errorf("set hostname: %w", err)
 		}
 
-		if err := unix.Setdomainname([]byte(c.spec.Domainname)); err != nil {
+		if err := unix.Setdomainname([]byte(c.Spec.Domainname)); err != nil {
 			return fmt.Errorf("set domainname: %w", err)
 		}
 	}
 
-	if err := platform.SetRlimits(c.spec.Process.Rlimits); err != nil {
+	if err := platform.SetRlimits(c.Spec.Process.Rlimits); err != nil {
 		return fmt.Errorf("set rlimits: %w", err)
 	}
 
-	if c.spec.Process.Scheduler != nil {
-		schedAttr, err := platform.NewSchedAttr(c.spec.Process.Scheduler)
+	if c.Spec.Process.Scheduler != nil {
+		schedAttr, err := platform.NewSchedAttr(c.Spec.Process.Scheduler)
 		if err != nil {
 			return fmt.Errorf("new sched attr: %w", err)
 		}
@@ -68,8 +68,8 @@ func (c *Container) setupPostPivot() error {
 		}
 	}
 
-	if c.spec.Process.IOPriority != nil {
-		ioprio, err := platform.IOPrioToInt(c.spec.Process.IOPriority)
+	if c.Spec.Process.IOPriority != nil {
+		ioprio, err := platform.IOPrioToInt(c.Spec.Process.IOPriority)
 		if err != nil {
 			return fmt.Errorf("convert ioprio to int: %w", err)
 		}
@@ -80,12 +80,12 @@ func (c *Container) setupPostPivot() error {
 	}
 
 	if err := platform.ApplyProcessSecurity(&platform.ProcessSecurity{
-		User:            &c.spec.Process.User,
-		Capabilities:    c.spec.Process.Capabilities,
-		Seccomp:         c.spec.Linux.Seccomp,
-		NoNewPrivs:      c.spec.Process.NoNewPrivileges,
-		AppArmorProfile: c.spec.Process.ApparmorProfile,
-		ProcessLabel:    c.spec.Process.SelinuxLabel,
+		User:            &c.Spec.Process.User,
+		Capabilities:    c.Spec.Process.Capabilities,
+		Seccomp:         c.Spec.Linux.Seccomp,
+		NoNewPrivs:      c.Spec.Process.NoNewPrivileges,
+		AppArmorProfile: c.Spec.Process.ApparmorProfile,
+		ProcessLabel:    c.Spec.Process.SelinuxLabel,
 	}); err != nil {
 		return fmt.Errorf("apply process security: %w", err)
 	}

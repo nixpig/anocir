@@ -3,7 +3,7 @@ package container
 import (
 	"log/slog"
 
-	"github.com/nixpig/anocir/internal/container/hooks"
+	"github.com/nixpig/anocir/internal/hooks"
 	"github.com/opencontainers/runtime-spec/specs-go"
 )
 
@@ -22,7 +22,7 @@ const (
 
 // execHooks executes the hooks for the given phase of the Container execution.
 func (c *Container) execHooks(phase Lifecycle) error {
-	if c.spec.Hooks == nil {
+	if c.Spec.Hooks == nil {
 		return nil
 	}
 
@@ -30,18 +30,18 @@ func (c *Container) execHooks(phase Lifecycle) error {
 
 	switch phase {
 	case LifecycleCreateRuntime:
-		h = c.spec.Hooks.CreateRuntime
+		h = c.Spec.Hooks.CreateRuntime
 	case LifecycleCreateContainer:
-		h = c.spec.Hooks.CreateContainer
+		h = c.Spec.Hooks.CreateContainer
 	case LifecycleStartContainer:
-		h = c.spec.Hooks.StartContainer
+		h = c.Spec.Hooks.StartContainer
 	case LifecyclePrestart:
 		//lint:ignore SA1019 marked as deprecated, but still required by OCI Runtime integration tests and used by other tools like Docker.
-		h = c.spec.Hooks.Prestart
+		h = c.Spec.Hooks.Prestart
 	case LifecyclePoststart:
-		h = c.spec.Hooks.Poststart
+		h = c.Spec.Hooks.Poststart
 	case LifecyclePoststop:
-		h = c.spec.Hooks.Poststop
+		h = c.Spec.Hooks.Poststop
 	default:
 		slog.Warn("invalid lifecycle phase", "phase", phase)
 	}

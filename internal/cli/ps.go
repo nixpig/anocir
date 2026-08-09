@@ -1,4 +1,4 @@
-package oci
+package cli
 
 import (
 	"encoding/json"
@@ -33,7 +33,7 @@ func psCmd() *cobra.Command {
 			}
 
 			processes, err := platform.GetCgroupProcesses(
-				cntr.GetSpec().Linux.CgroupsPath,
+				cntr.Spec.Linux.CgroupsPath,
 				state.ID,
 			)
 			if err != nil {

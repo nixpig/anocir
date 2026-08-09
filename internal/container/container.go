@@ -66,7 +66,7 @@ type Container struct {
 	LogFormat       string
 	LogFile         string
 
-	spec          *specs.Spec
+	Spec          *specs.Spec
 	pty           *terminal.Pty
 	pidFile       string
 	containerSock string
@@ -74,8 +74,8 @@ type Container struct {
 	debug         bool
 }
 
-// Opts holds the options for creating a new Container.
-type Opts struct {
+// NewContainerOpts holds the options for creating a new Container.
+type NewContainerOpts struct {
 	ID            string
 	Bundle        string
 	Spec          *specs.Spec
@@ -89,7 +89,7 @@ type Opts struct {
 
 // New constructs a Container based on the provided opts. The container will be
 // in the 'creating' state.
-func New(opts *Opts) (*Container, error) {
+func New(opts *NewContainerOpts) (*Container, error) {
 	if opts.Spec.Linux == nil {
 		return nil, fmt.Errorf("spec must have Linux configuration")
 	}
@@ -104,7 +104,7 @@ func New(opts *Opts) (*Container, error) {
 
 	return &Container{
 		State:         state,
-		spec:          opts.Spec,
+		Spec:          opts.Spec,
 		ConsoleSocket: opts.ConsoleSocket,
 		pidFile:       opts.PIDFile,
 		debug:         opts.Debug,
@@ -123,11 +123,11 @@ func (c *Container) save() error {
 		"state_filepath", c.stateFilepath(),
 	)
 
-	if len(c.spec.Linux.UIDMappings) > 0 && len(c.spec.Linux.GIDMappings) > 0 {
+	if len(c.Spec.Linux.UIDMappings) > 0 && len(c.Spec.Linux.GIDMappings) > 0 {
 		if err := os.Chown(
 			c.containerDir(),
-			int(c.spec.Linux.UIDMappings[0].HostID),
-			int(c.spec.Linux.GIDMappings[0].HostID),
+			int(c.Spec.Linux.UIDMappings[0].HostID),
+			int(c.Spec.Linux.GIDMappings[0].HostID),
 		); err != nil {
 			return fmt.Errorf("chown container directory: %w", err)
 		}
@@ -244,9 +244,9 @@ func (c *Container) Delete(force bool) error {
 		)
 	}
 
-	if err := platform.DeleteCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
-		slog.Warn("failed to delete cgroup", "container_id", c.State.ID, "path", c.spec.Linux.CgroupsPath, "err", err)
-		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup (path: %s): %s\n", c.spec.Linux.CgroupsPath, err.Error())
+	if err := platform.DeleteCgroup(c.Spec.Linux.CgroupsPath, c.State.ID); err != nil {
+		slog.Warn("failed to delete cgroup", "container_id", c.State.ID, "path", c.Spec.Linux.CgroupsPath, "err", err)
+		fmt.Fprintf(os.Stderr, "Warning: failed to delete cgroup (path: %s): %s\n", c.Spec.Linux.CgroupsPath, err.Error())
 	}
 
 	if err := os.RemoveAll(c.containerDir()); err != nil {
@@ -299,10 +299,6 @@ func (c *Container) GetState() (*specs.State, error) {
 	return c.State, nil
 }
 
-func (c *Container) GetSpec() *specs.Spec {
-	return c.spec
-}
-
 // Start begins the execution of the container by sending the start message to
 // the runtime process.
 func (c *Container) Start() error {
@@ -343,7 +339,7 @@ func (c *Container) Start() error {
 		return fmt.Errorf("write MsgStart ('%b') to container sock: %w", ipc.MsgStart, err)
 	}
 
-	if c.spec.Process == nil {
+	if c.Spec.Process == nil {
 		c.State.Status = specs.StateStopped
 		if err := c.save(); err != nil {
 			return fmt.Errorf("save state stopped: %w", err)
@@ -407,7 +403,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 	}
 
 	if killAll {
-		pids, err := platform.GetCgroupProcesses(c.spec.Linux.CgroupsPath, c.State.ID)
+		pids, err := platform.GetCgroupProcesses(c.Spec.Linux.CgroupsPath, c.State.ID)
 		if err != nil {
 			// cgroup may already be dead
 			slog.Debug("get cgroup processes for kill all", "err", err)
@@ -418,7 +414,7 @@ func (c *Container) Kill(sig string, killAll bool) error {
 			slog.Debug(
 				"send kill signal",
 				"container_id", c.State.ID,
-				"cgroups_path", c.spec.Linux.CgroupsPath,
+				"cgroups_path", c.Spec.Linux.CgroupsPath,
 				"pid", pid,
 				"signal", unixSig,
 			)
@@ -555,8 +551,8 @@ func (c *Container) Init() error {
 		fmt.Sprintf("%s=%d", envContainerSockFD, containerSockFD),
 	)
 
-	if c.spec.Process != nil && c.spec.Process.OOMScoreAdj != nil {
-		if err := platform.AdjustOOMScore(*c.spec.Process.OOMScoreAdj); err != nil {
+	if c.Spec.Process != nil && c.Spec.Process.OOMScoreAdj != nil {
+		if err := platform.AdjustOOMScore(*c.Spec.Process.OOMScoreAdj); err != nil {
 			return fmt.Errorf("adjust oom score: %w", err)
 		}
 	}
@@ -569,8 +565,8 @@ func (c *Container) Init() error {
 		return fmt.Errorf("configure namespaces: %w", err)
 	}
 
-	if c.spec.Process != nil && c.spec.Process.Env != nil {
-		cmd.Env = append(cmd.Env, c.spec.Process.Env...)
+	if c.Spec.Process != nil && c.Spec.Process.Env != nil {
+		cmd.Env = append(cmd.Env, c.Spec.Process.Env...)
 	}
 
 	cmd.Stdin = os.Stdin
@@ -589,13 +585,13 @@ func (c *Container) Init() error {
 		"create cgroup",
 		"container_id", c.State.ID,
 		"pid", c.State.Pid,
-		"cgroups_path", c.spec.Linux.CgroupsPath,
+		"cgroups_path", c.Spec.Linux.CgroupsPath,
 	)
 	if err := platform.CreateCgroup(
-		c.spec.Linux.CgroupsPath,
+		c.Spec.Linux.CgroupsPath,
 		c.State.ID,
 		c.State.Pid,
-		c.spec.Linux.Resources,
+		c.Spec.Linux.Resources,
 	); err != nil {
 		return fmt.Errorf("create cgroups: %w", err)
 	}
@@ -737,8 +733,8 @@ func (c *Container) Reexec() error {
 			return fmt.Errorf("pivot_root: %w", err)
 		}
 
-		if c.spec.Process != nil {
-			if _, err := exec.LookPath(c.spec.Process.Args[0]); err != nil {
+		if c.Spec.Process != nil {
+			if _, err := exec.LookPath(c.Spec.Process.Args[0]); err != nil {
 				slog.Debug("send invalid executable message", "container_id", c.State.ID)
 				if err := ipc.SendMessage(initConn, ipc.MsgInvalidExecutable); err != nil {
 					return fmt.Errorf("failed to send invalid exec message: %w", err)
@@ -783,7 +779,7 @@ func (c *Container) Reexec() error {
 		)
 	}
 
-	if c.spec.Process != nil {
+	if c.Spec.Process != nil {
 		if err := c.setupPostPivot(); err != nil {
 			return fmt.Errorf("setup post-pivot: %w", err)
 		}
@@ -794,7 +790,7 @@ func (c *Container) Reexec() error {
 		return fmt.Errorf("exec startcontainer hooks: %w", err)
 	}
 
-	if c.spec.Process == nil {
+	if c.Spec.Process == nil {
 		return nil
 	}
 
@@ -829,7 +825,7 @@ func (c *Container) Pause() error {
 		return fmt.Errorf("container cannot be paused in current state (%s)", c.State.Status)
 	}
 
-	if err := platform.FreezeCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
+	if err := platform.FreezeCgroup(c.Spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("freeze cgroup: %w", err)
 	}
 
@@ -859,7 +855,7 @@ func (c *Container) Resume() error {
 		return fmt.Errorf("container cannot be resumed in current state (%s)", c.State.Status)
 	}
 
-	if err := platform.ThawCgroup(c.spec.Linux.CgroupsPath, c.State.ID); err != nil {
+	if err := platform.ThawCgroup(c.Spec.Linux.CgroupsPath, c.State.ID); err != nil {
 		return fmt.Errorf("thaw cgroup: %w", err)
 	}
 
@@ -873,7 +869,7 @@ func (c *Container) Resume() error {
 }
 
 func (c *Container) GetProcessEnv() []string {
-	return c.spec.Process.Env
+	return c.Spec.Process.Env
 }
 
 func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
@@ -881,11 +877,11 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 
 	var joinNSParts []string
 
-	for _, ns := range c.spec.Linux.Namespaces {
+	for _, ns := range c.Spec.Linux.Namespaces {
 		if ns.Type == specs.UserNamespace {
 			uidMappings, gidMappings := platform.BuildUserNSMappings(
-				c.spec.Linux.UIDMappings,
-				c.spec.Linux.GIDMappings,
+				c.Spec.Linux.UIDMappings,
+				c.Spec.Linux.GIDMappings,
 			)
 
 			cmd.SysProcAttr.UidMappings = uidMappings
@@ -898,8 +894,8 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 			cmd.SysProcAttr.Credential = &syscall.Credential{Uid: 0, Gid: 0}
 		}
 
-		if ns.Type == specs.TimeNamespace && c.spec.Linux.TimeOffsets != nil {
-			if err := platform.SetTimeOffsets(c.spec.Linux.TimeOffsets); err != nil {
+		if ns.Type == specs.TimeNamespace && c.Spec.Linux.TimeOffsets != nil {
+			if err := platform.SetTimeOffsets(c.Spec.Linux.TimeOffsets); err != nil {
 				return fmt.Errorf("set timens offsets: %w", err)
 			}
 		}
@@ -943,27 +939,27 @@ func (c *Container) configureNamespaces(cmd *exec.Cmd) error {
 }
 
 func (c *Container) useTerminal() bool {
-	return c.spec.Process != nil &&
-		c.spec.Process.Terminal &&
+	return c.Spec.Process != nil &&
+		c.Spec.Process.Terminal &&
 		c.ConsoleSocket != ""
 }
 
 func (c *Container) execUserProcess() error {
-	if err := os.Chdir(c.spec.Process.Cwd); err != nil {
+	if err := os.Chdir(c.Spec.Process.Cwd); err != nil {
 		return fmt.Errorf("set working directory: %w", err)
 	}
 
-	exe, err := exec.LookPath(c.spec.Process.Args[0])
+	exe, err := exec.LookPath(c.Spec.Process.Args[0])
 	if err != nil {
 		return fmt.Errorf("find path of user executable: %w", err)
 	}
 
-	slog.Debug("execute user process", "container_id", c.State.ID, "exe", exe, "args", c.spec.Process.Args)
+	slog.Debug("execute user process", "container_id", c.State.ID, "exe", exe, "args", c.Spec.Process.Args)
 
-	if err := unix.Exec(exe, c.spec.Process.Args, os.Environ()); err != nil {
+	if err := unix.Exec(exe, c.Spec.Process.Args, os.Environ()); err != nil {
 		return fmt.Errorf(
 			"execve (argv0=%s, argv=%s, envv=%v): %w",
-			exe, c.spec.Process.Args, os.Environ(), err,
+			exe, c.Spec.Process.Args, os.Environ(), err,
 		)
 	}
 
@@ -971,7 +967,7 @@ func (c *Container) execUserProcess() error {
 }
 
 func (c *Container) mountConsole() error {
-	if c.pty == nil || c.spec.Process == nil || !c.spec.Process.Terminal {
+	if c.pty == nil || c.Spec.Process == nil || !c.Spec.Process.Terminal {
 		return nil
 	}
 
@@ -997,11 +993,11 @@ func (c *Container) connectConsole() error {
 		return fmt.Errorf("new pty at (ptmxPath: %s, ptsDir: %s): %w", ptmxPath, ptsDir, err)
 	}
 
-	if c.spec.Process != nil && c.spec.Process.ConsoleSize != nil {
+	if c.Spec.Process != nil && c.Spec.Process.ConsoleSize != nil {
 		if err := platform.SetWinSize(
 			pty.Slave.Fd(),
-			c.spec.Process.ConsoleSize.Width,
-			c.spec.Process.ConsoleSize.Height,
+			c.Spec.Process.ConsoleSize.Width,
+			c.Spec.Process.ConsoleSize.Height,
 		); err != nil {
 			return fmt.Errorf("set console size: %w", err)
 		}
@@ -1051,11 +1047,11 @@ func (c *Container) canBeResumed() bool {
 
 // rootFS returns the path to the Container root filesystem.
 func (c *Container) rootFS() string {
-	if strings.HasPrefix(c.spec.Root.Path, "/") {
-		return c.spec.Root.Path
+	if strings.HasPrefix(c.Spec.Root.Path, "/") {
+		return c.Spec.Root.Path
 	}
 
-	return filepath.Join(c.State.Bundle, c.spec.Root.Path)
+	return filepath.Join(c.State.Bundle, c.Spec.Root.Path)
 }
 
 func (c *Container) stateFilepath() string {
@@ -1083,7 +1079,7 @@ func (c *Container) reloadState() error {
 
 func (c *Container) hasMountNamespace() bool {
 	return slices.ContainsFunc(
-		c.spec.Linux.Namespaces,
+		c.Spec.Linux.Namespaces,
 		func(ns specs.LinuxNamespace) bool {
 			return ns.Type == specs.MountNamespace
 		},

@@ -1,4 +1,4 @@
-package oci
+package cli
 
 import (
 	"encoding/json"
@@ -67,7 +67,7 @@ func execCmd() *cobra.Command {
 				opts.Env = append(opts.Env, cntr.GetProcessEnv()...)
 			}
 
-			spec := cntr.GetSpec()
+			spec := cntr.Spec
 			if spec.Linux != nil && spec.Linux.Seccomp != nil {
 				opts.Seccomp = spec.Linux.Seccomp
 			}

@@ -14,7 +14,7 @@ func (c *Container) setupPrePivot() error {
 	if c.hasMountNamespace() {
 		if err := platform.MountRootfs(
 			c.rootFS(),
-			c.spec.Linux.RootfsPropagation,
+			c.Spec.Linux.RootfsPropagation,
 		); err != nil {
 			return fmt.Errorf("mount rootfs: %w", err)
 		}
@@ -24,7 +24,7 @@ func (c *Container) setupPrePivot() error {
 		return fmt.Errorf("mount proc: %w", err)
 	}
 
-	mounts := slices.Concat(c.spec.Mounts, []specs.Mount{{
+	mounts := slices.Concat(c.Spec.Mounts, []specs.Mount{{
 		Destination: "/dev/pts",
 		Type:        "devpts",
 		Source:      "devpts",
@@ -46,7 +46,7 @@ func (c *Container) setupPrePivot() error {
 		return fmt.Errorf("mount default devices: %w", err)
 	}
 
-	if err := platform.CreateDeviceNodes(c.spec.Linux.Devices, c.rootFS()); err != nil {
+	if err := platform.CreateDeviceNodes(c.Spec.Linux.Devices, c.rootFS()); err != nil {
 		return fmt.Errorf("mount devices from spec: %w", err)
 	}
 

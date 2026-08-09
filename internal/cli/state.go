@@ -1,4 +1,4 @@
-package oci
+package cli
 
 import (
 	"encoding/json"
